@@ -1,1 +1,1 @@
-web: /opt/render/project/src/.venv/bin/gunicorn app:app
+web: /opt/render/project/src/.venv/bin/python -m gunicorn app:app
