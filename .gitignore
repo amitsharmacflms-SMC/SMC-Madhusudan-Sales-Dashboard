@@ -33,3 +33,36 @@ venv/
 dashboard.db
 .DS_Store
 node_modules/
+
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environments
+.env
+venv/
+ENV/
+
+# Local databases
+*.sqlite3
+dashboard.db
+
+# Sensitive data
+data/*.csv
+data/*.xlsx
+data/*.xls
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Build / logs
+node_modules/
+*.log
+
+# IDE
+.vscode/
+.idea/
