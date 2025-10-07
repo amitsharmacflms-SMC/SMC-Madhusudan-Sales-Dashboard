@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-6 text-gray-700">Dashboard Overview</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+  <div class="bg-white p-6 rounded shadow">
+    <h3 class="font-semibold text-indigo-700 mb-2">📦 Product Quarterly Average</h3>
+    {% if q_avg_p %}
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-100">
+        <tr><th class="px-3 py-2 text-left">Quarter</th><th class="px-3 py-2 text-right">Avg Value</th></tr>
+      </thead>
+      <tbody>
+        {% for r in q_avg_p %}
+        <tr><td class="px-3 py-1">{{ r["Quarter"] }}</td><td class="px-3 py-1 text-right">{{ "%.2f"|format(r["avg_value"]) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-sm text-gray-500">No data available</p>
+    {% endif %}
+  </div>
+
+  <div class="bg-white p-6 rounded shadow">
+    <h3 class="font-semibold text-indigo-700 mb-2">📦 Product Yearly Average</h3>
+    {% if yoy_avg_p %}
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-100">
+        <tr><th class="px-3 py-2 text-left">Year</th><th class="px-3 py-2 text-right">Avg Value</th></tr>
+      </thead>
+      <tbody>
+        {% for r in yoy_avg_p %}
+        <tr><td class="px-3 py-1">{{ r["Year"] }}</td><td class="px-3 py-1 text-right">{{ "%.2f"|format(r["avg_value"]) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-sm text-gray-500">No data available</p>
+    {% endif %}
+  </div>
+
+  <div class="bg-white p-6 rounded shadow">
+    <h3 class="font-semibold text-indigo-700 mb-2">🎯 SKU Quarterly Average</h3>
+    {% if q_avg_s %}
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-100">
+        <tr><th class="px-3 py-2 text-left">Quarter</th><th class="px-3 py-2 text-right">Avg Value</th></tr>
+      </thead>
+      <tbody>
+        {% for r in q_avg_s %}
+        <tr><td class="px-3 py-1">{{ r["Quarter"] }}</td><td class="px-3 py-1 text-right">{{ "%.2f"|format(r["avg_value"]) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-sm text-gray-500">No data available</p>
+    {% endif %}
+  </div>
+
+  <div class="bg-white p-6 rounded shadow">
+    <h3 class="font-semibold text-indigo-700 mb-2">🎯 SKU Yearly Average</h3>
+    {% if yoy_avg_s %}
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-100">
+        <tr><th class="px-3 py-2 text-left">Year</th><th class="px-3 py-2 text-right">Avg Value</th></tr>
+      </thead>
+      <tbody>
+        {% for r in yoy_avg_s %}
+        <tr><td class="px-3 py-1">{{ r["Year"] }}</td><td class="px-3 py-1 text-right">{{ "%.2f"|format(r["avg_value"]) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-sm text-gray-500">No data available</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

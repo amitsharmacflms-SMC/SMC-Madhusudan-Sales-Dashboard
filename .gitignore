@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Environment
+.env
+venv/
+ENV/
+*.sqlite3
+dashboard.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build / temp
+node_modules/
+*.log
+*.bak
+
+# IDE
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+*.sqlite3
+dashboard.db
+.DS_Store
+node_modules/
