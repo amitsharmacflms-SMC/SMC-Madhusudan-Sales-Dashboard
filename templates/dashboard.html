@@ -7,7 +7,6 @@
 </head>
 <body class="bg-gray-100">
 
-  <!-- Navbar -->
   <nav class="bg-blue-700 text-white p-4 flex justify-between items-center">
     <h1 class="text-xl font-bold">📊 SMC Madhusudan Sales Dashboard</h1>
     <a href="{{ url_for('logout') }}" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Logout</a>
@@ -29,28 +28,19 @@
           </a>
         </div>
 
-        <a href="{{ url_for('export_data', tab=active_tab, month=selected_month, year=selected_year) }}"
+        <a href="{{ url_for('export_data', tab=active_tab, date_filter=selected_date) }}"
            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">⬇️ Export CSV</a>
       </div>
 
-      <!-- Filters -->
+      <!-- Single Smart Filter -->
       <form method="get" class="flex flex-wrap gap-4 mb-6 items-center">
         <input type="hidden" name="tab" value="{{ active_tab }}">
         <div>
-          <label class="font-medium text-gray-700">Month:</label>
-          <select name="month" class="border border-gray-300 rounded px-3 py-2">
-            <option value="">All Months</option>
-            {% for m in months %}
-            <option value="{{ m }}" {% if selected_month==m %}selected{% endif %}>{{ m }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="font-medium text-gray-700">Year:</label>
-          <select name="year" class="border border-gray-300 rounded px-3 py-2">
-            <option value="">All Years</option>
-            {% for y in years %}
-            <option value="{{ y }}" {% if selected_year==y|string %}selected{% endif %}>{{ y }}</option>
+          <label class="font-medium text-gray-700">Select Month / Quarter:</label>
+          <select name="date_filter" class="border border-gray-300 rounded px-3 py-2">
+            <option value="">All</option>
+            {% for d in dates %}
+            <option value="{{ d }}" {% if selected_date==d %}selected{% endif %}>{{ d }}</option>
             {% endfor %}
           </select>
         </div>
@@ -62,37 +52,24 @@
         <table class="min-w-full border border-gray-300 text-sm text-left">
           <thead class="bg-gray-200 text-gray-700 uppercase text-xs font-semibold">
             <tr>
-              <th class="px-4 py-2 border">STATE</th>
-              <th class="px-4 py-2 border">MANAGER NAME</th>
-              <th class="px-4 py-2 border">DISTRICT</th>
-              <th class="px-4 py-2 border">PRODUCT</th>
-              <th class="px-4 py-2 border text-center">AVG Q1</th>
-              <th class="px-4 py-2 border text-center">AVG Q2</th>
-              <th class="px-4 py-2 border text-center">COMPARISON (Q2 - Q1)</th>
+              {% if data %}
+              {% for col in data[0].keys() %}
+              <th class="px-4 py-2 border">{{ col }}</th>
+              {% endfor %}
+              {% endif %}
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
-            {% if summary %}
-            {% for r in summary %}
+            {% if data %}
+            {% for r in data %}
             <tr class="hover:bg-gray-50">
-              <td class="px-4 py-2 border">{{ r["STATE"] }}</td>
-              <td class="px-4 py-2 border">{{ r["MANAGER NAME"] }}</td>
-              <td class="px-4 py-2 border">{{ r["DISTRICT"] }}</td>
-              <td class="px-4 py-2 border">{{ r["PRODUCT"] }}</td>
-              <td class="px-4 py-2 border text-center">{{ "%.2f"|format(r["AVG Q1"]) if r["AVG Q1"] else "-" }}</td>
-              <td class="px-4 py-2 border text-center">{{ "%.2f"|format(r["AVG Q2"]) if r["AVG Q2"] else "-" }}</td>
-              <td class="px-4 py-2 border text-center
-    {% if r['COMPARISON'] is not none %}
-        {% if r['COMPARISON'] > 0 %} text-green-600
-        {% elif r['COMPARISON'] < 0 %} text-red-600
-        {% endif %}
-    {% endif %}">
-
-              </td>
+              {% for val in r.values() %}
+              <td class="px-4 py-2 border text-center">{{ val if val is not none else '-' }}</td>
+              {% endfor %}
             </tr>
             {% endfor %}
             {% else %}
-            <tr><td colspan="7" class="text-center text-gray-500 py-4">No data available</td></tr>
+            <tr><td colspan="20" class="text-center text-gray-500 py-4">No data available</td></tr>
             {% endif %}
           </tbody>
         </table>

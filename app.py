@@ -95,36 +95,21 @@ def initialize_database():
             time.sleep(5)
 
 # -----------------------------------------------------------------------------
-# Analytics Helpers
+# Data Transformation
 # -----------------------------------------------------------------------------
-def build_summary_table(df):
-    if df.empty:
-        return pd.DataFrame()
+def add_time_columns(df):
     df["order_date"] = pd.to_datetime(df["order_date"])
-    df["Quarter"] = df["order_date"].dt.to_period("Q").astype(str)
     df["Month"] = df["order_date"].dt.strftime("%b-%y")
+    df["Quarter"] = df["order_date"].dt.to_period("Q").astype(str)
     df["Year"] = df["order_date"].dt.year
+    return df
 
-    group_cols = ["state", "manager_name", "district", "product"]
-    summary = []
-    for (state, manager, district, product), g in df.groupby(group_cols):
-        q_avg = g.groupby("Quarter")["value"].mean().to_dict()
-        quarters = sorted(q_avg.keys())
-        comp = None
-        q1 = q2 = None
-        if len(quarters) >= 2:
-            q1, q2 = quarters[-2], quarters[-1]
-            comp = q_avg[q2] - q_avg[q1]
-        summary.append({
-            "STATE": state,
-            "MANAGER NAME": manager,
-            "DISTRICT": district,
-            "PRODUCT": product,
-            "AVG Q1": q_avg.get(q1),
-            "AVG Q2": q_avg.get(q2),
-            "COMPARISON": comp
-        })
-    return pd.DataFrame(summary)
+def calculate_averages(df):
+    if df.empty:
+        return df
+    df["Quarter_Avg"] = df.groupby(["state", "manager_name", "district", "product", "Quarter"])["value"].transform("mean")
+    df["Year_Avg"] = df.groupby(["state", "manager_name", "district", "product", "Year"])["value"].transform("mean")
+    return df
 
 # -----------------------------------------------------------------------------
 # Routes
@@ -159,33 +144,29 @@ def dashboard():
     if "user_id" not in session:
         return redirect(url_for("home"))
 
-    with db.engine.connect() as connection:
-        p_df = pd.read_sql(select(Product), connection)
-        s_df = pd.read_sql(select(SKU), connection)
-
-    selected_month = request.args.get("month", "")
-    selected_year = request.args.get("year", "")
     tab = request.args.get("tab", "product")
+    selected_date = request.args.get("date_filter", "")
 
-    df = p_df if tab == "product" else s_df
-    if not df.empty:
-        df["order_date"] = pd.to_datetime(df["order_date"])
-        if selected_month:
-            df = df[df["order_date"].dt.strftime("%b-%y") == selected_month]
-        if selected_year:
-            df = df[df["order_date"].dt.year.astype(str) == selected_year]
+    with db.engine.connect() as connection:
+        df = pd.read_sql(select(Product if tab == "product" else SKU), connection)
 
-    summary_df = build_summary_table(df)
-    all_months = sorted(df["order_date"].dt.strftime("%b-%y").unique()) if not df.empty else []
-    all_years = sorted(df["order_date"].dt.year.unique()) if not df.empty else []
+    if df.empty:
+        return render_template("dashboard.html", data=[], dates=[], selected_date="", active_tab=tab)
+
+    df = add_time_columns(df)
+    df = calculate_averages(df)
+
+    # Combined filter (Month or Quarter)
+    all_dates = sorted(set(df["Month"].unique()).union(set(df["Quarter"].unique())), key=lambda x: (len(x), x))
+
+    if selected_date:
+        df = df[(df["Month"] == selected_date) | (df["Quarter"] == selected_date)]
 
     return render_template(
         "dashboard.html",
-        summary=summary_df.to_dict("records"),
-        months=all_months,
-        years=all_years,
-        selected_month=selected_month,
-        selected_year=selected_year,
+        data=df.to_dict("records"),
+        dates=all_dates,
+        selected_date=selected_date,
         active_tab=tab,
     )
 
@@ -193,32 +174,23 @@ def dashboard():
 @app.route("/export", methods=["GET"])
 def export_data():
     tab = request.args.get("tab", "product")
+    selected_date = request.args.get("date_filter", "")
     with db.engine.connect() as connection:
         df = pd.read_sql(select(Product if tab == "product" else SKU), connection)
+
     if df.empty:
         flash("No data available to export!", "warning")
         return redirect(url_for("dashboard", tab=tab))
 
-    month = request.args.get("month", "")
-    year = request.args.get("year", "")
-    if not df.empty:
-        df["order_date"] = pd.to_datetime(df["order_date"])
-        if month:
-            df = df[df["order_date"].dt.strftime("%b-%y") == month]
-        if year:
-            df = df[df["order_date"].dt.year.astype(str) == year]
+    df = add_time_columns(df)
+    df = calculate_averages(df)
+
+    if selected_date:
+        df = df[(df["Month"] == selected_date) | (df["Quarter"] == selected_date)]
 
     path = f"/tmp/{tab}_export.csv"
     df.to_csv(path, index=False)
     return send_file(path, as_attachment=True, download_name=f"{tab}_data.csv")
-
-
-@app.route("/admin")
-def admin_panel():
-    if session.get("role") != "Admin":
-        abort(403)
-    users = User.query.order_by(User.user_id).all()
-    return render_template("admin.html", users=users)
 
 # -----------------------------------------------------------------------------
 # Initialize Database
