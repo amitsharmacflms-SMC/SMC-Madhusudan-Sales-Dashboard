@@ -77,7 +77,7 @@ class SKU(db.Model):
 # -----------------------------------------------------------------------------
 def initialize_database():
     """Creates tables, default admin, and optionally imports CSVs."""
-    for attempt in range(10):
+    for attempt in range(20):
         try:
             db.create_all()
             print("✅ Tables created or already exist.")
@@ -141,7 +141,7 @@ def initialize_database():
         except Exception as e:
             print(f"⏳ Database not ready (attempt {attempt+1}/10). Retrying in 5s...")
             print(e)
-            time.sleep(5)
+            time.sleep(2)
 
 # -----------------------------------------------------------------------------
 # Analytics helpers
