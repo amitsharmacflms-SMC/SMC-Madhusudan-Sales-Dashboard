@@ -144,24 +144,25 @@ with app.app_context():
 def enrich_df(df):
     """Ensure ORDER_DATE is datetime and add 'Month', 'Quarter', 'Year' columns."""
     if df is None or df.empty:
-        return df
+        return df.copy() if df is not None else pd.DataFrame()
+
     df = df.copy()
-    # normalize column casing if needed
-    # we expect columns: STATE, MANAGER_NAME, DISTRICT, PARTY_NAME, PRODUCT, SKU (maybe), ORDER_DATE, VALUE
     if "ORDER_DATE" in df.columns:
         df["ORDER_DATE"] = pd.to_datetime(df["ORDER_DATE"], errors="coerce")
     else:
-        # try common alternatives
         for alt in ["order_date", "OrderDate", "Order_Date", "ORDERDATE"]:
             if alt in df.columns:
                 df["ORDER_DATE"] = pd.to_datetime(df[alt], errors="coerce")
                 break
-    # Month format e.g. Jul-2025
+
+    # Month: Jul-2025
     df["Month"] = df["ORDER_DATE"].dt.strftime("%b-%Y")
-    # Quarter format e.g. Q1 2025
-    df["Quarter"] = df["ORDER_DATE"].dt.to_period("Q").astype(str).apply(
-        lambda s: (lambda yq: f"Q{int(yq[1])} {yq[0]}")((s.split("Q")[0], s.split("Q")[1])) if pd.notna(s) else None
+
+    # Safe quarter label: use pandas Period, but guard NaT
+    df["Quarter"] = df["ORDER_DATE"].apply(
+        lambda d: f"Q{((d.month - 1)//3) + 1} {d.year}" if pd.notna(d) else None
     )
+
     df["Year"] = df["ORDER_DATE"].dt.year
     return df
 
