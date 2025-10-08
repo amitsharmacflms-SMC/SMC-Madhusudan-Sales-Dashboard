@@ -3,122 +3,104 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
   <title>SMC Madhusudan Dashboard</title>
-  
-  <!-- ✅ Local Tailwind build -->
+
+  <!-- ✅ Local Tailwind CSS build -->
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
 
-  <!-- (Optional) Favicon -->
+  <!-- ✅ Optional favicon -->
   <link rel="icon" href="{{ url_for('static', filename='images/onlylogo.png') }}" type="image/png">
 
-  <!-- (Optional) Custom styles if needed -->
-  <!-- <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet"> -->
+  <!-- ✅ Meta for SEO -->
+  <meta name="description" content="Sales performance dashboard for SMC Madhusudan - view insights by product, SKU, region, and manager.">
+
 </head>
 
-<body class="bg-gray-100">
-  <!-- Header -->
-  <nav class="bg-white shadow-md sticky top-0 z-10 flex items-center justify-between px-6 py-3">
-    <div class="flex items-center space-x-2">
-      <img src="/static/onlylogo.png" alt="SMC Logo" class="h-10" />
-      <h1 class="text-xl font-semibold text-gray-800">Sales Dashboard</h1>
-    </div>
+<body class="bg-gray-50 text-gray-900">
 
-    <div class="flex items-center space-x-4">
-      <form method="POST" action="/logout">
-        <button
-          class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">
-          Logout
+  <!-- ✅ HEADER -->
+  <header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      
+      <!-- 🔹 Logo + Title -->
+      <div class="flex items-center space-x-3">
+        <img src="{{ url_for('static', filename='images/onlylogo.png') }}" alt="SMC Logo" class="h-10 w-auto">
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-gray-800">SMC Madhusudan Dashboard</h1>
+      </div>
+
+      <!-- 🔹 Product ↔ SKU Toggle -->
+      <div>
+        <button 
+          id="toggleViewBtn" 
+          class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition">
+          Switch to SKU View
         </button>
-      </form>
+      </div>
     </div>
-  </nav>
+  </header>
 
-  <!-- Filters Section -->
-  <div class="max-w-7xl mx-auto mt-6 px-4">
-    <div class="bg-white p-5 rounded-xl shadow">
-      <h2 class="text-lg font-semibold mb-3 text-gray-800">Filters</h2>
-      <form method="GET" action="/dashboard" class="flex flex-wrap gap-4 items-center">
-
-        <!-- Month & Quarter Filter -->
+  <!-- ✅ MAIN DASHBOARD CONTENT -->
+  <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+    <!-- Filters Section -->
+    <section id="filters" class="mb-6 bg-white p-4 rounded-xl shadow-sm">
+      <h2 class="text-lg font-semibold mb-3">📅 Select Period</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <div>
-          <label class="block text-gray-700 text-sm mb-1">Month & Quarter</label>
-          <select name="period" class="border border-gray-300 rounded-lg px-3 py-2">
+          <label for="monthFilter" class="block text-sm font-medium text-gray-700">Month / Quarter</label>
+          <select id="monthFilter" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
             <option value="">All</option>
-            {% for p in periods %}
-              <option value="{{ p }}" {% if p == selected_period %}selected{% endif %}>{{ p }}</option>
-            {% endfor %}
+            <option value="Jul-2025">Jul 2025</option>
+            <option value="Aug-2025">Aug 2025</option>
+            <option value="Q1 2025-26">Q1 2025-26</option>
+            <option value="Q2 2025-26">Q2 2025-26</option>
           </select>
         </div>
+      </div>
+    </section>
 
-        <!-- Comparison Filter -->
-        <div>
-          <label class="block text-gray-700 text-sm mb-1">Compare With</label>
-          <select name="compare1" class="border border-gray-300 rounded-lg px-3 py-2">
-            <option value="">Select</option>
-            {% for p in periods %}
-              <option value="{{ p }}" {% if p == compare1 %}selected{% endif %}>{{ p }}</option>
-            {% endfor %}
-          </select>
-        </div>
+    <!-- Data Table Section -->
+    <section id="data-section" class="bg-white p-6 rounded-xl shadow overflow-x-auto">
+      <h2 class="text-lg font-semibold mb-4">📊 Product / SKU Performance</h2>
+      <table id="dataTable" class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">STATE</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">MANAGER NAME</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">DISTRICT</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">PARTY NAME</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">PRODUCT</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">SKU</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">ORDER DATE</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">QTR AVG</th>
+            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">YEAR AVG</th>
+          </tr>
+        </thead>
+        <tbody id="dataBody" class="divide-y divide-gray-200">
+          <!-- Data Rows Loaded Dynamically -->
+          <tr><td colspan="9" class="text-center py-6 text-gray-500">Loading data...</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
 
-        <div>
-          <label class="block text-gray-700 text-sm mb-1">And</label>
-          <select name="compare2" class="border border-gray-300 rounded-lg px-3 py-2">
-            <option value="">Select</option>
-            {% for p in periods %}
-              <option value="{{ p }}" {% if p == compare2 %}selected{% endif %}>{{ p }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div class="pt-5">
-          <button
-            type="submit"
-            class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition">
-            Apply Filters
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Data Table Section -->
-  <div class="max-w-7xl mx-auto mt-6 px-4">
-    <div class="bg-white p-6 rounded-xl shadow overflow-x-auto">
-      <h2 class="text-lg font-semibold mb-4 text-gray-800">Data Overview</h2>
-
-      {% if data and data|length > 0 %}
-        <table class="min-w-full border border-gray-300 rounded-lg overflow-hidden">
-          <thead class="bg-blue-600 text-white">
-            <tr>
-              {% for col in data[0].keys() %}
-                <th class="py-2 px-3 text-left text-sm font-semibold">{{ col }}</th>
-              {% endfor %}
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200">
-            {% for row in data %}
-              <tr class="hover:bg-gray-50">
-                {% for col, val in row.items() %}
-                  <td class="py-2 px-3 text-sm text-gray-700">{{ val }}</td>
-                {% endfor %}
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <div class="text-center text-gray-600 py-10">
-          No data available for the selected filter.
-        </div>
-      {% endif %}
-    </div>
-  </div>
-
-  <!-- Footer -->
-  <footer class="mt-10 py-4 bg-white border-t text-center text-gray-500 text-sm">
-    © {{ current_year }} SMC Madhusudan | All Rights Reserved
+  <!-- ✅ FOOTER -->
+  <footer class="mt-10 bg-gray-100 py-4 text-center text-sm text-gray-500">
+    © {{ datetime.utcnow().year }} SMC Madhusudan | All Rights Reserved
   </footer>
+
+  <!-- ✅ Script to handle switching tabs or filters -->
+  <script>
+    document.getElementById('toggleViewBtn').addEventListener('click', function() {
+      const currentText = this.textContent.trim();
+      if (currentText.includes('SKU')) {
+        this.textContent = 'Switch to Product View';
+        // TODO: Load SKU data
+      } else {
+        this.textContent = 'Switch to SKU View';
+        // TODO: Load Product data
+      }
+    });
+  </script>
 
 </body>
 </html>
