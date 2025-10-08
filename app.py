@@ -1,217 +1,148 @@
+# app.py
 import os
-import pandas as pd
-import time
-from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, flash, session, abort
+from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
+import pandas as pd
+from sqlalchemy import text
+from datetime import datetime
+from database import get_engine
 
-# -----------------------------------------------------------------------------
-# Flask setup
-# -----------------------------------------------------------------------------
 app = Flask(__name__)
-app.secret_key = "supersecretkey"
+app.secret_key = "smc_dashboard_secret"
 
-# -----------------------------------------------------------------------------
-# PostgreSQL Configuration (Render)
-# -----------------------------------------------------------------------------
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://dashboard_db_h0q1_user:RegcquXmPWdEXRFUxNSysH3FsMuQ5ozg@dpg-d3ilg7be5dus7398abg0-a.singapore-postgres.render.com/dashboard_db_h0q1"
-)
+# Database engine
+engine = get_engine()
 
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-db = SQLAlchemy(app)
-
-# -----------------------------------------------------------------------------
-# Database Models
-# -----------------------------------------------------------------------------
-class User(db.Model):
-    __tablename__ = "users"
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.String(150), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), nullable=False)
-    state = db.Column(db.String(100))
-    manager_name = db.Column(db.String(150))
-    district = db.Column(db.String(150))
-
-    def set_password(self, pwd):
-        self.password_hash = generate_password_hash(pwd)
-
-    def check_password(self, pwd):
-        return check_password_hash(self.password_hash, pwd)
-
-
-class Product(db.Model):
-    __tablename__ = "product"
-    state = db.Column(db.String(100))
-    manager_name = db.Column(db.String(150))
-    district = db.Column(db.String(150))
-    party_name = db.Column(db.String(200))
-    product = db.Column(db.String(200))
-    order_date = db.Column(db.Date)
-
-
-class SKU(db.Model):
-    __tablename__ = "sku"
-    state = db.Column(db.String(100))
-    manager_name = db.Column(db.String(150))
-    district = db.Column(db.String(150))
-    party_name = db.Column(db.String(200))
-    product = db.Column(db.String(200))
-    sku = db.Column(db.String(200))
-    order_date = db.Column(db.Date)
-
-# -----------------------------------------------------------------------------
-# Initialize database and create admin
-# -----------------------------------------------------------------------------
-def initialize_database():
-    for attempt in range(10):
-        try:
-            db.create_all()
-            print("✅ Tables created or already exist.")
-
-            if not User.query.filter_by(user_id="admin").first():
-                admin = User(user_id="admin", role="Admin", state="HQ", manager_name="Amit", district="Central")
-                admin.set_password("admin123")
-                db.session.add(admin)
-                db.session.commit()
-                print("✅ Default admin created (admin / admin123)")
-            break
-        except Exception as e:
-            print(f"⏳ Database not ready (attempt {attempt+1}/10). Retrying in 5s...")
-            print(e)
-            time.sleep(5)
-
-# -----------------------------------------------------------------------------
-# Data enrichment
-# -----------------------------------------------------------------------------
-def enrich_df(df):
-    if df is None or df.empty:
+# -----------------------------------------------------
+# Helper functions
+# -----------------------------------------------------
+def get_dataframe(table_name):
+    """Fetch a table from PostgreSQL into a Pandas DataFrame."""
+    try:
+        query = text(f"SELECT * FROM {table_name}")
+        df = pd.read_sql(query, con=engine)
+        if not df.empty:
+            df.columns = [c.upper() for c in df.columns]
+            # Handle ORDER_DATE if exists
+            if "ORDER_DATE" in df.columns:
+                df["ORDER_DATE"] = pd.to_datetime(df["ORDER_DATE"], errors="coerce")
+                df["MONTH"] = df["ORDER_DATE"].dt.strftime("%b-%Y")
+                df["QUARTER"] = df["ORDER_DATE"].dt.to_period("Q").astype(str)
+                df["YEAR"] = df["ORDER_DATE"].dt.year
         return df
-    df = df.copy()
-    if "order_date" in df.columns:
-        df["ORDER_DATE"] = pd.to_datetime(df["order_date"], errors="coerce")
-    elif "ORDER_DATE" in df.columns:
-        df["ORDER_DATE"] = pd.to_datetime(df["ORDER_DATE"], errors="coerce")
-    else:
-        return df
-
-    df["Month"] = df["ORDER_DATE"].dt.strftime("%b-%Y")
-    df["Quarter"] = df["ORDER_DATE"].apply(
-        lambda d: f"Q{((d.month - 1)//3) + 1} {d.year}" if pd.notna(d) else None
-    )
-    df["Year"] = df["ORDER_DATE"].dt.year
-    return df
-
-# -----------------------------------------------------------------------------
-# Comparison logic
-# -----------------------------------------------------------------------------
-def compare_two_periods(df, date1, date2):
-    """Compare two selected months or dates and compute difference column."""
-    if df.empty:
-        return df
-
-    df["ORDER_DATE"] = pd.to_datetime(df["ORDER_DATE"], errors="coerce")
-    df["Month"] = df["ORDER_DATE"].dt.strftime("%b-%Y")
-
-    d1 = df[df["Month"] == date1]
-    d2 = df[df["Month"] == date2]
-
-    if d1.empty or d2.empty:
+    except Exception as e:
+        print(f"⚠️ Error reading {table_name}: {e}")
         return pd.DataFrame()
 
-    key_cols = [c for c in df.columns if c not in ["ORDER_DATE", "Month", "Quarter", "Year", "id"]]
+def get_all_periods(df):
+    """Return all month/quarter options for filter dropdown."""
+    if df.empty:
+        return []
+    months = df["MONTH"].dropna().unique().tolist() if "MONTH" in df else []
+    quarters = df["QUARTER"].dropna().unique().tolist() if "QUARTER" in df else []
+    combined = sorted(set(months + quarters))
+    return combined
 
-    # Aggregate counts per key (you can later replace with VALUE if added)
-    g1 = d1.groupby(key_cols).size().reset_index(name=f"Count_{date1}")
-    g2 = d2.groupby(key_cols).size().reset_index(name=f"Count_{date2}")
+def filter_dataframe(df, period):
+    """Filter dataframe by selected month/quarter."""
+    if df.empty or not period:
+        return df
+    if "MONTH" in df.columns and period in df["MONTH"].values:
+        return df[df["MONTH"] == period]
+    elif "QUARTER" in df.columns and period in df["QUARTER"].values:
+        return df[df["QUARTER"] == period]
+    return df
 
-    merged = pd.merge(g1, g2, on=key_cols, how="outer").fillna(0)
-    merged["Comparison"] = merged[f"Count_{date2}"] - merged[f"Count_{date1}"]
+def compare_two_periods(df, p1, p2):
+    """Add a comparison column between two selected periods."""
+    if df.empty or not p1 or not p2:
+        return df, None
 
-    return merged
+    df1 = filter_dataframe(df, p1)
+    df2 = filter_dataframe(df, p2)
 
-# -----------------------------------------------------------------------------
+    if df1.empty or df2.empty:
+        return df, None
+
+    # Compare counts per PRODUCT or SKU depending on dataset
+    key_col = "PRODUCT"
+    if "SKU" in df.columns:
+        key_col = "SKU"
+
+    comp = (
+        df1.groupby(key_col).size().rename("PERIOD_1")
+        .to_frame().join(
+            df2.groupby(key_col).size().rename("PERIOD_2"), how="outer"
+        ).fillna(0)
+    )
+    comp["COMPARISON"] = comp["PERIOD_2"] - comp["PERIOD_1"]
+
+    return comp.reset_index(), f"{p2} vs {p1}"
+
+# -----------------------------------------------------
 # Routes
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------
 @app.route("/")
 def home():
-    return render_template("login.html", datetime=datetime)
+    """Show login page first."""
+    return redirect(url_for("login"))
 
-@app.route("/login", methods=["POST"])
+from datetime import datetime
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    u = User.query.filter_by(user_id=request.form["user_id"]).first()
-    if u and u.check_password(request.form["password"]):
-        session["user_id"] = u.user_id
-        session["role"] = u.role
-        return redirect(url_for("dashboard"))
-    flash("Invalid credentials", "danger")
-    return redirect(url_for("home"))
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        if username == "admin" and password == "admin123":
+            session["user"] = username
+            return redirect(url_for("dashboard"))
+        else:
+            return render_template("login.html", error="Invalid credentials.", current_year=datetime.utcnow().year)
 
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("home"))
+    return render_template("login.html", current_year=datetime.utcnow().year)
 
-@app.route("/dashboard")
+@app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
-    if "user_id" not in session:
-        return redirect(url_for("home"))
+    if "user" not in session:
+        return redirect(url_for("login"))
 
-    from sqlalchemy import select
+    # Load both tables
+    tab = request.args.get("tab", "product")
+    df = get_dataframe(tab)
 
-    with db.engine.connect() as connection:
-        p_df = pd.read_sql("SELECT * FROM product", connection)
-        s_df = pd.read_sql("select * FROM SKU", connection)
+    all_periods = get_all_periods(df)
 
-    p_df = enrich_df(p_df)
-    s_df = enrich_df(s_df)
+    selected_period = request.args.get("period")
+    compare1 = request.args.get("compare1")
+    compare2 = request.args.get("compare2")
 
-    # Get available months for dropdown
-    months = sorted(p_df["Month"].dropna().unique())
+    if compare1 and compare2:
+        df, compare_label = compare_two_periods(df, compare1, compare2)
+    else:
+        df = filter_dataframe(df, selected_period)
+        compare_label = None
 
-    # Handle comparison
-    date1 = request.args.get("date1")
-    date2 = request.args.get("date2")
-    tab = request.args.get("tab", "Product")
-
-    comparison_df = None
-    if date1 and date2:
-        base_df = p_df if tab == "Product" else s_df
-        comparison_df = compare_two_periods(base_df, date1, date2)
+    data = df.to_dict(orient="records")
 
     return render_template(
         "dashboard.html",
-        role=session.get("role"),
         active_tab=tab,
-        months=months,
-        comparison_data=comparison_df.to_dict("records") if comparison_df is not None else [],
+        data=data,
+        periods=all_periods,
+        selected_period=selected_period,
+        compare1=compare1,
+        compare2=compare2,
+        compare_label=compare_label
     )
 
-@app.route("/admin")
-def admin_panel():
-    if session.get("role") != "Admin":
-        abort(403)
-    users = User.query.order_by(User.user_id).all()
-    return render_template("admin.html", users=users)
+@app.route("/logout")
+def logout():
+    session.pop("user", None)
+    return redirect(url_for("login"))
 
-# -----------------------------------------------------------------------------
-# Init DB
-# -----------------------------------------------------------------------------
-with app.app_context():
-    try:
-        initialize_database()
-    except Exception as e:
-        print(f"⚠️ Database initialization skipped or failed: {e}")
-
-# -----------------------------------------------------------------------------
-# App Runner
-# -----------------------------------------------------------------------------
+# -----------------------------------------------------
+# Run app
+# -----------------------------------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run(debug=True, host="0.0.0.0", port=5000)
