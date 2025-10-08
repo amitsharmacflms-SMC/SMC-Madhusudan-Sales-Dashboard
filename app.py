@@ -196,8 +196,9 @@ def dashboard():
     if "user_id" not in session:
         return redirect(url_for("home"))
 
-    p_df = pd.read_sql(Product.query.statement, db.session.bind)
-    s_df = pd.read_sql(SKU.query.statement, db.session.bind)
+    p_df = pd.read_sql(Product.__table__, con=db.engine)
+s_df = pd.read_sql(SKU.__table__, con=db.engine)
+
 
     q_avg_p = compute_quarterly_avg(p_df)
     yoy_avg_p = compute_yoy_avg(p_df)
