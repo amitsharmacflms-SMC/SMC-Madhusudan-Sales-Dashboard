@@ -49,7 +49,6 @@ class User(db.Model):
 
 class Product(db.Model):
     __tablename__ = "product"
-    id = db.Column(db.Integer, primary_key=True)
     state = db.Column(db.String(100))
     manager_name = db.Column(db.String(150))
     district = db.Column(db.String(150))
@@ -60,7 +59,6 @@ class Product(db.Model):
 
 class SKU(db.Model):
     __tablename__ = "sku"
-    id = db.Column(db.Integer, primary_key=True)
     state = db.Column(db.String(100))
     manager_name = db.Column(db.String(150))
     district = db.Column(db.String(150))
@@ -169,8 +167,8 @@ def dashboard():
     from sqlalchemy import select
 
     with db.engine.connect() as connection:
-        p_df = pd.read_sql(select(Product), connection)
-        s_df = pd.read_sql(select(SKU), connection)
+        p_df = pd.read_sql("SELECT * FROM product", connection)
+        s_df = pd.read_sql("select * FROM SKU", connection)
 
     p_df = enrich_df(p_df)
     s_df = enrich_df(s_df)
