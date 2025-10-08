@@ -1,105 +1,115 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SMC Madhusudan Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SMC Madhusudan Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen">
 
-    <!-- Header -->
-    <header class="bg-white shadow-md p-4 flex justify-between items-center">
-        <div class="flex items-center gap-3">
-            <img src="/static/logo.png" alt="Logo" class="h-10" />
-            <h1 class="text-xl font-semibold text-gray-800">SMC Madhusudan Sales Dashboard</h1>
-        </div>
-        <a href="{{ url_for('logout') }}" class="text-red-500 hover:underline">Logout</a>
-    </header>
-
-    <!-- Tabs -->
-    <div class="mt-4 flex justify-center">
-        <div class="flex border rounded-md overflow-hidden shadow-sm">
-            <a href="{{ url_for('dashboard', tab='product') }}"
-               class="px-6 py-2 font-medium {{ 'bg-blue-500 text-white' if active_tab == 'product' else 'bg-white text-gray-600 hover:bg-gray-100' }}">
-               Product
-            </a>
-            <a href="{{ url_for('dashboard', tab='sku') }}"
-               class="px-6 py-2 font-medium {{ 'bg-blue-500 text-white' if active_tab == 'sku' else 'bg-white text-gray-600 hover:bg-gray-100' }}">
-               SKU
-            </a>
-        </div>
+<body class="bg-gray-100">
+  <!-- Header -->
+  <nav class="bg-white shadow-md sticky top-0 z-10 flex items-center justify-between px-6 py-3">
+    <div class="flex items-center space-x-2">
+      <img src="/static/onlylogo.png" alt="SMC Logo" class="h-10" />
+      <h1 class="text-xl font-semibold text-gray-800">Sales Dashboard</h1>
     </div>
 
-    <!-- Filters -->
-    <section class="max-w-7xl mx-auto bg-white mt-6 p-4 rounded-lg shadow">
-        <form method="get" class="flex flex-wrap gap-3 items-center">
-            <input type="hidden" name="tab" value="{{ active_tab }}">
+    <div class="flex items-center space-x-4">
+      <form method="POST" action="/logout">
+        <button
+          class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">
+          Logout
+        </button>
+      </form>
+    </div>
+  </nav>
 
-            <label class="font-semibold text-gray-700">Select Period:</label>
-            <select name="period" class="border border-gray-300 px-2 py-1 rounded">
-                <option value="">-- All --</option>
-                {% for p in periods %}
-                    <option value="{{ p }}" {% if p == selected_period %}selected{% endif %}>{{ p }}</option>
+  <!-- Filters Section -->
+  <div class="max-w-7xl mx-auto mt-6 px-4">
+    <div class="bg-white p-5 rounded-xl shadow">
+      <h2 class="text-lg font-semibold mb-3 text-gray-800">Filters</h2>
+      <form method="GET" action="/dashboard" class="flex flex-wrap gap-4 items-center">
+
+        <!-- Month & Quarter Filter -->
+        <div>
+          <label class="block text-gray-700 text-sm mb-1">Month & Quarter</label>
+          <select name="period" class="border border-gray-300 rounded-lg px-3 py-2">
+            <option value="">All</option>
+            {% for p in periods %}
+              <option value="{{ p }}" {% if p == selected_period %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Comparison Filter -->
+        <div>
+          <label class="block text-gray-700 text-sm mb-1">Compare With</label>
+          <select name="compare1" class="border border-gray-300 rounded-lg px-3 py-2">
+            <option value="">Select</option>
+            {% for p in periods %}
+              <option value="{{ p }}" {% if p == compare1 %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-gray-700 text-sm mb-1">And</label>
+          <select name="compare2" class="border border-gray-300 rounded-lg px-3 py-2">
+            <option value="">Select</option>
+            {% for p in periods %}
+              <option value="{{ p }}" {% if p == compare2 %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="pt-5">
+          <button
+            type="submit"
+            class="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition">
+            Apply Filters
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Data Table Section -->
+  <div class="max-w-7xl mx-auto mt-6 px-4">
+    <div class="bg-white p-6 rounded-xl shadow overflow-x-auto">
+      <h2 class="text-lg font-semibold mb-4 text-gray-800">Data Overview</h2>
+
+      {% if data and data|length > 0 %}
+        <table class="min-w-full border border-gray-300 rounded-lg overflow-hidden">
+          <thead class="bg-blue-600 text-white">
+            <tr>
+              {% for col in data[0].keys() %}
+                <th class="py-2 px-3 text-left text-sm font-semibold">{{ col }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            {% for row in data %}
+              <tr class="hover:bg-gray-50">
+                {% for col, val in row.items() %}
+                  <td class="py-2 px-3 text-sm text-gray-700">{{ val }}</td>
                 {% endfor %}
-            </select>
-
-            <label class="font-semibold text-gray-700">Compare:</label>
-            <select name="compare1" class="border border-gray-300 px-2 py-1 rounded">
-                <option value="">-- Period 1 --</option>
-                {% for p in periods %}
-                    <option value="{{ p }}" {% if p == compare1 %}selected{% endif %}>{{ p }}</option>
-                {% endfor %}
-            </select>
-
-            <select name="compare2" class="border border-gray-300 px-2 py-1 rounded">
-                <option value="">-- Period 2 --</option>
-                {% for p in periods %}
-                    <option value="{{ p }}" {% if p == compare2 %}selected{% endif %}>{{ p }}</option>
-                {% endfor %}
-            </select>
-
-            <button type="submit"
-                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
-                Apply
-            </button>
-        </form>
-
-        {% if compare_label %}
-            <p class="mt-2 text-sm text-gray-600">📊 Comparison: {{ compare_label }}</p>
-        {% endif %}
-    </section>
-
-    <!-- Data Table -->
-    <section class="max-w-7xl mx-auto bg-white mt-6 p-4 rounded-lg shadow overflow-x-auto">
-        {% if data and data|length > 0 %}
-        <table class="min-w-full border-collapse border border-gray-300 text-sm">
-            <thead class="bg-gray-200 text-gray-700">
-                <tr>
-                    {% for col in data[0].keys() %}
-                        <th class="border border-gray-300 px-3 py-2 text-left">{{ col }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for row in data %}
-                    <tr class="hover:bg-gray-50">
-                        {% for val in row.values() %}
-                            <td class="border border-gray-300 px-3 py-1">{{ val if val is not none else '' }}</td>
-                        {% endfor %}
-                    </tr>
-                {% endfor %}
-            </tbody>
+              </tr>
+            {% endfor %}
+          </tbody>
         </table>
-        {% else %}
-            <p class="text-center text-gray-500 py-10">📭 No data available for selected period.</p>
-        {% endif %}
-    </section>
+      {% else %}
+        <div class="text-center text-gray-600 py-10">
+          No data available for the selected filter.
+        </div>
+      {% endif %}
+    </div>
+  </div>
 
-    <!-- Footer -->
-    <footer class="text-center text-gray-500 text-sm mt-10 py-4">
-        © {{ datetime.utcnow().year }} SMC Madhusudan | All Rights Reserved
-    </footer>
+  <!-- Footer -->
+  <footer class="mt-10 py-4 bg-white border-t text-center text-gray-500 text-sm">
+    © {{ current_year }} SMC Madhusudan | All Rights Reserved
+  </footer>
 
 </body>
 </html>
