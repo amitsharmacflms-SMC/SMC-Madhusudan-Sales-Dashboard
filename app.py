@@ -269,11 +269,12 @@ def admin_delete_user(user_id):
 # -----------------------------------------------------------------------------
 # Initialize database (works both locally and on Render)
 # -----------------------------------------------------------------------------
-with app.app_context():
+@app.before_first_request
+def setup_db_once():
     try:
         initialize_database()
     except Exception as e:
-        print(f"⚠️ Database initialization skipped or failed: {e}")
+        print(f"⚠️ Delayed DB initialization failed: {e}")
 
 # -----------------------------------------------------------------------------
 # App Runner
