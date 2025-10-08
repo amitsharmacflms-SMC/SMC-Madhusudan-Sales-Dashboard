@@ -15,20 +15,17 @@ app.secret_key = "supersecretkey"
 # -----------------------------------------------------------------------------
 # PostgreSQL Configuration (Render)
 # -----------------------------------------------------------------------------
-# Prefer environment variable (Render sets this automatically)
-# Fallback to internal connection for local debugging if not found
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://dashboard_db_h0q1_user:RegcquXmPWdEXRFUxNSysH3FsMuQ5ozg@dpg-d3ilg7be5dus7398abg0-a.singapore-postgres.render.com/dashboard_db_h0q1"
 )
 
-# Fix for Render using deprecated 'postgres://' URLs
+# Ensure proper SQLAlchemy prefix
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
 db = SQLAlchemy(app)
 
 # -----------------------------------------------------------------------------
@@ -79,74 +76,75 @@ class SKU(db.Model):
 # Auto-create Database Tables + Admin
 # -----------------------------------------------------------------------------
 def initialize_database():
-    with app.app_context():
-        for attempt in range(10):
-            try:
-                db.create_all()
-                print("✅ Tables created or already exist.")
+    """Creates tables, default admin, and optionally imports CSVs."""
+    for attempt in range(10):
+        try:
+            db.create_all()
+            print("✅ Tables created or already exist.")
 
-                # Create default admin user
-                if not User.query.filter_by(user_id="admin").first():
-                    admin = User(
-                        user_id="admin",
-                        role="Admin",
-                        state="HQ",
-                        manager_name="Amit",
-                        district="Central"
-                    )
-                    admin.set_password("admin123")
-                    db.session.add(admin)
-                    db.session.commit()
-                    print("✅ Default admin created (admin / admin123)")
+            # Create default admin if not exists
+            if not User.query.filter_by(user_id="admin").first():
+                admin = User(
+                    user_id="admin",
+                    role="Admin",
+                    state="HQ",
+                    manager_name="Amit",
+                    district="Central"
+                )
+                admin.set_password("admin123")
+                db.session.add(admin)
+                db.session.commit()
+                print("✅ Default admin created (admin / admin123)")
 
-                # Import CSV data if present
-                def parse_date(v):
-                    try:
-                        return pd.to_datetime(v).date()
-                    except:
-                        return None
+            # Helper to safely parse dates
+            def parse_date(v):
+                try:
+                    return pd.to_datetime(v).date()
+                except Exception:
+                    return None
 
-                if os.path.exists("data/product.csv") and Product.query.count() == 0:
-                    df = pd.read_csv("data/product.csv")
-                    for _, r in df.iterrows():
-                        db.session.add(Product(
-                            state=r.get("STATE"),
-                            manager_name=r.get("MANAGER_NAME"),
-                            district=r.get("DISTRICT"),
-                            party_name=r.get("PARTY_NAME"),
-                            product=r.get("PRODUCT"),
-                            order_date=parse_date(r.get("ORDER_DATE")),
-                            value=float(r.get("VALUE", 0)) if "VALUE" in r and not pd.isna(r["VALUE"]) else None
-                        ))
-                    db.session.commit()
-                    print("✅ Product CSV imported.")
+            # Import CSV data if files exist
+            if os.path.exists("data/product.csv") and Product.query.count() == 0:
+                df = pd.read_csv("data/product.csv")
+                for _, r in df.iterrows():
+                    db.session.add(Product(
+                        state=r.get("STATE"),
+                        manager_name=r.get("MANAGER_NAME"),
+                        district=r.get("DISTRICT"),
+                        party_name=r.get("PARTY_NAME"),
+                        product=r.get("PRODUCT"),
+                        order_date=parse_date(r.get("ORDER_DATE")),
+                        value=float(r.get("VALUE", 0)) if "VALUE" in r and not pd.isna(r["VALUE"]) else None
+                    ))
+                db.session.commit()
+                print("✅ Product CSV imported.")
 
-                if os.path.exists("data/sku.csv") and SKU.query.count() == 0:
-                    df = pd.read_csv("data/sku.csv")
-                    for _, r in df.iterrows():
-                        db.session.add(SKU(
-                            state=r.get("STATE"),
-                            manager_name=r.get("MANAGER_NAME"),
-                            district=r.get("DISTRICT"),
-                            party_name=r.get("PARTY_NAME"),
-                            product=r.get("PRODUCT"),
-                            sku=r.get("SKU"),
-                            order_date=parse_date(r.get("ORDER_DATE")),
-                            value=float(r.get("VALUE", 0)) if "VALUE" in r and not pd.isna(r["VALUE"]) else None
-                        ))
-                    db.session.commit()
-                    print("✅ SKU CSV imported.")
+            if os.path.exists("data/sku.csv") and SKU.query.count() == 0:
+                df = pd.read_csv("data/sku.csv")
+                for _, r in df.iterrows():
+                    db.session.add(SKU(
+                        state=r.get("STATE"),
+                        manager_name=r.get("MANAGER_NAME"),
+                        district=r.get("DISTRICT"),
+                        party_name=r.get("PARTY_NAME"),
+                        product=r.get("PRODUCT"),
+                        sku=r.get("SKU"),
+                        order_date=parse_date(r.get("ORDER_DATE")),
+                        value=float(r.get("VALUE", 0)) if "VALUE" in r and not pd.isna(r["VALUE"]) else None
+                    ))
+                db.session.commit()
+                print("✅ SKU CSV imported.")
 
-                print("✅ Database initialized successfully.")
-                break
+            print("✅ Database initialized successfully.")
+            break
 
-            except Exception as e:
-                print(f"⏳ Database not ready (attempt {attempt+1}/10). Retrying in 5s...")
-                print(e)
-                time.sleep(5)
+        except Exception as e:
+            print(f"⏳ Database not ready (attempt {attempt+1}/10). Retrying in 5s...")
+            print(e)
+            time.sleep(5)
 
 # -----------------------------------------------------------------------------
-# Helper Analytics
+# Analytics helpers
 # -----------------------------------------------------------------------------
 def compute_quarterly_avg(df):
     if "order_date" not in df or "value" not in df:
@@ -264,8 +262,16 @@ def admin_delete_user(user_id):
     return redirect(url_for("admin_panel"))
 
 # -----------------------------------------------------------------------------
+# Initialize database (works both locally and on Render)
+# -----------------------------------------------------------------------------
+with app.app_context():
+    try:
+        initialize_database()
+    except Exception as e:
+        print(f"⚠️ Database initialization skipped or failed: {e}")
+
+# -----------------------------------------------------------------------------
 # App Runner
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
-    initialize_database()
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
