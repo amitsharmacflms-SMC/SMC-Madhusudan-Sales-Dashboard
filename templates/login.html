@@ -4,28 +4,36 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SMC Madhusudan Login</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- ✅ Local Tailwind CSS build -->
+  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+
+  <!-- ✅ Optional favicon -->
+  <link rel="icon" href="{{ url_for('static', filename='images/onlylogo.png') }}" type="image/png">
+
+  <!-- ✅ Meta for SEO -->
+  <meta name="description" content="Login page for SMC Madhusudan Sales Dashboard - secure access for managers and admins.">
 </head>
 
 <body class="bg-gradient-to-br from-blue-100 to-blue-300 flex items-center justify-center min-h-screen">
 
   <div class="bg-white shadow-xl rounded-2xl p-8 w-full max-w-sm text-center">
-    <!-- Logo -->
+    <!-- 🔹 Logo -->
     <div class="flex justify-center mb-4">
-      <img src="/static/onlylogo.png" alt="SMC Logo" class="h-14">
+      <img src="{{ url_for('static', filename='images/onlylogo.png') }}" alt="SMC Logo" class="h-14">
     </div>
 
     <h2 class="text-2xl font-semibold text-gray-800 mb-1">Welcome Back</h2>
     <p class="text-gray-500 mb-6">Please log in to continue</p>
 
-    <!-- Error message -->
+    <!-- 🔹 Error message -->
     {% if error %}
       <div class="bg-red-100 text-red-600 px-3 py-2 rounded mb-4 text-sm">
         {{ error }}
       </div>
     {% endif %}
 
-    <!-- Login Form -->
+    <!-- 🔹 Login Form -->
     <form method="POST" class="space-y-4">
       <div class="text-left">
         <label class="block text-gray-700 font-medium mb-1" for="username">Username</label>
@@ -45,7 +53,7 @@
       </button>
     </form>
 
-    <!-- Footer -->
+    <!-- 🔹 Footer -->
     <footer class="text-gray-500 text-xs mt-6">
       © {{ current_year }} SMC Madhusudan | All Rights Reserved
     </footer>

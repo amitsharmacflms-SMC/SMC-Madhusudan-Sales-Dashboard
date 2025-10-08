@@ -3,35 +3,63 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
   <title>{% block title %}Dashboard{% endblock %}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+  <!-- ✅ Local Tailwind CSS (compiled output.css) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+
+  <!-- ✅ Optional favicon -->
+  <link rel="icon" href="{{ url_for('static', filename='images/onlylogo.png') }}" type="image/png">
+
+  <!-- ✅ SEO Meta -->
+  <meta name="description" content="SMC Madhusudan Business Dashboard - Secure analytics for regional performance, sales, and management.">
 </head>
-<body class="bg-gray-50 min-h-screen">
-  <!-- Navigation -->
-  <nav class="bg-white shadow mb-6">
+
+<body class="bg-gray-50 min-h-screen flex flex-col">
+  <!-- 🔹 Navigation -->
+  <nav class="bg-white shadow-sm mb-6 sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-      <a href="{{ url_for('dashboard') }}" class="text-xl font-semibold text-indigo-700">
-        📊 Business Dashboard
+      <a href="{{ url_for('dashboard') }}" class="flex items-center space-x-2 text-xl font-semibold text-indigo-700">
+        <img src="{{ url_for('static', filename='images/onlylogo.png') }}" alt="SMC Logo" class="h-8">
+        <span>SMC Madhusudan Dashboard</span>
       </a>
+
       <div class="flex gap-3 items-center">
-        {% if session.user_id %}
-          <span class="text-sm text-gray-700">Hello, {{ session.user_id }}</span>
-          {% if session.role == "Admin" %}
-          <a href="{{ url_for('admin_panel') }}" class="text-sm px-3 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">Admin</a>
+        {% if session.get('user_id') %}
+          <span class="text-sm text-gray-700">👋 Hello, {{ session['user_id'] }}</span>
+
+          {% if session.get('role') == "Admin" %}
+          <a href="{{ url_for('admin_panel') }}" class="text-sm px-3 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700 transition">
+            Admin
+          </a>
           {% endif %}
-          <a href="{{ url_for('logout') }}" class="text-sm px-3 py-2 rounded bg-gray-100 hover:bg-gray-200">Logout</a>
+
+          <a href="{{ url_for('logout') }}" class="text-sm px-3 py-2 rounded bg-gray-100 hover:bg-gray-200 transition">
+            Logout
+          </a>
+        {% else %}
+          <a href="{{ url_for('login') }}" class="text-sm px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition">
+            Login
+          </a>
         {% endif %}
       </div>
     </div>
   </nav>
 
-  <!-- Flash messages -->
-  <div class="max-w-4xl mx-auto px-4">
+  <!-- 🔹 Flash messages -->
+  <div class="max-w-4xl mx-auto px-4 w-full">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, msg in messages %}
-          <div class="p-3 mb-2 rounded {% if category == 'success' %}bg-green-100 text-green-700{% elif category == 'danger' %}bg-red-100 text-red-700{% else %}bg-gray-100 text-gray-800{% endif %}">
+          <div class="p-3 mb-3 rounded-md text-sm 
+              {% if category == 'success' %}
+                bg-green-100 text-green-700
+              {% elif category == 'danger' %}
+                bg-red-100 text-red-700
+              {% else %}
+                bg-gray-100 text-gray-800
+              {% endif %}">
             {{ msg }}
           </div>
         {% endfor %}
@@ -39,8 +67,14 @@
     {% endwith %}
   </div>
 
-  <main class="max-w-7xl mx-auto px-4 py-4">
+  <!-- 🔹 Main content -->
+  <main class="flex-grow max-w-7xl mx-auto px-4 py-4 w-full">
     {% block content %}{% endblock %}
   </main>
+
+  <!-- 🔹 Footer -->
+  <footer class="bg-gray-100 py-4 text-center text-xs text-gray-500 border-t">
+    © {{ current_year }} SMC Madhusudan | All Rights Reserved
+  </footer>
 </body>
 </html>
