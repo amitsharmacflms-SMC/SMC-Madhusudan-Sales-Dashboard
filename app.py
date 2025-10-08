@@ -196,10 +196,14 @@ def dashboard():
     if "user_id" not in session:
         return redirect(url_for("home"))
 
-    p_df = pd.read_sql(Product.__table__, con=db.engine)
-    s_df = pd.read_sql(SKU.__table__, con=db.engine)
+    from sqlalchemy import select, text
 
+    # ✅ Correct SQLAlchemy 2.x compatible query for Pandas
+    with db.engine.connect() as connection:
+        p_df = pd.read_sql(select(Product).compile(connection), connection)
+        s_df = pd.read_sql(select(SKU).compile(connection), connection)
 
+    # Compute summaries
     q_avg_p = compute_quarterly_avg(p_df)
     yoy_avg_p = compute_yoy_avg(p_df)
     q_avg_s = compute_quarterly_avg(s_df)
@@ -213,7 +217,6 @@ def dashboard():
         q_avg_s=q_avg_s.to_dict("records") if q_avg_s is not None else [],
         yoy_avg_s=yoy_avg_s.to_dict("records") if yoy_avg_s is not None else [],
     )
-
 @app.route("/admin")
 def admin_panel():
     if session.get("role") != "Admin":
