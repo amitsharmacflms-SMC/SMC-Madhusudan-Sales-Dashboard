@@ -197,7 +197,7 @@ def dashboard():
         return redirect(url_for("home"))
 
     p_df = pd.read_sql(Product.__table__, con=db.engine)
-s_df = pd.read_sql(SKU.__table__, con=db.engine)
+    s_df = pd.read_sql(SKU.__table__, con=db.engine)
 
 
     q_avg_p = compute_quarterly_avg(p_df)
