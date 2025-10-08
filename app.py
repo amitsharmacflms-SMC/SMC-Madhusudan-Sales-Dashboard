@@ -269,12 +269,17 @@ def admin_delete_user(user_id):
 # -----------------------------------------------------------------------------
 # Initialize database (works both locally and on Render)
 # -----------------------------------------------------------------------------
-@app.before_first_request
-def setup_db_once():
-    try:
-        initialize_database()
-    except Exception as e:
-        print(f"⚠️ Delayed DB initialization failed: {e}")
+from flask import current_app
+
+@app.before_request
+def run_once_db_init():
+    if not getattr(current_app, "_db_initialized", False):
+        try:
+            initialize_database()
+            current_app._db_initialized = True
+            print("✅ Database initialized (first request).")
+        except Exception as e:
+            print(f"⚠️ Database initialization failed: {e}")
 
 # -----------------------------------------------------------------------------
 # App Runner
