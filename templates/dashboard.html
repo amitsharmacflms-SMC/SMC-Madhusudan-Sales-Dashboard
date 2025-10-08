@@ -1,81 +1,98 @@
-{% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
-{% block content %}
-<h1 class="text-2xl font-bold mb-6 text-gray-700">Dashboard Overview</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sales Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <!-- Navbar -->
+  <nav class="bg-blue-700 text-white p-4 flex justify-between items-center">
+    <h1 class="text-xl font-bold">📊 SMC Madhusudan Sales Dashboard</h1>
+    <a href="{{ url_for('logout') }}" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Logout</a>
+  </nav>
 
-  <div class="bg-white p-6 rounded shadow">
-    <h3 class="font-semibold text-indigo-700 mb-2">📦 Product Quarterly Average</h3>
-    {% if q_avg_p %}
-    <table class="min-w-full text-sm">
-      <thead class="bg-gray-100">
-        <tr><th class="px-3 py-2 text-left">Quarter</th><th class="px-3 py-2 text-right">Avg Value</th></tr>
-      </thead>
-      <tbody>
-        {% for r in q_avg_p %}
-        <tr><td class="px-3 py-1">{{ r["Quarter"] }}</td><td class="px-3 py-1 text-right">{{ "%.2f"|format(r["avg_value"]) }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="text-sm text-gray-500">No data available</p>
-    {% endif %}
+  <div class="container mx-auto mt-6 px-4">
+    <div class="bg-white shadow-lg rounded-lg p-6">
+
+      <!-- Tabs + Export -->
+      <div class="flex justify-between items-center mb-6">
+        <div class="flex gap-4">
+          <a href="{{ url_for('dashboard', tab='product') }}"
+             class="px-4 py-2 rounded {{ 'bg-blue-600 text-white' if active_tab=='product' else 'bg-gray-200 text-gray-700' }}">
+             📦 Product View
+          </a>
+          <a href="{{ url_for('dashboard', tab='sku') }}"
+             class="px-4 py-2 rounded {{ 'bg-blue-600 text-white' if active_tab=='sku' else 'bg-gray-200 text-gray-700' }}">
+             🎯 SKU View
+          </a>
+        </div>
+
+        <a href="{{ url_for('export_data', tab=active_tab, month=selected_month, year=selected_year) }}"
+           class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">⬇️ Export CSV</a>
+      </div>
+
+      <!-- Filters -->
+      <form method="get" class="flex flex-wrap gap-4 mb-6 items-center">
+        <input type="hidden" name="tab" value="{{ active_tab }}">
+        <div>
+          <label class="font-medium text-gray-700">Month:</label>
+          <select name="month" class="border border-gray-300 rounded px-3 py-2">
+            <option value="">All Months</option>
+            {% for m in months %}
+            <option value="{{ m }}" {% if selected_month==m %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="font-medium text-gray-700">Year:</label>
+          <select name="year" class="border border-gray-300 rounded px-3 py-2">
+            <option value="">All Years</option>
+            {% for y in years %}
+            <option value="{{ y }}" {% if selected_year==y|string %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Apply Filter</button>
+      </form>
+
+      <!-- Table -->
+      <div class="overflow-x-auto">
+        <table class="min-w-full border border-gray-300 text-sm text-left">
+          <thead class="bg-gray-200 text-gray-700 uppercase text-xs font-semibold">
+            <tr>
+              <th class="px-4 py-2 border">STATE</th>
+              <th class="px-4 py-2 border">MANAGER NAME</th>
+              <th class="px-4 py-2 border">DISTRICT</th>
+              <th class="px-4 py-2 border">PRODUCT</th>
+              <th class="px-4 py-2 border text-center">AVG Q1</th>
+              <th class="px-4 py-2 border text-center">AVG Q2</th>
+              <th class="px-4 py-2 border text-center">COMPARISON (Q2 - Q1)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200">
+            {% if summary %}
+            {% for r in summary %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-2 border">{{ r["STATE"] }}</td>
+              <td class="px-4 py-2 border">{{ r["MANAGER NAME"] }}</td>
+              <td class="px-4 py-2 border">{{ r["DISTRICT"] }}</td>
+              <td class="px-4 py-2 border">{{ r["PRODUCT"] }}</td>
+              <td class="px-4 py-2 border text-center">{{ "%.2f"|format(r["AVG Q1"]) if r["AVG Q1"] else "-" }}</td>
+              <td class="px-4 py-2 border text-center">{{ "%.2f"|format(r["AVG Q2"]) if r["AVG Q2"] else "-" }}</td>
+              <td class="px-4 py-2 border text-center {% if r['COMPARISON']>0 %}text-green-600{% elif r['COMPARISON']<0 %}text-red-600{% endif %}">
+                {% if r["COMPARISON"] %}{{ "%.2f"|format(r["COMPARISON"]) }}{% else %}-{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td colspan="7" class="text-center text-gray-500 py-4">No data available</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
-
-  <div class="bg-white p-6 rounded shadow">
-    <h3 class="font-semibold text-indigo-700 mb-2">📦 Product Yearly Average</h3>
-    {% if yoy_avg_p %}
-    <table class="min-w-full text-sm">
-      <thead class="bg-gray-100">
-        <tr><th class="px-3 py-2 text-left">Year</th><th class="px-3 py-2 text-right">Avg Value</th></tr>
-      </thead>
-      <tbody>
-        {% for r in yoy_avg_p %}
-        <tr><td class="px-3 py-1">{{ r["Year"] }}</td><td class="px-3 py-1 text-right">{{ "%.2f"|format(r["avg_value"]) }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="text-sm text-gray-500">No data available</p>
-    {% endif %}
-  </div>
-
-  <div class="bg-white p-6 rounded shadow">
-    <h3 class="font-semibold text-indigo-700 mb-2">🎯 SKU Quarterly Average</h3>
-    {% if q_avg_s %}
-    <table class="min-w-full text-sm">
-      <thead class="bg-gray-100">
-        <tr><th class="px-3 py-2 text-left">Quarter</th><th class="px-3 py-2 text-right">Avg Value</th></tr>
-      </thead>
-      <tbody>
-        {% for r in q_avg_s %}
-        <tr><td class="px-3 py-1">{{ r["Quarter"] }}</td><td class="px-3 py-1 text-right">{{ "%.2f"|format(r["avg_value"]) }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="text-sm text-gray-500">No data available</p>
-    {% endif %}
-  </div>
-
-  <div class="bg-white p-6 rounded shadow">
-    <h3 class="font-semibold text-indigo-700 mb-2">🎯 SKU Yearly Average</h3>
-    {% if yoy_avg_s %}
-    <table class="min-w-full text-sm">
-      <thead class="bg-gray-100">
-        <tr><th class="px-3 py-2 text-left">Year</th><th class="px-3 py-2 text-right">Avg Value</th></tr>
-      </thead>
-      <tbody>
-        {% for r in yoy_avg_s %}
-        <tr><td class="px-3 py-1">{{ r["Year"] }}</td><td class="px-3 py-1 text-right">{{ "%.2f"|format(r["avg_value"]) }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p class="text-sm text-gray-500">No data available</p>
-    {% endif %}
-  </div>
-
-</div>
-{% endblock %}
+</body>
+</html>

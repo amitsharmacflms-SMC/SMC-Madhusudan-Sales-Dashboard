@@ -1,26 +1,26 @@
 import os
-import pandas as pd
 import time
+import pandas as pd
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, flash, session, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, session, abort, send_file
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import select
 
 # -----------------------------------------------------------------------------
-# Flask setup
+# Flask Setup
 # -----------------------------------------------------------------------------
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
 # -----------------------------------------------------------------------------
-# PostgreSQL Configuration (Render)
+# PostgreSQL Configuration
 # -----------------------------------------------------------------------------
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://dashboard_db_h0q1_user:RegcquXmPWdEXRFUxNSysH3FsMuQ5ozg@dpg-d3ilg7be5dus7398abg0-a.singapore-postgres.render.com/dashboard_db_h0q1"
 )
 
-# Ensure proper SQLAlchemy prefix
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
@@ -73,99 +73,58 @@ class SKU(db.Model):
     value = db.Column(db.Float)
 
 # -----------------------------------------------------------------------------
-# Auto-create Database Tables + Admin
+# Initialize DB
 # -----------------------------------------------------------------------------
 def initialize_database():
-    """Creates tables, default admin, and optionally imports CSVs."""
-    start = time.time()
-    for attempt in range(20):  # Increased attempts, shorter sleep
+    for attempt in range(10):
         try:
             db.create_all()
             print("✅ Tables created or already exist.")
 
-            # Create default admin if not exists
             if not User.query.filter_by(user_id="admin").first():
-                admin = User(
-                    user_id="admin",
-                    role="Admin",
-                    state="HQ",
-                    manager_name="Amit",
-                    district="Central"
-                )
+                admin = User(user_id="admin", role="Admin", state="HQ", manager_name="Amit", district="Central")
                 admin.set_password("admin123")
                 db.session.add(admin)
                 db.session.commit()
                 print("✅ Default admin created (admin / admin123)")
 
-            # CSV import logic (optional, can comment out for faster deploy)
-            def parse_date(v):
-                try:
-                    return pd.to_datetime(v).date()
-                except Exception:
-                    return None
-
-            # 🚀 Optional: comment out this section if you want faster deploys
-            if os.path.exists("data/product.csv") and Product.query.count() == 0:
-                df = pd.read_csv("data/product.csv")
-                for _, r in df.iterrows():
-                    db.session.add(Product(
-                        state=r.get("STATE"),
-                        manager_name=r.get("MANAGER_NAME"),
-                        district=r.get("DISTRICT"),
-                        party_name=r.get("PARTY_NAME"),
-                        product=r.get("PRODUCT"),
-                        order_date=parse_date(r.get("ORDER_DATE")),
-                        value=float(r.get("VALUE", 0)) if "VALUE" in r and not pd.isna(r["VALUE"]) else None
-                    ))
-                db.session.commit()
-                print("✅ Product CSV imported.")
-
-            if os.path.exists("data/sku.csv") and SKU.query.count() == 0:
-                df = pd.read_csv("data/sku.csv")
-                for _, r in df.iterrows():
-                    db.session.add(SKU(
-                        state=r.get("STATE"),
-                        manager_name=r.get("MANAGER_NAME"),
-                        district=r.get("DISTRICT"),
-                        party_name=r.get("PARTY_NAME"),
-                        product=r.get("PRODUCT"),
-                        sku=r.get("SKU"),
-                        order_date=parse_date(r.get("ORDER_DATE")),
-                        value=float(r.get("VALUE", 0)) if "VALUE" in r and not pd.isna(r["VALUE"]) else None
-                    ))
-                db.session.commit()
-                print("✅ SKU CSV imported.")
-
-            print(f"✅ Database initialized successfully in {time.time() - start:.1f}s.")
+            print("✅ Database initialized successfully.")
             break
-
         except Exception as e:
-            print(f"⏳ DB not ready (attempt {attempt + 1}/20). Retrying in 2s...")
-            print(f"Error: {e}")
-            time.sleep(2)
+            print(f"⏳ Database not ready (attempt {attempt+1}/10): {e}")
+            time.sleep(5)
 
 # -----------------------------------------------------------------------------
-# Analytics helpers
+# Analytics Helpers
 # -----------------------------------------------------------------------------
-def compute_quarterly_avg(df):
-    if "order_date" not in df or "value" not in df:
-        return None
-    df = df.dropna(subset=["order_date", "value"])
+def build_summary_table(df):
     if df.empty:
-        return None
+        return pd.DataFrame()
     df["order_date"] = pd.to_datetime(df["order_date"])
-    df["Quarter"] = df["order_date"].dt.to_period("Q")
-    return df.groupby("Quarter")["value"].mean().reset_index(name="avg_value")
-
-def compute_yoy_avg(df):
-    if "order_date" not in df or "value" not in df:
-        return None
-    df = df.dropna(subset=["order_date", "value"])
-    if df.empty:
-        return None
-    df["order_date"] = pd.to_datetime(df["order_date"])
+    df["Quarter"] = df["order_date"].dt.to_period("Q").astype(str)
+    df["Month"] = df["order_date"].dt.strftime("%b-%y")
     df["Year"] = df["order_date"].dt.year
-    return df.groupby("Year")["value"].mean().reset_index(name="avg_value")
+
+    group_cols = ["state", "manager_name", "district", "product"]
+    summary = []
+    for (state, manager, district, product), g in df.groupby(group_cols):
+        q_avg = g.groupby("Quarter")["value"].mean().to_dict()
+        quarters = sorted(q_avg.keys())
+        comp = None
+        q1 = q2 = None
+        if len(quarters) >= 2:
+            q1, q2 = quarters[-2], quarters[-1]
+            comp = q_avg[q2] - q_avg[q1]
+        summary.append({
+            "STATE": state,
+            "MANAGER NAME": manager,
+            "DISTRICT": district,
+            "PRODUCT": product,
+            "AVG Q1": q_avg.get(q1),
+            "AVG Q2": q_avg.get(q2),
+            "COMPARISON": comp
+        })
+    return pd.DataFrame(summary)
 
 # -----------------------------------------------------------------------------
 # Routes
@@ -175,6 +134,7 @@ def home():
     if "user_id" in session:
         return redirect(url_for("dashboard"))
     return render_template("login.html")
+
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -187,37 +147,72 @@ def login():
     flash("Invalid credentials", "danger")
     return redirect(url_for("home"))
 
+
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("home"))
 
-@app.route("/dashboard")
+
+@app.route("/dashboard", methods=["GET"])
 def dashboard():
     if "user_id" not in session:
         return redirect(url_for("home"))
 
-    from sqlalchemy import select, text
-
-    # ✅ Correct SQLAlchemy 2.x compatible query for Pandas
     with db.engine.connect() as connection:
-        p_df = pd.read_sql(select(Product).compile(connection), connection)
-        s_df = pd.read_sql(select(SKU).compile(connection), connection)
+        p_df = pd.read_sql(select(Product), connection)
+        s_df = pd.read_sql(select(SKU), connection)
 
-    # Compute summaries
-    q_avg_p = compute_quarterly_avg(p_df)
-    yoy_avg_p = compute_yoy_avg(p_df)
-    q_avg_s = compute_quarterly_avg(s_df)
-    yoy_avg_s = compute_yoy_avg(s_df)
+    selected_month = request.args.get("month", "")
+    selected_year = request.args.get("year", "")
+    tab = request.args.get("tab", "product")
+
+    df = p_df if tab == "product" else s_df
+    if not df.empty:
+        df["order_date"] = pd.to_datetime(df["order_date"])
+        if selected_month:
+            df = df[df["order_date"].dt.strftime("%b-%y") == selected_month]
+        if selected_year:
+            df = df[df["order_date"].dt.year.astype(str) == selected_year]
+
+    summary_df = build_summary_table(df)
+    all_months = sorted(df["order_date"].dt.strftime("%b-%y").unique()) if not df.empty else []
+    all_years = sorted(df["order_date"].dt.year.unique()) if not df.empty else []
 
     return render_template(
         "dashboard.html",
-        role=session.get("role"),
-        q_avg_p=q_avg_p.to_dict("records") if q_avg_p is not None else [],
-        yoy_avg_p=yoy_avg_p.to_dict("records") if yoy_avg_p is not None else [],
-        q_avg_s=q_avg_s.to_dict("records") if q_avg_s is not None else [],
-        yoy_avg_s=yoy_avg_s.to_dict("records") if yoy_avg_s is not None else [],
+        summary=summary_df.to_dict("records"),
+        months=all_months,
+        years=all_years,
+        selected_month=selected_month,
+        selected_year=selected_year,
+        active_tab=tab,
     )
+
+
+@app.route("/export", methods=["GET"])
+def export_data():
+    tab = request.args.get("tab", "product")
+    with db.engine.connect() as connection:
+        df = pd.read_sql(select(Product if tab == "product" else SKU), connection)
+    if df.empty:
+        flash("No data available to export!", "warning")
+        return redirect(url_for("dashboard", tab=tab))
+
+    month = request.args.get("month", "")
+    year = request.args.get("year", "")
+    if not df.empty:
+        df["order_date"] = pd.to_datetime(df["order_date"])
+        if month:
+            df = df[df["order_date"].dt.strftime("%b-%y") == month]
+        if year:
+            df = df[df["order_date"].dt.year.astype(str) == year]
+
+    path = f"/tmp/{tab}_export.csv"
+    df.to_csv(path, index=False)
+    return send_file(path, as_attachment=True, download_name=f"{tab}_data.csv")
+
+
 @app.route("/admin")
 def admin_panel():
     if session.get("role") != "Admin":
@@ -225,64 +220,17 @@ def admin_panel():
     users = User.query.order_by(User.user_id).all()
     return render_template("admin.html", users=users)
 
-@app.route("/admin/create", methods=["POST"])
-def admin_create_user():
-    if session.get("role") != "Admin":
-        abort(403)
-    uid = request.form["user_id"].strip()
-    pwd = request.form["password"].strip()
-    role = request.form["role"]
-    state = request.form.get("state", "")
-    manager_name = request.form.get("manager_name", "")
-    district = request.form.get("district", "")
-
-    if not uid or not pwd:
-        flash("User ID and Password required!", "danger")
-        return redirect(url_for("admin_panel"))
-
-    if User.query.filter_by(user_id=uid).first():
-        flash("User already exists!", "danger")
-        return redirect(url_for("admin_panel"))
-
-    u = User(user_id=uid, role=role, state=state, manager_name=manager_name, district=district)
-    u.set_password(pwd)
-    db.session.add(u)
-    db.session.commit()
-    flash("User created successfully!", "success")
-    return redirect(url_for("admin_panel"))
-
-@app.route("/admin/delete/<int:user_id>", methods=["POST"])
-def admin_delete_user(user_id):
-    if session.get("role") != "Admin":
-        abort(403)
-    user = User.query.get(user_id)
-    if not user:
-        flash("User not found.", "danger")
-    elif user.user_id == "admin":
-        flash("Default admin cannot be deleted.", "warning")
-    else:
-        db.session.delete(user)
-        db.session.commit()
-        flash(f"User {user.user_id} deleted.", "info")
-    return redirect(url_for("admin_panel"))
+# -----------------------------------------------------------------------------
+# Initialize Database
+# -----------------------------------------------------------------------------
+with app.app_context():
+    try:
+        initialize_database()
+    except Exception as e:
+        print(f"⚠️ Database init failed: {e}")
 
 # -----------------------------------------------------------------------------
-# Initialize database (works both locally and on Render)
-# -----------------------------------------------------------------------------
-from flask import current_app
-
-@app.before_request
-def run_once_db_init():
-    if not getattr(current_app, "_db_initialized", False):
-        try:
-            initialize_database()
-            current_app._db_initialized = True
-            print("✅ Database initialized (first request).")
-        except Exception as e:
-            print(f"⚠️ Database initialization failed: {e}")
-
-# -----------------------------------------------------------------------------
-# App Runner
+# Run
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
