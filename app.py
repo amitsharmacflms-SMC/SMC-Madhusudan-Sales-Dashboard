@@ -77,7 +77,8 @@ class SKU(db.Model):
 # -----------------------------------------------------------------------------
 def initialize_database():
     """Creates tables, default admin, and optionally imports CSVs."""
-    for attempt in range(20):
+    start = time.time()
+    for attempt in range(20):  # Increased attempts, shorter sleep
         try:
             db.create_all()
             print("✅ Tables created or already exist.")
@@ -96,14 +97,14 @@ def initialize_database():
                 db.session.commit()
                 print("✅ Default admin created (admin / admin123)")
 
-            # Helper to safely parse dates
+            # CSV import logic (optional, can comment out for faster deploy)
             def parse_date(v):
                 try:
                     return pd.to_datetime(v).date()
                 except Exception:
                     return None
 
-            # Import CSV data if files exist
+            # 🚀 Optional: comment out this section if you want faster deploys
             if os.path.exists("data/product.csv") and Product.query.count() == 0:
                 df = pd.read_csv("data/product.csv")
                 for _, r in df.iterrows():
@@ -135,12 +136,12 @@ def initialize_database():
                 db.session.commit()
                 print("✅ SKU CSV imported.")
 
-            print("✅ Database initialized successfully.")
+            print(f"✅ Database initialized successfully in {time.time() - start:.1f}s.")
             break
 
         except Exception as e:
-            print(f"⏳ Database not ready (attempt {attempt+1}/10). Retrying in 5s...")
-            print(e)
+            print(f"⏳ DB not ready (attempt {attempt + 1}/20). Retrying in 2s...")
+            print(f"Error: {e}")
             time.sleep(2)
 
 # -----------------------------------------------------------------------------

@@ -1,1 +1,1 @@
-web: /opt/render/project/src/.venv/bin/python -m gunicorn app:app --preload --timeout 120 --log-file -
+/opt/render/project/src/.venv/bin/python -m gunicorn app:app --timeout 120 --log-file -
