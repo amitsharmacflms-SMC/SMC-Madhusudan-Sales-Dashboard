@@ -1,79 +1,97 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Sales Dashboard</title>
+  <meta charset="utf-8" />
+  <title>Dashboard - SMC</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100">
-
-  <nav class="bg-blue-700 text-white p-4 flex justify-between items-center">
-    <h1 class="text-xl font-bold">📊 SMC Madhusudan Sales Dashboard</h1>
-    <a href="{{ url_for('logout') }}" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded">Logout</a>
-  </nav>
-
-  <div class="container mx-auto mt-6 px-4">
-    <div class="bg-white shadow-lg rounded-lg p-6">
-
-      <!-- Tabs + Export -->
-      <div class="flex justify-between items-center mb-6">
-        <div class="flex gap-4">
-          <a href="{{ url_for('dashboard', tab='product') }}"
-             class="px-4 py-2 rounded {{ 'bg-blue-600 text-white' if active_tab=='product' else 'bg-gray-200 text-gray-700' }}">
-             📦 Product View
-          </a>
-          <a href="{{ url_for('dashboard', tab='sku') }}"
-             class="px-4 py-2 rounded {{ 'bg-blue-600 text-white' if active_tab=='sku' else 'bg-gray-200 text-gray-700' }}">
-             🎯 SKU View
-          </a>
-        </div>
-
-        <a href="{{ url_for('export_data', tab=active_tab, date_filter=selected_date) }}"
-           class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">⬇️ Export CSV</a>
+<body class="bg-gray-50">
+  <div class="p-6 max-w-7xl mx-auto">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h1 class="text-2xl font-bold">Sales Dashboard</h1>
+        <div class="text-sm text-gray-600">Logged in as: {{ role }}</div>
       </div>
-
-      <!-- Single Smart Filter -->
-      <form method="get" class="flex flex-wrap gap-4 mb-6 items-center">
-        <input type="hidden" name="tab" value="{{ active_tab }}">
-        <div>
-          <label class="font-medium text-gray-700">Select Month / Quarter:</label>
-          <select name="date_filter" class="border border-gray-300 rounded px-3 py-2">
-            <option value="">All</option>
-            {% for d in dates %}
-            <option value="{{ d }}" {% if selected_date==d %}selected{% endif %}>{{ d }}</option>
+      <div class="flex items-center gap-2">
+        <form method="get" action="{{ url_for('dashboard') }}" id="filterForm" class="flex items-center gap-2">
+          <input type="hidden" name="tab" value="{{ active_tab }}" id="activeTabInput" />
+          <select name="date_filter" onchange="document.getElementById('filterForm').submit()" class="border p-2 rounded">
+            <option value="">-- Select Month / Quarter (Filter) --</option>
+            {% for val, label in filter_options %}
+              <option value="{{ val }}" {% if selected==val %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
-        </div>
-        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Apply Filter</button>
-      </form>
+        </form>
 
-      <!-- Table -->
-      <div class="overflow-x-auto">
-        <table class="min-w-full border border-gray-300 text-sm text-left">
-          <thead class="bg-gray-200 text-gray-700 uppercase text-xs font-semibold">
-            <tr>
-              {% if data %}
-              {% for col in data[0].keys() %}
-              <th class="px-4 py-2 border">{{ col }}</th>
-              {% endfor %}
-              {% endif %}
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200">
-            {% if data %}
-            {% for r in data %}
-            <tr class="hover:bg-gray-50">
-              {% for val in r.values() %}
-              <td class="px-4 py-2 border text-center">{{ val if val is not none else '-' }}</td>
-              {% endfor %}
-            </tr>
-            {% endfor %}
-            {% else %}
-            <tr><td colspan="20" class="text-center text-gray-500 py-4">No data available</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
+        <div>
+          <a href="{{ url_for('export_csv', tab=active_tab, date_filter=selected) }}" class="bg-green-600 text-white px-3 py-2 rounded">Export CSV</a>
+        </div>
+
+        <a href="{{ url_for('logout') }}" class="bg-gray-200 px-3 py-2 rounded">Logout</a>
       </div>
+    </div>
+
+    <div class="mb-4">
+      <nav class="flex gap-2">
+        <a href="{{ url_for('dashboard', tab='product', date_filter=selected) }}" class="px-4 py-2 rounded {{ 'bg-blue-600 text-white' if active_tab=='product' else 'bg-white border' }}">Products ({{ product_count }})</a>
+        <a href="{{ url_for('dashboard', tab='sku', date_filter=selected) }}" class="px-4 py-2 rounded {{ 'bg-blue-600 text-white' if active_tab=='sku' else 'bg-white border' }}">SKU ({{ sku_count }})</a>
+      </nav>
+    </div>
+
+    <div class="overflow-x-auto bg-white rounded shadow">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="bg-gray-100 text-left">
+            {% if display_rows and display_rows|length>0 %}
+              {% for col in display_rows[0].keys() %}
+                <th class="px-4 py-2 border">{{ col }}</th>
+              {% endfor %}
+            {% else %}
+              <th class="px-4 py-2 border">No data</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% if display_rows and display_rows|length>0 %}
+            {% for r in display_rows %}
+              <tr class="odd:bg-white even:bg-gray-50">
+                {% for v in r.values() %}
+                  {% set val = v %}
+                  {% if loop.index == (r.keys()|list).index('COMPARISON') + 1 if 'COMPARISON' in r else False %}
+                    {# handled below - but Jinja makes this awkward; instead handle COMPARISON cell formatting inline #}
+                  {% endif %}
+                {% endfor %}
+                {# Render each cell with special formatting for COMPARISON numeric coloring #}
+                {% for key, val in r.items() %}
+                  {% if key == 'COMPARISON' %}
+                    {% if val == "" %}
+                      <td class="px-4 py-2 border text-center">-</td>
+                    {% else %}
+                      {% set floatval = (val|float(0)) %}
+                      <td class="px-4 py-2 border text-center {% if floatval > 0 %}text-green-600{% elif floatval < 0 %}text-red-600{% endif %}">
+                        {{ "%.2f"|format(floatval) }}
+                      </td>
+                    {% endif %}
+                  {% elif key in ['Quarter_Avg', 'Prev_Quarter_Avg', 'Year_Avg', 'VALUE'] %}
+                    {% if val == "" %}
+                      <td class="px-4 py-2 border text-right">-</td>
+                    {% else %}
+                      <td class="px-4 py-2 border text-right">{{ "%.2f"|format(val|float) }}</td>
+                    {% endif %}
+                  {% else %}
+                    <td class="px-4 py-2 border">{{ val }}</td>
+                  {% endif %}
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td class="px-4 py-6 text-center text-gray-500">No data available for selected filter.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
     </div>
   </div>
 </body>
