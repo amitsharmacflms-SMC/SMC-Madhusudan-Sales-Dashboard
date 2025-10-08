@@ -1,68 +1,13 @@
-# Python
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 *.log
-
-# Environment
 .env
 venv/
-ENV/
 *.sqlite3
 dashboard.db
-
-# OS
+node_modules/
 .DS_Store
 Thumbs.db
-
-# Build / temp
-node_modules/
-*.log
-*.bak
-
-# IDE
-.vscode/
-.idea/
-__pycache__/
-*.pyc
-*.pyo
-.env
-venv/
-*.sqlite3
-dashboard.db
-.DS_Store
-node_modules/
-
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Environments
-.env
-venv/
-ENV/
-
-# Local databases
-*.sqlite3
-dashboard.db
-
-# Sensitive data
-data/*.csv
-data/*.xlsx
-data/*.xls
-
-# OS junk
-.DS_Store
-Thumbs.db
-
-# Build / logs
-node_modules/
-*.log
-
-# IDE
-.vscode/
-.idea/
