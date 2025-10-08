@@ -81,8 +81,13 @@
               <td class="px-4 py-2 border">{{ r["PRODUCT"] }}</td>
               <td class="px-4 py-2 border text-center">{{ "%.2f"|format(r["AVG Q1"]) if r["AVG Q1"] else "-" }}</td>
               <td class="px-4 py-2 border text-center">{{ "%.2f"|format(r["AVG Q2"]) if r["AVG Q2"] else "-" }}</td>
-              <td class="px-4 py-2 border text-center {% if r['COMPARISON']>0 %}text-green-600{% elif r['COMPARISON']<0 %}text-red-600{% endif %}">
-                {% if r["COMPARISON"] %}{{ "%.2f"|format(r["COMPARISON"]) }}{% else %}-{% endif %}
+              <td class="px-4 py-2 border text-center
+    {% if r['COMPARISON'] is not none %}
+        {% if r['COMPARISON'] > 0 %} text-green-600
+        {% elif r['COMPARISON'] < 0 %} text-red-600
+        {% endif %}
+    {% endif %}">
+
               </td>
             </tr>
             {% endfor %}
