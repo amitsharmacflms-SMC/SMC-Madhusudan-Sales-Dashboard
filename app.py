@@ -110,8 +110,7 @@ def calculate_averages(df):
 @app.route("/")
 def home():
     # Always start at login page
-    return render_template("login.html")
-
+    return render_template("login.html", datetime=datetime)
 
 @app.route("/login", methods=["POST"])
 def login():
