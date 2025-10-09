@@ -6,318 +6,186 @@
   <title>SMC Madhusudan Dashboard</title>
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
-  <meta name="description" content="SMC Madhusudan Sales Dashboard - Product & SKU views">
+  <style>
+    /* optional smoother transitions for shading */
+    td { transition: background-color 0.3s ease; }
+  </style>
 </head>
+
 <body class="bg-gray-50 text-gray-900">
-
-  <!-- Header -->
-  <header class="bg-white shadow-sm sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="h-10 w-auto">
-        <h1 class="text-xl font-bold text-gray-800">SMC Madhusudan Dashboard</h1>
-      </div>
-      <div>
-        <button id="toggleViewBtn"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow">
-          Switch to SKU View
-        </button>
-      </div>
+<header class="bg-white shadow-sm sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="h-10 w-auto">
+      <h1 class="text-xl font-bold text-gray-800">SMC Madhusudan Dashboard</h1>
     </div>
-  </header>
+    <button id="toggleViewBtn"
+      class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow">
+      Switch to SKU View
+    </button>
+  </div>
+</header>
 
-  <!-- Main -->
-  <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-    <section class="bg-white p-6 rounded-xl shadow">
-      <!-- Filters container -->
-      <div id="filtersRow" class="flex flex-wrap gap-4 mb-4"></div>
+<main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+  <section class="bg-white p-6 rounded-xl shadow">
+    <div id="filtersRow" class="flex flex-wrap gap-4 mb-4"></div>
+    <div id="loader" class="text-center py-8 text-gray-500">Loading data...</div>
 
-      <!-- loader -->
-      <div id="loader" class="text-center py-8 text-gray-500">Loading data...</div>
+    <div class="overflow-x-auto">
+      <table id="dataTable" class="min-w-full divide-y divide-gray-200 hidden">
+        <thead id="tableHead" class="bg-gray-100"></thead>
+        <tbody id="tableBody" class="divide-y divide-gray-200"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
 
-      <!-- table wrapper -->
-      <div class="overflow-x-auto">
-        <table id="dataTable" class="min-w-full divide-y divide-gray-200 hidden">
-          <thead id="tableHead" class="bg-gray-100"></thead>
-          <tbody id="tableBody" class="divide-y divide-gray-200"></tbody>
-        </table>
-      </div>
-    </section>
-  </main>
-
-  <footer class="mt-10 bg-gray-100 py-4 text-center text-sm text-gray-500">
-    © {{ current_year }} SMC Madhusudan | All Rights Reserved
-  </footer>
+<footer class="mt-10 bg-gray-100 py-4 text-center text-sm text-gray-500">
+  © {{ current_year }} SMC Madhusudan | All Rights Reserved
+</footer>
 
 <script>
-/**
- * Robust dynamic dashboard
- * - case-insensitive header mapping
- * - text filters for specific fields
- * - numeric (month/avg) selector
- * - shows all columns in table
- */
+let currentView = "product";
+const baseTextCols = ["STATE","MANAGER_NAME","DISTRICT","PARTY_NAME","PRODUCT","SKU"];
 
-// current view
-let currentView = "product"; // initial
-
-// canonical text columns to provide filters for (lowercase)
-const canonicalTextCols = ["state", "manager_name", "district", "party_name", "product", "sku"];
-
-function normalizeName(s){
-  if(s === null || s === undefined) return "";
-  return String(s).trim().toLowerCase().replace(/\s+/g, "_").replace(/-+/g, "_");
-}
-
-function createSelectForColumn(colLabel, values, selectId, widthClass = "w-56") {
-  const container = document.createElement("div");
-  const label = document.createElement("label");
-  label.className = "block text-sm font-medium text-gray-700";
-  label.textContent = colLabel;
-  const select = document.createElement("select");
-  select.className = `border border-gray-300 rounded-md p-2 text-sm ${widthClass}`;
-  select.id = selectId;
-  select.setAttribute("data-col", colLabel);
-
-  const optAll = document.createElement("option");
-  optAll.value = "";
-  optAll.textContent = "All";
-  select.appendChild(optAll);
-
-  // sort values (strings/numbers)
-  values.sort((a,b) => {
-    const aa = String(a).toLowerCase();
-    const bb = String(b).toLowerCase();
-    if (aa < bb) return -1;
-    if (aa > bb) return 1;
-    return 0;
-  });
-
-  values.forEach(v => {
-    const o = document.createElement("option");
-    o.value = v === null ? "" : String(v);
-    o.textContent = v === null ? "" : String(v);
-    select.appendChild(o);
-  });
-
-  container.appendChild(label);
-  container.appendChild(select);
-  return container;
-}
-
-function clearChildren(el){
-  while(el.firstChild) el.removeChild(el.firstChild);
-}
-
-// fetch and render
-async function loadData(viewType = "product") {
-  currentView = viewType;
-  document.getElementById("loader").classList.remove("hidden");
-  document.getElementById("dataTable").classList.add("hidden");
-
+async function loadData(viewType="product"){
   const res = await fetch(`/get_data/${viewType}`);
   const data = await res.json();
+  const loader=document.getElementById("loader"),
+        filtersRow=document.getElementById("filtersRow"),
+        table=document.getElementById("dataTable"),
+        thead=document.getElementById("tableHead"),
+        tbody=document.getElementById("tableBody");
 
-  const loader = document.getElementById("loader");
-  const filtersRow = document.getElementById("filtersRow");
-  const table = document.getElementById("dataTable");
-  const thead = document.getElementById("tableHead");
-  const tbody = document.getElementById("tableBody");
+  if(!data||data.error){loader.textContent="⚠️ Error loading data.";return;}
+  if(!data.length){loader.textContent="No data found.";return;}
+  loader.classList.add("hidden");table.classList.remove("hidden");
 
-  clearChildren(filtersRow);
-  clearChildren(thead);
-  clearChildren(tbody);
+  const headers=Object.keys(data[0]);
+  const textCols=baseTextCols.filter(c=>headers.includes(c));
+  const numericCols=headers.filter(h=>!textCols.includes(h));
 
-  if(!data || data.error){
-    loader.textContent = "⚠️ Error loading data.";
-    return;
-  }
-  if(!Array.isArray(data) || data.length === 0){
-    loader.textContent = "No data found.";
-    return;
-  }
+  /* ---------- build table header ---------- */
+  thead.innerHTML=`<tr>${headers.map(h=>`<th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">${h}</th>`).join("")}</tr>`;
 
-  loader.classList.add("hidden");
-  table.classList.remove("hidden");
-
-  // headers as returned (preserve casing)
-  const headers = Object.keys(data[0]);
-
-  // mapping normalized -> original header name
-  const normMap = {};
-  headers.forEach(h => normMap[normalizeName(h)] = h);
-
-  // Determine text filter columns present in this dataset (case-insensitive)
-  const textColsPresent = [];
-  canonicalTextCols.forEach(canonical => {
-    if(normMap[canonical]) textColsPresent.push(normMap[canonical]);
+  /* ---------- filters ---------- */
+  filtersRow.innerHTML="";
+  textCols.forEach(col=>{
+    const uniq=[...new Set(data.map(d=>d[col]))].filter(Boolean);
+    filtersRow.innerHTML+=`
+      <div>
+        <label class="block text-sm font-medium text-gray-700">${col}</label>
+        <select multiple id="filter_${col}" class="border border-gray-300 rounded-md p-2 text-sm w-48 h-24">
+          ${uniq.map(v=>`<option value="${v}">${v}</option>`).join("")}
+        </select>
+      </div>`;
   });
 
-  // If SKU exists and product view doesn't have it, it'll be included in SKU view only.
-  // Build unique values for each text filter
-  textColsPresent.forEach(h => {
-    const uniqueSet = new Set();
-    for(let i=0;i<data.length;i++){
-      const v = data[i][h];
-      if(v !== null && v !== undefined && String(v).trim() !== "") uniqueSet.add(String(v));
-    }
-    const arr = Array.from(uniqueSet);
-    // create select element and append
-    const selEl = createSelectForColumn(h, arr, `filter_${normalizeName(h)}`, "w-44");
-    filtersRow.appendChild(selEl);
+  filtersRow.innerHTML+=`
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Group By</label>
+      <select id="groupBy" class="border border-gray-300 rounded-md p-2 text-sm w-48">
+        <option value="">None</option>
+        ${textCols.map(c=>`<option value="${c}">${c}</option>`).join("")}
+      </select>
+    </div>`;
+
+  filtersRow.innerHTML+=`
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Comparison</label>
+      <select multiple id="compareCols" class="border border-gray-300 rounded-md p-2 text-sm w-56 h-24">
+        ${numericCols.map(c=>`<option value="${c}">${c}</option>`).join("")}
+      </select>
+    </div>`;
+
+  /* ---------- helpers ---------- */
+  const minmax={};
+  numericCols.forEach(c=>{
+    const vals=data.map(r=>Number(r[c]||0));
+    minmax[c]={min:Math.min(...vals),max:Math.max(...vals)};
   });
 
-  // Determine numeric (month/avg) columns:
-  // We'll check up to first 20 rows for a numeric-like non-empty value
-  function isNumericColumn(col) {
-    for(let i=0;i<Math.min(20, data.length); i++){
-      const v = data[i][col];
-      if (v === null || v === undefined || String(v).trim() === "") continue;
-      // treat values like "0", "12.3", 0, 0.0 as numeric
-      if (!isNaN(Number(v))) return true;
-      return false; // first non-empty is non-numeric
-    }
-    return false;
+  function colorShade(val,col){
+    const {min,max}=minmax[col];
+    if(max===min) return "";
+    const ratio=(val-min)/(max-min);
+    // red→white→green gradient
+    const r=Math.round(255*(1-ratio));
+    const g=Math.round(255*ratio);
+    return `background-color:rgba(${r},${g},200,0.25)`;
   }
 
-  const monthAvgCols = headers.filter(h => isNumericColumn(h));
-
-  // Add a Month / Average dropdown (keeps all numeric columns)
-  if(monthAvgCols.length > 0){
-    const container = document.createElement("div");
-    const label = document.createElement("label");
-    label.className = "block text-sm font-medium text-gray-700";
-    label.textContent = "Month / Average";
-    const select = document.createElement("select");
-    select.className = "border border-gray-300 rounded-md p-2 text-sm w-56";
-    select.id = "filter_monthavg";
-    const optAll = document.createElement("option");
-    optAll.value = "";
-    optAll.textContent = "All";
-    select.appendChild(optAll);
-    monthAvgCols.forEach(c => {
-      const o = document.createElement("option");
-      o.value = c;
-      o.textContent = c;
-      select.appendChild(o);
-    });
-    container.appendChild(label);
-    container.appendChild(select);
-    filtersRow.appendChild(container);
-  }
-
-  // Small helper: create global search box
-  const searchContainer = document.createElement("div");
-  const searchLabel = document.createElement("label");
-  searchLabel.className = "block text-sm font-medium text-gray-700";
-  searchLabel.textContent = "Search (any column)";
-  const searchInput = document.createElement("input");
-  searchInput.type = "search";
-  searchInput.placeholder = "type to search...";
-  searchInput.className = "border border-gray-300 rounded-md p-2 text-sm w-64";
-  searchInput.id = "global_search";
-  searchContainer.appendChild(searchLabel);
-  searchContainer.appendChild(searchInput);
-  filtersRow.appendChild(searchContainer);
-
-  // Build table header row
-  const trHead = document.createElement("tr");
-  headers.forEach(h => {
-    const th = document.createElement("th");
-    th.className = "px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap";
-    th.textContent = h;
-    trHead.appendChild(th);
-  });
-  thead.appendChild(trHead);
-
-  // Render function for rows
-  function renderRows(rows) {
-    clearChildren(tbody);
-    // limit to first N rows? We will render all for now
-    rows.forEach(row => {
-      const tr = document.createElement("tr");
-      headers.forEach(h => {
-        const td = document.createElement("td");
-        td.className = "px-4 py-2 text-sm text-gray-700 whitespace-nowrap";
-        const raw = row[h];
-        td.textContent = (raw === null || raw === undefined) ? "" : String(raw);
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-    });
-  }
-
-  renderRows(data);
-
-  // Filter application logic
-  function applyFilters() {
-    let filtered = data.slice();
-
-    // apply text filters
-    textColsPresent.forEach(h => {
-      const sel = document.getElementById(`filter_${normalizeName(h)}`);
-      if(sel && sel.value) {
-        filtered = filtered.filter(r => {
-          const val = r[h];
-          // Compare as string exact match
-          return String(val) === sel.value;
-        });
-      }
-    });
-
-    // apply Month/Average numeric filter: keep rows with non-zero numeric value for selected column
-    const monthSel = document.getElementById("filter_monthavg");
-    if(monthSel && monthSel.value) {
-      const selCol = monthSel.value;
-      filtered = filtered.filter(r => {
-        const v = r[selCol];
-        if (v === null || v === undefined || String(v).trim() === "") return false;
-        const num = Number(v);
-        return !isNaN(num) && num !== 0;
-      });
-    }
-
-    // apply global search (case-insensitive substring match across all columns)
-    const searchVal = (document.getElementById("global_search")?.value || "").trim().toLowerCase();
-    if(searchVal) {
-      filtered = filtered.filter(r => {
-        for(const h of headers){
-          const v = r[h];
-          if (v === null || v === undefined) continue;
-          if(String(v).toLowerCase().includes(searchVal)) return true;
+  function render(rows){
+    tbody.innerHTML=rows.map(r=>{
+      let prevVal=null;
+      const rowHTML=headers.map((h,idx)=>{
+        let v=r[h];let style="";
+        if(numericCols.includes(h)){
+          const num=Number(v)||0;
+          v=Math.round(num);
+          // compare with previous numeric col (month-to-month shading)
+          if(idx>0&&numericCols.includes(headers[idx-1])){
+            const diff=num-Number(r[headers[idx-1]]||0);
+            style=diff>0?"color:green":diff<0?"color:red":"";
+          }
+          style+=(style?";":"")+colorShade(num,h);
         }
-        return false;
-      });
-    }
-
-    renderRows(filtered);
+        if(h==="Comparison"){
+          const cmp=Number(v)||0;
+          style=cmp>0?"color:green":"color:red";
+        }
+        return `<td class="px-4 py-2 text-sm whitespace-nowrap" style="${style}">${v??""}</td>`;
+      }).join("");
+      return `<tr>${rowHTML}</tr>`;
+    }).join("");
   }
 
-  // event delegation - use change events on filtersRow and input on search
-  filtersRow.addEventListener("change", applyFilters);
-  searchInput.addEventListener("input", () => {
-    // small debounce
-    if(window._searchDebounce) clearTimeout(window._searchDebounce);
-    window._searchDebounce = setTimeout(applyFilters, 200);
-  });
+  /* ---------- filtering ---------- */
+  function applyFilters(){
+    let filtered=[...data];
+    textCols.forEach(c=>{
+      const sel=Array.from(document.getElementById(`filter_${c}`).selectedOptions).map(o=>o.value);
+      if(sel.length) filtered=filtered.filter(r=>sel.includes(r[c]));
+    });
+
+    const groupBy=document.getElementById("groupBy").value;
+    if(groupBy){
+      const grouped={};
+      filtered.forEach(r=>{
+        const key=r[groupBy]||"Unknown";
+        if(!grouped[key]) grouped[key]={};
+        numericCols.forEach(n=>grouped[key][n]=(grouped[key][n]||0)+Number(r[n]||0));
+        textCols.forEach(t=>grouped[key][t]=key);
+      });
+      filtered=Object.values(grouped);
+    }
+
+    const comps=Array.from(document.getElementById("compareCols").selectedOptions).map(o=>o.value);
+    if(comps.length===2){
+      const [c1,c2]=comps;
+      filtered=filtered.map(r=>{
+        const v1=Number(r[c1]||0),v2=Number(r[c2]||0);
+        return {...r,Comparison:v2-v1};
+      });
+      if(!headers.includes("Comparison")) headers.push("Comparison");
+      thead.innerHTML=`<tr>${headers.map(h=>`<th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">${h}</th>`).join("")}</tr>`;
+    }
+
+    render(filtered);
+  }
+
+  filtersRow.addEventListener("change",applyFilters);
+  applyFilters();
 }
 
-// toggle handler
-document.getElementById("toggleViewBtn").addEventListener("click", (evt) => {
-  const btn = evt.currentTarget;
-  if(currentView === "product") {
-    currentView = "sku";
-    btn.textContent = "Switch to Product View";
-  } else {
-    currentView = "product";
-    btn.textContent = "Switch to SKU View";
-  }
-  // reload
+/* ---------- toggle ---------- */
+document.getElementById("toggleViewBtn").addEventListener("click",function(){
+  currentView=currentView==="product"?"sku":"product";
+  this.textContent=currentView==="product"?"Switch to SKU View":"Switch to Product View";
   loadData(currentView);
 });
 
-// initial load
-document.addEventListener("DOMContentLoaded", () => loadData(currentView));
+document.addEventListener("DOMContentLoaded",()=>loadData(currentView));
 </script>
 </body>
 </html>
