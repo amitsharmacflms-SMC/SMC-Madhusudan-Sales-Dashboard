@@ -9,15 +9,18 @@
 
   <style>
     body { font-family: 'Inter', sans-serif; background: #f9fafb; }
+
+    /* Table styling */
     th, td {
-      border: 1px solid #d1d5db;
+      border: 2px solid #9ca3af;
       vertical-align: middle;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
+      font-weight: 600; /* bold data */
     }
     th {
       background: linear-gradient(to right, #eef2ff, #e0e7ff);
       position: sticky; top: 0; z-index: 10;
-      color: #1e3a8a; font-weight: 600;
+      color: #1e3a8a; font-weight: 700;
       text-align: center;
     }
     td.numeric { text-align: center; }
@@ -31,7 +34,7 @@
     .btn-gray { background: #f3f4f6; color: #111827; }
     .btn-gray:hover { background: #e5e7eb; }
 
-    /* Modern Filter Bar */
+    /* Filter bar & boxes */
     .filter-bar {
       display: flex;
       overflow-x: auto;
@@ -41,9 +44,9 @@
       border-radius: 0.75rem;
       box-shadow: inset 0 0 4px #e5e7eb;
       scroll-behavior: smooth;
+      transition: all 0.3s ease;
     }
     .filter-box {
-      background: linear-gradient(to bottom right, #f0f9ff, #e0f2fe);
       border: 1px solid #93c5fd;
       border-radius: 0.6rem;
       padding: 6px;
@@ -51,15 +54,21 @@
       font-size: 0.75rem;
       color: #1f2937;
       flex-shrink: 0;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.08);
       overflow-y: auto;
-      max-height: 150px;
+      max-height: 160px;
+      background: linear-gradient(to bottom right, #f0f9ff, #dbeafe);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .filter-box:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
     }
     .filter-box strong {
       display: block;
       text-align: center;
       color: #1d4ed8;
-      font-size: 0.7rem;
+      font-size: 0.75rem;
       margin-bottom: 4px;
       text-transform: uppercase;
     }
@@ -84,6 +93,12 @@
       max-height: 70vh;
       overflow: auto;
       border-radius: 0.75rem;
+    }
+
+    tfoot {
+      background: #f3f4f6;
+      font-weight: 700;
+      text-align: center;
     }
   </style>
 </head>
@@ -113,6 +128,7 @@
       <table id="dataTable" class="min-w-full divide-y divide-gray-300 hidden">
         <thead id="tableHead"></thead>
         <tbody id="tableBody" class="divide-y divide-gray-200"></tbody>
+        <tfoot id="tableFoot"></tfoot>
       </table>
     </div>
   </section>
@@ -146,7 +162,8 @@ async function loadData(view="product"){
         filters=document.getElementById("filtersContainer"),
         table=document.getElementById("dataTable"),
         thead=document.getElementById("tableHead"),
-        tbody=document.getElementById("tableBody");
+        tbody=document.getElementById("tableBody"),
+        tfoot=document.getElementById("tableFoot");
 
   if(!data||data.error){loader.textContent="⚠️ Error loading data.";return;}
   if(!data.length){loader.textContent="No data found.";return;}
@@ -165,54 +182,47 @@ async function loadData(view="product"){
   // --- Build Filters ---
   filters.innerHTML = "";
 
-  // Text filters
-  textCols.forEach(col=>{
+  // Function to build filters with "All" option
+  function buildFilter(col, color){
     const vals=[...new Set(data.map(d=>d[col.toLowerCase()]))].filter(Boolean).sort();
     const box=document.createElement("div");
     box.className="filter-box";
-    box.innerHTML=`<strong>${col}</strong>` + vals.map(v=>`<label><input type="checkbox" name="${col}" value="${v}">${v}</label>`).join("");
+    box.style.background=color;
+    box.innerHTML=`<strong>${col}</strong>
+      <label><input type="checkbox" class="all-toggle" name="${col}" value="__ALL__">All</label>` +
+      vals.map(v=>`<label><input type="checkbox" name="${col}" value="${v}">${v}</label>`).join("");
     filters.appendChild(box);
-  });
-
-  // Month / Year filter
-  const monthBox=document.createElement("div");
-  monthBox.className="filter-box";
-  monthBox.innerHTML=`<strong>MONTH / YEAR</strong>` +
-    orderedNumeric.map(c=>`<label><input type="checkbox" name="monthyear" value="${c}" checked>${c}</label>`).join("");
-  filters.appendChild(monthBox);
-
-  // Comparison filter
-  const cmp=document.createElement("div");
-  cmp.className="filter-box";
-  cmp.innerHTML=`<strong>COMPARISON</strong>` +
-    orderedNumeric.map(c=>`<label><input type="checkbox" name="compare" value="${c}">${c}</label>`).join("");
-  filters.appendChild(cmp);
-
-  // ---- Cascade Filter Logic ----
-  function updateCascade(level, parentCol, childCol){
-    const selected = Array.from(document.querySelectorAll(`input[name='${parentCol}']:checked`)).map(e=>e.value);
-    const allChildInputs = document.querySelectorAll(`input[name='${childCol}']`);
-    if(!selected.length){
-      allChildInputs.forEach(el=>el.parentElement.style.display="block");
-      return;
-    }
-    const subset = data.filter(r=>selected.includes(r[parentCol.toLowerCase()]));
-    const allowedVals = new Set(subset.map(r=>r[childCol.toLowerCase()]));
-    allChildInputs.forEach(el=>{
-      el.parentElement.style.display = allowedVals.has(el.value) ? "block" : "none";
-    });
   }
 
-  // Cascade order: State -> Manager -> District -> Party -> Product
-  ["STATE","MANAGER_NAME","DISTRICT","PARTY_NAME"].forEach((col,i)=>{
-    if(i < 4){
-      const parent=baseTextCols[i];
-      const child=baseTextCols[i+1];
-      document.querySelectorAll(`input[name='${parent}']`).forEach(cb=>{
-        cb.addEventListener("change",()=>updateCascade(i,parent,child));
-      });
-    }
-  });
+  const colors=[
+    "linear-gradient(to bottom right,#e0f7fa,#b2ebf2)",
+    "linear-gradient(to bottom right,#ede9fe,#c7d2fe)",
+    "linear-gradient(to bottom right,#fef9c3,#fde68a)",
+    "linear-gradient(to bottom right,#fce7f3,#fbcfe8)",
+    "linear-gradient(to bottom right,#dcfce7,#bbf7d0)"
+  ];
+
+  textCols.forEach((c,i)=>buildFilter(c,colors[i%colors.length]));
+
+  // Month / Year & Comparison filters
+  buildFilter("MONTH / YEAR","linear-gradient(to bottom right,#e0f2fe,#bae6fd)");
+  buildFilter("COMPARISON","linear-gradient(to bottom right,#fef3c7,#fde68a)");
+
+  // Show Columns filter
+  const showBox=document.createElement("div");
+  showBox.className="filter-box";
+  showBox.style.background="linear-gradient(to bottom right,#e0e7ff,#c7d2fe)";
+  showBox.innerHTML=`<strong>SHOW COLUMNS</strong>` +
+    textCols.map(c=>`<label><input type="checkbox" name="showcol" value="${c}" checked>${c}</label>`).join("");
+  filters.appendChild(showBox);
+
+  // Total filter
+  const totalBox=document.createElement("div");
+  totalBox.className="filter-box";
+  totalBox.style.background="linear-gradient(to bottom right,#fce7f3,#fbcfe8)";
+  totalBox.innerHTML=`<strong>TOTAL</strong>` +
+    textCols.map(c=>`<label><input type="checkbox" name="total" value="${c}">${c}</label>`).join("");
+  filters.appendChild(totalBox);
 
   // ---- Render ----
   function render(rows, cols=orderedHeaders){
@@ -225,7 +235,7 @@ async function loadData(view="product"){
           const prev=(idx>0 && orderedNumeric.includes(cols[idx-1]))?Number(r[cols[idx-1].toLowerCase()]):val;
           style=(val>prev?"color:green":val<prev?"color:red":"");
         }
-        return `<td class="numeric text-xs" style="${style}">${val}</td>`;
+        return `<td class="numeric" style="${style}">${val}</td>`;
       }).join("")}</tr>`;
     }).join("");
   }
@@ -236,25 +246,41 @@ async function loadData(view="product"){
 
     textCols.forEach(c=>{
       const selected = Array.from(document.querySelectorAll(`input[name='${c}']:checked`)).map(e=>e.value);
-      if(selected.length) filtered = filtered.filter(r=>selected.includes(r[c.toLowerCase()]));
+      if(selected.length && !selected.includes("__ALL__"))
+        filtered = filtered.filter(r=>selected.includes(r[c.toLowerCase()]));
     });
 
-    const visibleMonths = Array.from(document.querySelectorAll("input[name='monthyear']:checked")).map(e=>e.value);
-    const compSel = Array.from(document.querySelectorAll("input[name='compare']:checked")).map(e=>e.value);
-    const colsToShow=[...textCols,...visibleMonths];
+    const visibleCols = Array.from(document.querySelectorAll("input[name='showcol']:checked")).map(e=>e.value);
+    const totalSel = Array.from(document.querySelectorAll("input[name='total']:checked")).map(e=>e.value);
 
-    if(compSel.length===2){
-      const [a,b]=compSel;
-      filtered=filtered.map(r=>{
-        const diff=(Number(r[b.toLowerCase()])||0)-(Number(r[a.toLowerCase()])||0);
-        return {...r,comparison:diff};
-      });
-      colsToShow.push("COMPARISON");
-    }
+    const colsToShow=[...visibleCols,...orderedNumeric];
 
     thead.innerHTML=`<tr>${colsToShow.map(h=>`<th>${h}</th>`).join("")}</tr>`;
     render(filtered,colsToShow);
+
+    // --- Total Calculation ---
+    if(totalSel.length){
+      const totalRow={};
+      orderedNumeric.forEach(n=>totalRow[n]=filtered.reduce((sum,r)=>sum+(Number(r[n.toLowerCase()])||0),0));
+      totalSel.forEach(t=>totalRow[t]=`TOTAL ${t}`);
+      tfoot.innerHTML=`<tr>${colsToShow.map(h=>{
+        const key=h.toLowerCase();
+        const val=totalRow[key]!==undefined?totalRow[key]:"";
+        return `<td>${val}</td>`;
+      }).join("")}</tr>`;
+    } else tfoot.innerHTML="";
   }
+
+  // --- "All" checkbox logic ---
+  filters.addEventListener("change",e=>{
+    const el=e.target;
+    if(el.classList.contains("all-toggle")){
+      const group=el.name;
+      const allInGroup=document.querySelectorAll(`input[name='${group}']:not(.all-toggle)`);
+      allInGroup.forEach(cb=>cb.checked=el.checked);
+    }
+    applyFilters();
+  });
 
   // ---- Buttons ----
   document.getElementById("exportBtn").onclick=()=>{
@@ -269,6 +295,7 @@ async function loadData(view="product"){
 
   document.getElementById("clearFiltersBtn").onclick=()=>{
     document.querySelectorAll("input[type='checkbox']").forEach(cb=>cb.checked=false);
+    tfoot.innerHTML="";
     applyFilters();
   };
 
@@ -279,7 +306,6 @@ async function loadData(view="product"){
     else{filters.classList.remove("hidden");toggleBtn.textContent="Hide Filters";}
   };
 
-  filters.addEventListener("change",applyFilters);
   applyFilters();
 }
 
