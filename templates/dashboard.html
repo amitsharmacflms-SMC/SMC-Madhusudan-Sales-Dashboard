@@ -1,177 +1,323 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>SMC Madhusudan Dashboard</title>
-
-  <!-- ✅ Tailwind CSS -->
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
-
-  <!-- ✅ SEO -->
-  <meta name="description" content="SMC Madhusudan Sales Dashboard - Live performance data by product and SKU across managers and regions.">
+  <meta name="description" content="SMC Madhusudan Sales Dashboard - Product & SKU views">
 </head>
-
 <body class="bg-gray-50 text-gray-900">
 
-  <!-- ✅ HEADER -->
+  <!-- Header -->
   <header class="bg-white shadow-sm sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-      <!-- Logo & Title -->
+    <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="SMC Logo" class="h-10 w-auto">
-        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-gray-800">
-          SMC Madhusudan Dashboard
-        </h1>
+        <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="h-10 w-auto">
+        <h1 class="text-xl font-bold text-gray-800">SMC Madhusudan Dashboard</h1>
       </div>
-
-      <!-- Toggle -->
       <div>
-        <button 
-          id="toggleViewBtn"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition">
+        <button id="toggleViewBtn"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow">
           Switch to SKU View
         </button>
       </div>
     </div>
   </header>
 
-  <!-- ✅ MAIN CONTENT -->
+  <!-- Main -->
   <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-    <section id="data-section" class="bg-white p-6 rounded-xl shadow overflow-x-auto">
-      <!-- Filters -->
-      <div class="flex items-center justify-start mb-6 flex-wrap gap-4" id="filterContainer">
-        <!-- Filter controls generated dynamically -->
-      </div>
+    <section class="bg-white p-6 rounded-xl shadow">
+      <!-- Filters container -->
+      <div id="filtersRow" class="flex flex-wrap gap-4 mb-4"></div>
 
-      <!-- Loader -->
+      <!-- loader -->
       <div id="loader" class="text-center py-8 text-gray-500">Loading data...</div>
 
-      <!-- Data Table -->
+      <!-- table wrapper -->
       <div class="overflow-x-auto">
         <table id="dataTable" class="min-w-full divide-y divide-gray-200 hidden">
-          <thead class="bg-gray-100" id="tableHead"></thead>
-          <tbody id="dataBody" class="divide-y divide-gray-200"></tbody>
+          <thead id="tableHead" class="bg-gray-100"></thead>
+          <tbody id="tableBody" class="divide-y divide-gray-200"></tbody>
         </table>
       </div>
     </section>
   </main>
 
-  <!-- ✅ FOOTER -->
   <footer class="mt-10 bg-gray-100 py-4 text-center text-sm text-gray-500">
     © {{ current_year }} SMC Madhusudan | All Rights Reserved
   </footer>
 
-  <!-- ✅ SCRIPT -->
-  <script>
-  async function loadData(viewType = "product") {
-    const loader = document.getElementById("loader");
-    const table = document.getElementById("dataTable");
-    const tbody = document.getElementById("dataBody");
-    const thead = document.getElementById("tableHead");
-    const filterContainer = document.getElementById("filterContainer");
+<script>
+/**
+ * Robust dynamic dashboard
+ * - case-insensitive header mapping
+ * - text filters for specific fields
+ * - numeric (month/avg) selector
+ * - shows all columns in table
+ */
 
-    loader.classList.remove("hidden");
-    table.classList.add("hidden");
-    tbody.innerHTML = "";
-    thead.innerHTML = "";
+// current view
+let currentView = "product"; // initial
 
-    const res = await fetch(`/get_data/${viewType}`);
-    const data = await res.json();
+// canonical text columns to provide filters for (lowercase)
+const canonicalTextCols = ["state", "manager_name", "district", "party_name", "product", "sku"];
 
-    if (!data || data.error) {
-      loader.textContent = "⚠️ Error loading data.";
-      return;
+function normalizeName(s){
+  if(s === null || s === undefined) return "";
+  return String(s).trim().toLowerCase().replace(/\s+/g, "_").replace(/-+/g, "_");
+}
+
+function createSelectForColumn(colLabel, values, selectId, widthClass = "w-56") {
+  const container = document.createElement("div");
+  const label = document.createElement("label");
+  label.className = "block text-sm font-medium text-gray-700";
+  label.textContent = colLabel;
+  const select = document.createElement("select");
+  select.className = `border border-gray-300 rounded-md p-2 text-sm ${widthClass}`;
+  select.id = selectId;
+  select.setAttribute("data-col", colLabel);
+
+  const optAll = document.createElement("option");
+  optAll.value = "";
+  optAll.textContent = "All";
+  select.appendChild(optAll);
+
+  // sort values (strings/numbers)
+  values.sort((a,b) => {
+    const aa = String(a).toLowerCase();
+    const bb = String(b).toLowerCase();
+    if (aa < bb) return -1;
+    if (aa > bb) return 1;
+    return 0;
+  });
+
+  values.forEach(v => {
+    const o = document.createElement("option");
+    o.value = v === null ? "" : String(v);
+    o.textContent = v === null ? "" : String(v);
+    select.appendChild(o);
+  });
+
+  container.appendChild(label);
+  container.appendChild(select);
+  return container;
+}
+
+function clearChildren(el){
+  while(el.firstChild) el.removeChild(el.firstChild);
+}
+
+// fetch and render
+async function loadData(viewType = "product") {
+  currentView = viewType;
+  document.getElementById("loader").classList.remove("hidden");
+  document.getElementById("dataTable").classList.add("hidden");
+
+  const res = await fetch(`/get_data/${viewType}`);
+  const data = await res.json();
+
+  const loader = document.getElementById("loader");
+  const filtersRow = document.getElementById("filtersRow");
+  const table = document.getElementById("dataTable");
+  const thead = document.getElementById("tableHead");
+  const tbody = document.getElementById("tableBody");
+
+  clearChildren(filtersRow);
+  clearChildren(thead);
+  clearChildren(tbody);
+
+  if(!data || data.error){
+    loader.textContent = "⚠️ Error loading data.";
+    return;
+  }
+  if(!Array.isArray(data) || data.length === 0){
+    loader.textContent = "No data found.";
+    return;
+  }
+
+  loader.classList.add("hidden");
+  table.classList.remove("hidden");
+
+  // headers as returned (preserve casing)
+  const headers = Object.keys(data[0]);
+
+  // mapping normalized -> original header name
+  const normMap = {};
+  headers.forEach(h => normMap[normalizeName(h)] = h);
+
+  // Determine text filter columns present in this dataset (case-insensitive)
+  const textColsPresent = [];
+  canonicalTextCols.forEach(canonical => {
+    if(normMap[canonical]) textColsPresent.push(normMap[canonical]);
+  });
+
+  // If SKU exists and product view doesn't have it, it'll be included in SKU view only.
+  // Build unique values for each text filter
+  textColsPresent.forEach(h => {
+    const uniqueSet = new Set();
+    for(let i=0;i<data.length;i++){
+      const v = data[i][h];
+      if(v !== null && v !== undefined && String(v).trim() !== "") uniqueSet.add(String(v));
     }
-    if (!data.length) {
-      loader.textContent = "No data found.";
-      return;
+    const arr = Array.from(uniqueSet);
+    // create select element and append
+    const selEl = createSelectForColumn(h, arr, `filter_${normalizeName(h)}`, "w-44");
+    filtersRow.appendChild(selEl);
+  });
+
+  // Determine numeric (month/avg) columns:
+  // We'll check up to first 20 rows for a numeric-like non-empty value
+  function isNumericColumn(col) {
+    for(let i=0;i<Math.min(20, data.length); i++){
+      const v = data[i][col];
+      if (v === null || v === undefined || String(v).trim() === "") continue;
+      // treat values like "0", "12.3", 0, 0.0 as numeric
+      if (!isNaN(Number(v))) return true;
+      return false; // first non-empty is non-numeric
     }
+    return false;
+  }
 
-    loader.classList.add("hidden");
-    table.classList.remove("hidden");
+  const monthAvgCols = headers.filter(h => isNumericColumn(h));
 
-    const headers = Object.keys(data[0]);
-
-    // Define which columns to show filters for
-    const stringCols = ["STATE", "MANAGER_NAME", "DISTRICT", "PARTY_NAME", "PRODUCT", "SKU"];
-    const monthCols = headers.filter(h =>
-      !stringCols.includes(h) && /(\d{2}|\bAVG\b)/gi.test(h)
-    );
-
-    // 🧩 Build table headers dynamically
-    thead.innerHTML = `<tr>${headers.map(h => `
-      <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">${h}</th>
-    `).join("")}</tr>`;
-
-    // 🧩 Build filters
-    filterContainer.innerHTML = "";
-
-    stringCols.forEach(col => {
-      if (!headers.includes(col)) return;
-      const unique = [...new Set(data.map(d => d[col]))].filter(Boolean);
-      filterContainer.innerHTML += `
-        <div>
-          <label class="block text-sm font-medium text-gray-700">${col}</label>
-          <select id="filter_${col}" class="border border-gray-300 rounded-md p-2 text-sm w-40">
-            <option value="">All</option>
-            ${unique.map(u => `<option value="${u}">${u}</option>`).join("")}
-          </select>
-        </div>`;
+  // Add a Month / Average dropdown (keeps all numeric columns)
+  if(monthAvgCols.length > 0){
+    const container = document.createElement("div");
+    const label = document.createElement("label");
+    label.className = "block text-sm font-medium text-gray-700";
+    label.textContent = "Month / Average";
+    const select = document.createElement("select");
+    select.className = "border border-gray-300 rounded-md p-2 text-sm w-56";
+    select.id = "filter_monthavg";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "All";
+    select.appendChild(optAll);
+    monthAvgCols.forEach(c => {
+      const o = document.createElement("option");
+      o.value = c;
+      o.textContent = c;
+      select.appendChild(o);
     });
+    container.appendChild(label);
+    container.appendChild(select);
+    filtersRow.appendChild(container);
+  }
 
-    // Month/Average selector
-    filterContainer.innerHTML += `
-      <div>
-        <label class="block text-sm font-medium text-gray-700">Month / Average</label>
-        <select id="filterMonth" class="border border-gray-300 rounded-md p-2 text-sm w-44">
-          <option value="">All</option>
-          ${monthCols.map(col => `<option value="${col}">${col}</option>`).join("")}
-        </select>
-      </div>`;
+  // Small helper: create global search box
+  const searchContainer = document.createElement("div");
+  const searchLabel = document.createElement("label");
+  searchLabel.className = "block text-sm font-medium text-gray-700";
+  searchLabel.textContent = "Search (any column)";
+  const searchInput = document.createElement("input");
+  searchInput.type = "search";
+  searchInput.placeholder = "type to search...";
+  searchInput.className = "border border-gray-300 rounded-md p-2 text-sm w-64";
+  searchInput.id = "global_search";
+  searchContainer.appendChild(searchLabel);
+  searchContainer.appendChild(searchInput);
+  filtersRow.appendChild(searchContainer);
 
-    // 🧩 Render data
-    const render = rows => {
-      tbody.innerHTML = rows.map(r => `
-        <tr>${headers.map(h => `
-          <td class="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">${r[h] || ""}</td>
-        `).join("")}</tr>
-      `).join("");
-    };
+  // Build table header row
+  const trHead = document.createElement("tr");
+  headers.forEach(h => {
+    const th = document.createElement("th");
+    th.className = "px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap";
+    th.textContent = h;
+    trHead.appendChild(th);
+  });
+  thead.appendChild(trHead);
 
-    render(data);
-
-    // 🧩 Apply filters dynamically
-    filterContainer.addEventListener("change", () => {
-      let filtered = data;
-
-      // Text filters
-      stringCols.forEach(col => {
-        const val = document.getElementById(`filter_${col}`)?.value || "";
-        if (val) filtered = filtered.filter(r => r[col] === val);
+  // Render function for rows
+  function renderRows(rows) {
+    clearChildren(tbody);
+    // limit to first N rows? We will render all for now
+    rows.forEach(row => {
+      const tr = document.createElement("tr");
+      headers.forEach(h => {
+        const td = document.createElement("td");
+        td.className = "px-4 py-2 text-sm text-gray-700 whitespace-nowrap";
+        const raw = row[h];
+        td.textContent = (raw === null || raw === undefined) ? "" : String(raw);
+        tr.appendChild(td);
       });
-
-      // Month/Avg numeric filter
-      const monthCol = document.getElementById("filterMonth").value;
-      if (monthCol) {
-        filtered = filtered.filter(r => r[monthCol] && Number(r[monthCol]) !== 0);
-      }
-
-      render(filtered);
+      tbody.appendChild(tr);
     });
   }
 
-  // 🔁 Toggle between Product ↔ SKU
-  document.getElementById("toggleViewBtn").addEventListener("click", function() {
-    const isSKU = this.textContent.includes("SKU");
-    const view = isSKU ? "sku" : "product";
-    this.textContent = isSKU ? "Switch to Product View" : "Switch to SKU View";
-    loadData(view);
-  });
+  renderRows(data);
 
-  // Initial load: Product View
-  document.addEventListener("DOMContentLoaded", () => loadData("product"));
-  </script>
+  // Filter application logic
+  function applyFilters() {
+    let filtered = data.slice();
+
+    // apply text filters
+    textColsPresent.forEach(h => {
+      const sel = document.getElementById(`filter_${normalizeName(h)}`);
+      if(sel && sel.value) {
+        filtered = filtered.filter(r => {
+          const val = r[h];
+          // Compare as string exact match
+          return String(val) === sel.value;
+        });
+      }
+    });
+
+    // apply Month/Average numeric filter: keep rows with non-zero numeric value for selected column
+    const monthSel = document.getElementById("filter_monthavg");
+    if(monthSel && monthSel.value) {
+      const selCol = monthSel.value;
+      filtered = filtered.filter(r => {
+        const v = r[selCol];
+        if (v === null || v === undefined || String(v).trim() === "") return false;
+        const num = Number(v);
+        return !isNaN(num) && num !== 0;
+      });
+    }
+
+    // apply global search (case-insensitive substring match across all columns)
+    const searchVal = (document.getElementById("global_search")?.value || "").trim().toLowerCase();
+    if(searchVal) {
+      filtered = filtered.filter(r => {
+        for(const h of headers){
+          const v = r[h];
+          if (v === null || v === undefined) continue;
+          if(String(v).toLowerCase().includes(searchVal)) return true;
+        }
+        return false;
+      });
+    }
+
+    renderRows(filtered);
+  }
+
+  // event delegation - use change events on filtersRow and input on search
+  filtersRow.addEventListener("change", applyFilters);
+  searchInput.addEventListener("input", () => {
+    // small debounce
+    if(window._searchDebounce) clearTimeout(window._searchDebounce);
+    window._searchDebounce = setTimeout(applyFilters, 200);
+  });
+}
+
+// toggle handler
+document.getElementById("toggleViewBtn").addEventListener("click", (evt) => {
+  const btn = evt.currentTarget;
+  if(currentView === "product") {
+    currentView = "sku";
+    btn.textContent = "Switch to Product View";
+  } else {
+    currentView = "product";
+    btn.textContent = "Switch to SKU View";
+  }
+  // reload
+  loadData(currentView);
+});
+
+// initial load
+document.addEventListener("DOMContentLoaded", () => loadData(currentView));
+</script>
 </body>
 </html>
