@@ -85,6 +85,43 @@
       font-weight: bold;
       text-align: center;
     }
+
+    /* Floating total summary bar */
+    #summaryBar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 2rem;
+      padding: 0.75rem;
+      font-size: 0.85rem;
+      color: #1f2937;
+      z-index: 1000;
+    }
+    .summary-card {
+      background: linear-gradient(135deg, #dbeafe, #eff6ff);
+      border: 1px solid #93c5fd;
+      border-radius: 0.5rem;
+      padding: 0.5rem 1rem;
+      text-align: center;
+      min-width: 130px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .summary-card span {
+      display: block;
+      font-size: 0.8rem;
+      color: #1e3a8a;
+    }
+    .summary-card strong {
+      font-size: 1rem;
+      color: #111827;
+    }
   </style>
 </head>
 
@@ -113,11 +150,26 @@
       <table id="dataTable" class="min-w-full divide-y divide-gray-300 hidden">
         <thead id="tableHead"></thead>
         <tbody id="tableBody" class="divide-y divide-gray-200"></tbody>
-        <tfoot id="tableFoot"></tfoot>
       </table>
     </div>
   </section>
 </main>
+
+<!-- Floating Summary Bar -->
+<div id="summaryBar" class="hidden">
+  <div class="summary-card">
+    <span>Total</span>
+    <strong id="sumTotal">0</strong>
+  </div>
+  <div class="summary-card">
+    <span>Avg / Row</span>
+    <strong id="avgTotal">0</strong>
+  </div>
+  <div class="summary-card">
+    <span>Comparison Δ</span>
+    <strong id="compareTotal">0</strong>
+  </div>
+</div>
 
 <footer class="mt-10 bg-gray-100 py-3 text-center text-xs text-gray-500">
   © {{ current_year }} SMC Madhusudan | All Rights Reserved
@@ -148,7 +200,7 @@ async function loadData(view="product"){
         table=document.getElementById("dataTable"),
         thead=document.getElementById("tableHead"),
         tbody=document.getElementById("tableBody"),
-        tfoot=document.getElementById("tableFoot");
+        summary=document.getElementById("summaryBar");
 
   if(!data||data.error){loader.textContent="⚠️ Error loading data.";return;}
   if(!data.length){loader.textContent="No data found.";return;}
@@ -162,13 +214,10 @@ async function loadData(view="product"){
   const orderedNumeric = monthOrder.filter(m=>numericCols.includes(m));
   const orderedHeaders = [...textCols, ...orderedNumeric];
 
-  // Build header
-  thead.innerHTML = `<tr>${orderedHeaders.map(h=>`
-    <th class="px-3 py-2 text-xs font-semibold">${h}</th>`).join("")}</tr>`;
+  thead.innerHTML = `<tr>${orderedHeaders.map(h=>`<th>${h}</th>`).join("")}</tr>`;
 
-  // --- Build Filters ---
+  // --- Filters ---
   filters.innerHTML = "";
-
   textCols.forEach(col=>{
     const vals=[...new Set(data.map(d=>d[col.toLowerCase()]))].filter(Boolean).sort();
     const box=document.createElement("div");
@@ -184,66 +233,54 @@ async function loadData(view="product"){
     orderedNumeric.map(c=>`<label><input type="checkbox" name="compare" value="${c}">${c}</label>`).join("");
   filters.appendChild(cmp);
 
-  // Show Total filter
-  const totalBox=document.createElement("div");
-  totalBox.className="filter-box";
-  totalBox.innerHTML=`<strong>SHOW TOTAL</strong>` +
-    textCols.map(c=>`<label><input type="checkbox" name="showtotal" value="${c}">${c}</label>`).join("");
-  filters.appendChild(totalBox);
-
   // ---- Render Function ----
-  function render(rows, cols=orderedHeaders){
+  function render(rows){
     tbody.innerHTML = rows.map(r=>{
-      return `<tr>${cols.map((h,idx)=>{
+      return `<tr>${orderedHeaders.map((h,idx)=>{
         const key=h.toLowerCase();
         let val=r[key]; let style="";
         if(orderedNumeric.includes(h)){
           val=Number(val)||0;
-          const prev=(idx>0 && orderedNumeric.includes(cols[idx-1]))?Number(r[cols[idx-1].toLowerCase()]):val;
+          const prev=(idx>0 && orderedNumeric.includes(orderedHeaders[idx-1]))?Number(r[orderedHeaders[idx-1].toLowerCase()]):val;
           style=(val>prev?"color:green":val<prev?"color:red":"");
         }
-        return `<td class="px-3 py-1 text-xs numeric" style="${style}">${val}</td>`;
+        return `<td class="numeric text-xs" style="${style}">${val}</td>`;
       }).join("")}</tr>`;
     }).join("");
+  }
+
+  function updateSummary(rows, compSel){
+    if(!rows.length){ summary.classList.add("hidden"); return; }
+    summary.classList.remove("hidden");
+    const numericTotals = orderedNumeric.map(c=>rows.reduce((sum,r)=>sum+(Number(r[c.toLowerCase()])||0),0));
+    const total = numericTotals.reduce((a,b)=>a+b,0);
+    const avg = Math.round(total / rows.length);
+    let compDelta = 0;
+    if(compSel.length===2){
+      const [a,b]=compSel;
+      compDelta = rows.reduce((sum,r)=>{
+        const diff=(Number(r[b.toLowerCase()])||0)-(Number(r[a.toLowerCase()])||0);
+        return sum+diff;
+      },0);
+    }
+    document.getElementById("sumTotal").textContent = total.toLocaleString();
+    document.getElementById("avgTotal").textContent = avg.toLocaleString();
+    const cmp=document.getElementById("compareTotal");
+    cmp.textContent=compDelta.toLocaleString();
+    cmp.style.color=compDelta>=0?"green":"red";
   }
 
   // ---- Apply Filters ----
   function applyFilters(){
     let filtered=[...data];
-
-    // Cascade filters
-    textCols.forEach((c,i)=>{
-      const selected=Array.from(document.querySelectorAll(`input[name='${c}']:checked`)).map(e=>e.value);
-      if(selected.length) filtered=filtered.filter(r=>selected.includes(r[c.toLowerCase()]));
+    textCols.forEach(c=>{
+      const selected = Array.from(document.querySelectorAll(`input[name='${c}']:checked`)).map(e=>e.value);
+      if(selected.length) filtered = filtered.filter(r=>selected.includes(r[c.toLowerCase()]));
     });
 
-    // Comparison (2)
     const compSel = Array.from(document.querySelectorAll("input[name='compare']:checked")).map(e=>e.value);
-    if(compSel.length===2){
-      const [a,b]=compSel;
-      filtered=filtered.map(r=>{
-        const diff=(Number(r[b.toLowerCase()])||0)-(Number(r[a.toLowerCase()])||0);
-        return {...r,comparison:diff};
-      });
-      if(!orderedHeaders.includes("COMPARISON")) orderedHeaders.push("COMPARISON");
-    }
-
-    // Totals for selected text columns
-    const showTotalSel = Array.from(document.querySelectorAll("input[name='showtotal']:checked")).map(e=>e.value);
-    let totalRow = {};
-    if(showTotalSel.length){
-      orderedNumeric.forEach(n=>totalRow[n]=filtered.reduce((sum,r)=>sum+(Number(r[n.toLowerCase()])||0),0));
-      showTotalSel.forEach(t=>totalRow[t]=`TOTAL ${t}`);
-      tfoot.innerHTML=`<tr>${orderedHeaders.map(h=>{
-        const key=h.toLowerCase();
-        const val=totalRow[key]!==undefined?totalRow[key]:"";
-        return `<td class="px-3 py-1 text-xs font-semibold bg-slate-100">${val}</td>`;
-      }).join("")}</tr>`;
-    } else {
-      tfoot.innerHTML="";
-    }
-
     render(filtered);
+    updateSummary(filtered, compSel);
   }
 
   document.getElementById("exportBtn").onclick=()=>{
@@ -258,7 +295,6 @@ async function loadData(view="product"){
 
   document.getElementById("clearFiltersBtn").onclick=()=>{
     document.querySelectorAll("input[type='checkbox']").forEach(cb=>cb.checked=false);
-    tfoot.innerHTML="";
     applyFilters();
   };
 
