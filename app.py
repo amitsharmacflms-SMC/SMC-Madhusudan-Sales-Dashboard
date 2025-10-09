@@ -89,6 +89,17 @@ def get_data(view_type):
         print("❌ Error loading data:", e)
         return jsonify({"error": str(e)}), 500
 
+print("🚀 Flask app starting on Render...")
+
+try:
+    engine = get_engine()
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    print("✅ Database connection successful!")
+except Exception as e:
+    print("❌ Database connection failed:", e)
+
+
 
 # -----------------------
 # HEALTH CHECK
