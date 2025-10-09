@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SMC Madhusudan Dashboard</title>
 
-  <!-- ✅ Local Tailwind CSS build -->
+  <!-- ✅ Local Tailwind CSS -->
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
 
-  <!-- ✅ Optional favicon -->
+  <!-- ✅ Favicon -->
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
-  <!-- ✅ Meta for SEO -->
   <meta name="description" content="Sales performance dashboard for SMC Madhusudan - view insights by product, SKU, region, and manager.">
 </head>
 
@@ -20,14 +19,11 @@
   <!-- ✅ HEADER -->
   <header class="bg-white shadow-sm sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-      
-      <!-- 🔹 Logo + Title -->
       <div class="flex items-center space-x-3">
         <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="SMC Logo" class="h-10 w-auto">
         <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-gray-800">SMC Madhusudan Dashboard</h1>
       </div>
 
-      <!-- 🔹 Product ↔ SKU Toggle -->
       <div>
         <button 
           id="toggleViewBtn" 
@@ -40,43 +36,16 @@
 
   <!-- ✅ MAIN DASHBOARD CONTENT -->
   <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-    <!-- Filters Section -->
-    <section id="filters" class="mb-6 bg-white p-4 rounded-xl shadow-sm">
-      <h2 class="text-lg font-semibold mb-3">📅 Select Period</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        <div>
-          <label for="monthFilter" class="block text-sm font-medium text-gray-700">Month / Quarter</label>
-          <select id="monthFilter" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-            <option value="">All</option>
-            <option value="Jul-2025">Jul 2025</option>
-            <option value="Aug-2025">Aug 2025</option>
-            <option value="Q1 2025-26">Q1 2025-26</option>
-            <option value="Q2 2025-26">Q2 2025-26</option>
-          </select>
-        </div>
-      </div>
-    </section>
-
-    <!-- Data Table Section -->
     <section id="data-section" class="bg-white p-6 rounded-xl shadow overflow-x-auto">
-      <h2 class="text-lg font-semibold mb-4">📊 Product / SKU Performance</h2>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold">📊 Sales Data</h2>
+        <div id="filterContainer" class="flex flex-wrap gap-4"></div>
+      </div>
+
       <table id="dataTable" class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-100">
-          <tr>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">STATE</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">MANAGER NAME</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">DISTRICT</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">PARTY NAME</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">PRODUCT</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">SKU</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">ORDER DATE</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">QTR AVG</th>
-            <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">YEAR AVG</th>
-          </tr>
-        </thead>
+        <thead class="bg-gray-100" id="tableHead"></thead>
         <tbody id="dataBody" class="divide-y divide-gray-200">
-          <!-- Data Rows Loaded Dynamically -->
-          <tr><td colspan="9" class="text-center py-6 text-gray-500">Loading data...</td></tr>
+          <tr><td colspan="99" class="text-center py-6 text-gray-500">Loading data...</td></tr>
         </tbody>
       </table>
     </section>
@@ -87,19 +56,84 @@
     © {{ current_year }} SMC Madhusudan | All Rights Reserved
   </footer>
 
-  <!-- ✅ Script to handle switching tabs or filters -->
+  <!-- ✅ SCRIPT SECTION -->
   <script>
-    document.getElementById('toggleViewBtn').addEventListener('click', function() {
-      const currentText = this.textContent.trim();
-      if (currentText.includes('SKU')) {
-        this.textContent = 'Switch to Product View';
-        // TODO: Load SKU data
-      } else {
-        this.textContent = 'Switch to SKU View';
-        // TODO: Load Product data
-      }
-    });
-  </script>
+  async function loadData(viewType = "product") {
+    const res = await fetch(`/get_data/${viewType}`);
+    const data = await res.json();
 
+    const tbody = document.getElementById("dataBody");
+    const thead = document.getElementById("tableHead");
+    const filterContainer = document.getElementById("filterContainer");
+
+    if (!data || data.error) {
+      tbody.innerHTML = `<tr><td colspan="99" class="text-center py-6 text-red-500">⚠️ Error loading ${viewType} data</td></tr>`;
+      return;
+    }
+
+    if (!data.length) {
+      tbody.innerHTML = `<tr><td colspan="99" class="text-center py-6 text-gray-500">No data available</td></tr>`;
+      return;
+    }
+
+    const headers = Object.keys(data[0]);
+    const dateCols = headers.filter(h => h.toLowerCase().includes("date"));
+
+    // Build dynamic table header
+    thead.innerHTML = `<tr>${headers.map(h => `
+      <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">${h}</th>
+    `).join("")}</tr>`;
+
+    // Build date filters dynamically
+    filterContainer.innerHTML = "";
+    dateCols.forEach(col => {
+      filterContainer.innerHTML += `
+        <div>
+          <label class="block text-sm font-medium text-gray-700">${col}</label>
+          <input type="date" id="start_${col}" class="border border-gray-300 rounded-md p-2 text-sm">
+          <input type="date" id="end_${col}" class="border border-gray-300 rounded-md p-2 text-sm">
+        </div>`;
+    });
+
+    // Function to render data
+    const render = rows => {
+      tbody.innerHTML = rows.map(r => `
+        <tr>${headers.map(h => `
+          <td class="px-4 py-2 text-sm text-gray-700">${r[h] || ""}</td>
+        `).join("")}</tr>
+      `).join("");
+    };
+
+    render(data);
+
+    // Date filter logic
+    filterContainer.addEventListener("change", () => {
+      let filtered = data;
+      dateCols.forEach(col => {
+        const start = document.getElementById(`start_${col}`).value;
+        const end = document.getElementById(`end_${col}`).value;
+        if (start || end) {
+          filtered = filtered.filter(r => {
+            const val = new Date(r[col]);
+            if (isNaN(val)) return true;
+            return (!start || val >= new Date(start)) && (!end || val <= new Date(end));
+          });
+        }
+      });
+      render(filtered);
+    });
+  }
+
+  // Toggle Product ↔ SKU
+  document.getElementById("toggleViewBtn").addEventListener("click", function() {
+    const isSKU = this.textContent.includes("SKU");
+    const view = isSKU ? "sku" : "product";
+    this.textContent = isSKU ? "Switch to Product View" : "Switch to SKU View";
+    loadData(view);
+  });
+
+  // Initial load
+  document.addEventListener("DOMContentLoaded", () => loadData("product"));
+  </script>
 </body>
 </html>
