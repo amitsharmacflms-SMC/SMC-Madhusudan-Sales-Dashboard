@@ -6,7 +6,7 @@ from sqlalchemy import text
 from database import get_engine
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey"  # Replace with a secure one in production
+app.secret_key = "supersecretkey"  # Replace with secure one for production
 
 
 # -----------------------
@@ -20,7 +20,6 @@ def login():
         username = request.form.get("username")
         password = request.form.get("password")
 
-        # Temporary static admin login
         if username == "admin" and password == "smc123":
             session["user"] = username
             return redirect(url_for("dashboard"))
@@ -38,26 +37,22 @@ def logout():
 
 
 # -----------------------
-# DASHBOARD PAGE (HTML)
+# DASHBOARD PAGE
 # -----------------------
 @app.route("/dashboard", methods=["GET"])
 def dashboard():
-    """Render the dashboard page"""
+    """Render main dashboard"""
     if "user" not in session:
         return redirect(url_for("login"))
-
-    return render_template(
-        "dashboard.html",
-        current_year=datetime.utcnow().year,
-    )
+    return render_template("dashboard.html", current_year=datetime.utcnow().year)
 
 
 # -----------------------
-# API: FETCH DATA FROM DATABASE
+# API: FETCH DATA
 # -----------------------
 @app.route("/get_data/<view_type>")
 def get_data(view_type):
-    """Return product or SKU data as JSON for dynamic frontend loading"""
+    """Return Product or SKU data from Render DB"""
     if "user" not in session:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -67,21 +62,15 @@ def get_data(view_type):
         if view_type not in ["product", "sku"]:
             return jsonify({"error": "Invalid table name"}), 400
 
-        # Fetch all rows from the selected table
         query = text(f"SELECT * FROM {view_type}")
         df = pd.read_sql(query, con=engine).fillna("")
 
-        # Keep only text/object and date columns
-        keep_cols = [
-            col for col in df.columns
-            if df[col].dtype == "object" or "date" in col.lower()
-        ]
-        df = df[keep_cols]
-
-        # Convert datetime columns to strings
+        # ✅ Convert any date-like column names to string (no dropping)
         for col in df.columns:
-            if "date" in col.lower():
-                df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
+            if "date" in col.lower() or "month" in col.lower():
+                df[col] = df[col].astype(str)
+
+        df = df.round(2)  # Make numbers readable
 
         return jsonify(df.to_dict(orient="records"))
 
@@ -89,24 +78,12 @@ def get_data(view_type):
         print("❌ Error loading data:", e)
         return jsonify({"error": str(e)}), 500
 
-print("🚀 Flask app starting on Render...")
-
-try:
-    engine = get_engine()
-    with engine.connect() as conn:
-        conn.execute(text("SELECT 1"))
-    print("✅ Database connection successful!")
-except Exception as e:
-    print("❌ Database connection failed:", e)
-
-
 
 # -----------------------
 # HEALTH CHECK
 # -----------------------
 @app.route("/health")
 def health():
-    """Simple health check"""
     return {"status": "ok", "time": datetime.utcnow().isoformat()}
 
 
@@ -115,4 +92,12 @@ def health():
 # -----------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
+    print("🚀 Starting Flask app on port", port)
+    try:
+        engine = get_engine()
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        print("✅ Database connection successful!")
+    except Exception as e:
+        print("❌ Database connection failed:", e)
     app.run(host="0.0.0.0", port=port, debug=True)

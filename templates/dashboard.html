@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SMC Madhusudan Dashboard</title>
 
-  <!-- ✅ Local Tailwind CSS -->
+  <!-- ✅ Tailwind CSS -->
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
-
-  <!-- ✅ Favicon -->
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
-  <meta name="description" content="Sales performance dashboard for SMC Madhusudan - view insights by product, SKU, region, and manager.">
+  <!-- ✅ SEO -->
+  <meta name="description" content="SMC Madhusudan Sales Dashboard - Live performance data by product and SKU across managers and regions.">
 </head>
 
 <body class="bg-gray-50 text-gray-900">
@@ -19,14 +18,18 @@
   <!-- ✅ HEADER -->
   <header class="bg-white shadow-sm sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      <!-- Logo & Title -->
       <div class="flex items-center space-x-3">
         <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="SMC Logo" class="h-10 w-auto">
-        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-gray-800">SMC Madhusudan Dashboard</h1>
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-gray-800">
+          SMC Madhusudan Dashboard
+        </h1>
       </div>
 
+      <!-- Toggle -->
       <div>
         <button 
-          id="toggleViewBtn" 
+          id="toggleViewBtn"
           class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow transition">
           Switch to SKU View
         </button>
@@ -34,20 +37,24 @@
     </div>
   </header>
 
-  <!-- ✅ MAIN DASHBOARD CONTENT -->
+  <!-- ✅ MAIN CONTENT -->
   <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
     <section id="data-section" class="bg-white p-6 rounded-xl shadow overflow-x-auto">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">📊 Sales Data</h2>
-        <div id="filterContainer" class="flex flex-wrap gap-4"></div>
+      <!-- Filters -->
+      <div class="flex items-center justify-start mb-6 flex-wrap gap-4" id="filterContainer">
+        <!-- Filter controls generated dynamically -->
       </div>
 
-      <table id="dataTable" class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-100" id="tableHead"></thead>
-        <tbody id="dataBody" class="divide-y divide-gray-200">
-          <tr><td colspan="99" class="text-center py-6 text-gray-500">Loading data...</td></tr>
-        </tbody>
-      </table>
+      <!-- Loader -->
+      <div id="loader" class="text-center py-8 text-gray-500">Loading data...</div>
+
+      <!-- Data Table -->
+      <div class="overflow-x-auto">
+        <table id="dataTable" class="min-w-full divide-y divide-gray-200 hidden">
+          <thead class="bg-gray-100" id="tableHead"></thead>
+          <tbody id="dataBody" class="divide-y divide-gray-200"></tbody>
+        </table>
+      </div>
     </section>
   </main>
 
@@ -56,75 +63,106 @@
     © {{ current_year }} SMC Madhusudan | All Rights Reserved
   </footer>
 
-  <!-- ✅ SCRIPT SECTION -->
+  <!-- ✅ SCRIPT -->
   <script>
   async function loadData(viewType = "product") {
-    const res = await fetch(`/get_data/${viewType}`);
-    const data = await res.json();
-
+    const loader = document.getElementById("loader");
+    const table = document.getElementById("dataTable");
     const tbody = document.getElementById("dataBody");
     const thead = document.getElementById("tableHead");
     const filterContainer = document.getElementById("filterContainer");
 
+    loader.classList.remove("hidden");
+    table.classList.add("hidden");
+    tbody.innerHTML = "";
+    thead.innerHTML = "";
+
+    const res = await fetch(`/get_data/${viewType}`);
+    const data = await res.json();
+
     if (!data || data.error) {
-      tbody.innerHTML = `<tr><td colspan="99" class="text-center py-6 text-red-500">⚠️ Error loading ${viewType} data</td></tr>`;
+      loader.textContent = "⚠️ Error loading data.";
+      return;
+    }
+    if (!data.length) {
+      loader.textContent = "No data found.";
       return;
     }
 
-    if (!data.length) {
-      tbody.innerHTML = `<tr><td colspan="99" class="text-center py-6 text-gray-500">No data available</td></tr>`;
-      return;
-    }
+    loader.classList.add("hidden");
+    table.classList.remove("hidden");
 
     const headers = Object.keys(data[0]);
-    const dateCols = headers.filter(h => h.toLowerCase().includes("date"));
 
-    // Build dynamic table header
+    // Define which columns to show filters for
+    const stringCols = ["STATE", "MANAGER_NAME", "DISTRICT", "PARTY_NAME", "PRODUCT", "SKU"];
+    const monthCols = headers.filter(h =>
+      !stringCols.includes(h) && /(\d{2}|\bAVG\b)/gi.test(h)
+    );
+
+    // 🧩 Build table headers dynamically
     thead.innerHTML = `<tr>${headers.map(h => `
-      <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700">${h}</th>
+      <th class="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">${h}</th>
     `).join("")}</tr>`;
 
-    // Build date filters dynamically
+    // 🧩 Build filters
     filterContainer.innerHTML = "";
-    dateCols.forEach(col => {
+
+    stringCols.forEach(col => {
+      if (!headers.includes(col)) return;
+      const unique = [...new Set(data.map(d => d[col]))].filter(Boolean);
       filterContainer.innerHTML += `
         <div>
           <label class="block text-sm font-medium text-gray-700">${col}</label>
-          <input type="date" id="start_${col}" class="border border-gray-300 rounded-md p-2 text-sm">
-          <input type="date" id="end_${col}" class="border border-gray-300 rounded-md p-2 text-sm">
+          <select id="filter_${col}" class="border border-gray-300 rounded-md p-2 text-sm w-40">
+            <option value="">All</option>
+            ${unique.map(u => `<option value="${u}">${u}</option>`).join("")}
+          </select>
         </div>`;
     });
 
-    // Function to render data
+    // Month/Average selector
+    filterContainer.innerHTML += `
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Month / Average</label>
+        <select id="filterMonth" class="border border-gray-300 rounded-md p-2 text-sm w-44">
+          <option value="">All</option>
+          ${monthCols.map(col => `<option value="${col}">${col}</option>`).join("")}
+        </select>
+      </div>`;
+
+    // 🧩 Render data
     const render = rows => {
       tbody.innerHTML = rows.map(r => `
         <tr>${headers.map(h => `
-          <td class="px-4 py-2 text-sm text-gray-700">${r[h] || ""}</td>
+          <td class="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">${r[h] || ""}</td>
         `).join("")}</tr>
       `).join("");
     };
 
     render(data);
 
-    // Date filter logic
+    // 🧩 Apply filters dynamically
     filterContainer.addEventListener("change", () => {
       let filtered = data;
-      dateCols.forEach(col => {
-        const start = document.getElementById(`start_${col}`).value;
-        const end = document.getElementById(`end_${col}`).value;
-        if (start || end) {
-          filtered = filtered.filter(r => {
-            const val = new Date(r[col]);
-            if (isNaN(val)) return true;
-            return (!start || val >= new Date(start)) && (!end || val <= new Date(end));
-          });
-        }
+
+      // Text filters
+      stringCols.forEach(col => {
+        const val = document.getElementById(`filter_${col}`)?.value || "";
+        if (val) filtered = filtered.filter(r => r[col] === val);
       });
+
+      // Month/Avg numeric filter
+      const monthCol = document.getElementById("filterMonth").value;
+      if (monthCol) {
+        filtered = filtered.filter(r => r[monthCol] && Number(r[monthCol]) !== 0);
+      }
+
       render(filtered);
     });
   }
 
-  // Toggle Product ↔ SKU
+  // 🔁 Toggle between Product ↔ SKU
   document.getElementById("toggleViewBtn").addEventListener("click", function() {
     const isSKU = this.textContent.includes("SKU");
     const view = isSKU ? "sku" : "product";
@@ -132,7 +170,7 @@
     loadData(view);
   });
 
-  // Initial load
+  // Initial load: Product View
   document.addEventListener("DOMContentLoaded", () => loadData("product"));
   </script>
 </body>
