@@ -2,551 +2,228 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
   <title>SMC Madhusudan Dashboard</title>
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
-
   <style>
-    /* Layout + fonts */
-    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:#f6f8fb; margin:0;}
-    .container { max-width: 1200px; margin: 0 auto; padding: 18px; }
-
-    /* Buttons */
-    .btn { padding: .45rem .8rem; border-radius: .5rem; font-weight:600; font-size:.9rem; cursor:pointer; border: none; }
-    .btn-primary { background: linear-gradient(90deg,#2563eb,#4f46e5); color: white; box-shadow: 0 6px 18px rgba(79,70,229,0.12); }
-    .btn-muted  { background:#f3f4f6; color:#111827; }
-
-    /* Filter bar */
-    .filter-bar {
-      display:flex; gap:12px; padding:12px; background: white; border-radius:12px;
-      overflow-x:auto; align-items:flex-start; box-shadow: 0 3px 10px rgba(16,24,40,0.04);
+    :root {
+      --blue-50:#eff6ff; --blue-100:#dbeafe;
+      --border:#9ca3af; --bg:#f9fafb;
     }
-
-    .filter-box {
-      width:160px; min-width:140px; max-height:180px; overflow:auto;
-      border-radius:10px; padding:8px; box-shadow: 0 2px 8px rgba(2,6,23,0.04);
-      border:2px solid rgba(59,130,246,0.12); background:linear-gradient(180deg, #ffffff, #f0f9ff);
-      flex-shrink:0;
+    body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);}
+    header{background:#fff;position:sticky;top:0;z-index:50;box-shadow:0 2px 6px rgba(0,0,0,0.05);}
+    header h1{font-weight:700;color:#1e40af;}
+    .toolbar{display:flex;flex-wrap:wrap;gap:6px;}
+    .btn{padding:.4rem .8rem;border-radius:.4rem;font-weight:600;font-size:.85rem;border:none;cursor:pointer;}
+    .btn-blue{background:linear-gradient(90deg,#2563eb,#4f46e5);color:#fff;}
+    .btn-gray{background:#f3f4f6;color:#111827;}
+    .btn-blue:hover{opacity:.9;}
+    .container{max-width:1500px;margin:auto;padding:1rem;}
+    .filter-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;background:white;padding:.75rem;border-radius:.75rem;box-shadow:inset 0 0 5px #e5e7eb;overflow-x:auto;}
+    .filter-box{border:2px solid #93c5fd;border-radius:.75rem;padding:6px;background:linear-gradient(180deg,#f0f9ff,#dbeafe);font-size:.8rem;max-height:190px;overflow:auto;}
+    .filter-box strong{text-align:center;display:block;color:#1d4ed8;margin-bottom:4px;font-size:.75rem;}
+    .filter-box label{display:block;padding:2px 4px;cursor:pointer;border-radius:4px;}
+    .filter-box label:hover{background:#bfdbfe;}
+    .filter-box input{margin-right:5px;accent-color:#2563eb;}
+    .table-wrapper{margin-top:1rem;overflow:auto;background:white;border-radius:.75rem;box-shadow:0 3px 10px rgba(0,0,0,0.05);}
+    table{border-collapse:collapse;width:100%;min-width:1200px;}
+    th,td{border:2px solid #4b5563;padding:8px;font-weight:700;font-size:.85rem;}
+    th{background:linear-gradient(90deg,var(--blue-100),#e0e7ff);position:sticky;top:0;color:#1e3a8a;}
+    td.numeric{text-align:center;}
+    tfoot td{background:#f3f4f6;font-weight:800;text-align:center;}
+    .loader{text-align:center;padding:1rem;color:#6b7280;}
+    .hidden{display:none!important;}
+    @media(max-width:900px){
+      .filter-box{max-height:150px;font-size:.75rem;}
+      th,td{font-size:.78rem;padding:6px;}
     }
-    .filter-box strong { display:block; text-align:center; color:#0f172a; font-size:.78rem; margin-bottom:6px; }
-    .filter-box label { display:block; padding:2px 6px; cursor:pointer; font-size:.85rem; }
-    .filter-box label:hover { background: rgba(59,130,246,0.06); border-radius:6px; }
-
-    .filter-box input[type=checkbox] { margin-right:8px; accent-color: #2563eb; }
-
-    /* Table */
-    .table-wrapper { margin-top:12px; background:white; border-radius:12px; padding:8px; overflow:auto; box-shadow: 0 3px 14px rgba(2,6,23,0.03);}
-    table { border-collapse: collapse; width:100%; min-width:1000px; }
-    thead th {
-      position: sticky; top:0; background: linear-gradient(90deg,#eef2ff,#e0e7ff);
-      color:#0b3b7a; font-weight:800; font-size:.85rem; text-align:center;
-      border:2px solid #4b5563;
-      padding:8px;
-    }
-    tbody td {
-      border:2px solid #4b5563; padding:10px; font-weight:700; font-size:.92rem;
-      vertical-align:middle;
-    }
-    td.numeric { text-align:center; }
-
-    tfoot td { background:#f8fafc; font-weight:800; text-align:center; padding:10px; border-top:2px solid #111827; }
-
-    /* loader */
-    .loader { text-align:center; padding:28px; color:#6b7280; }
-
-    /* hidden */
-    .hidden { display:none !important; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px;">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <img src="{{ url_for('static', filename='onlylogo.png') }}" style="height:40px;" alt="logo">
-        <h1 style="margin:0; font-size:1.1rem; color:#1e293b;">SMC MADHUSUDAN DASHBOARD</h1>
+  <header>
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="{{ url_for('static', filename='onlylogo.png') }}" style="height:38px;">
+        <h1>SMC Madhusudan Dashboard</h1>
       </div>
-
-      <div style="display:flex; gap:8px;">
-        <button id="exportBtn" class="btn btn-primary">Export CSV</button>
-        <button id="clearBtn"  class="btn btn-muted">Clear</button>
-        <button id="toggleFiltersBtn" class="btn btn-muted">Hide Filters</button>
-        <button id="toggleViewBtn" class="btn btn-primary">Switch to SKU View</button>
+      <div class="toolbar">
+        <button id="exportBtn" class="btn btn-blue">⬇ Export</button>
+        <button id="clearBtn" class="btn btn-gray">🧹 Clear</button>
+        <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
+        <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
       </div>
-    </header>
-
-    <!-- FILTER BAR -->
-    <div id="filtersContainer" class="filter-bar" role="region" aria-label="Filters"></div>
-
-    <!-- LOADER -->
-    <div id="loader" class="loader">Loading data...</div>
-
-    <!-- TABLE -->
-    <div class="table-wrapper">
-      <table id="dataTable" class="hidden" aria-live="polite">
-        <thead id="tableHead"></thead>
-        <tbody id="tableBody"></tbody>
-        <tfoot id="tableFoot"></tfoot>
-      </table>
     </div>
-  </div>
+  </header>
+
+  <main class="container">
+    <section style="background:white;border-radius:.75rem;padding:1rem;box-shadow:0 2px 6px rgba(0,0,0,.05);">
+      <div id="filtersContainer" class="filter-bar"></div>
+      <div id="loader" class="loader">Loading data...</div>
+      <div class="table-wrapper">
+        <table id="dataTable" class="hidden">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+          <tfoot id="tableFoot"></tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
 
 <script>
-/*
-  Front-end dashboard script:
-  - expects GET /get_data/<view> returning JSON array of rows.
-  - robust handling: works if keys are lowercase/uppercase/with underscores/hyphens.
-*/
+let currentView="product";
+let fullData=[];let originalKeys=[];
 
-let currentView = 'product';
-let fullData = [];          // original dataset
-let originalKeys = [];      // original column keys from data
-const baseTextCols = ["STATE","MANAGER_NAME","DISTRICT","PARTY_NAME","PRODUCT","SKU"];
-
-// Month order canonical (uppercase) - used to sort date/numeric columns
-const monthOrder = [
-  "APR-23","MAY-23","JUN-23","AVG_Q1_2023-24",
-  "JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
-  "OCT-23","NOV-23","DEC-23","AVG_Q3_2023-24",
-  "JAN-24","FEB-24","MAR-24","AVG_Q4_2023-24","AVG_YEAR_2023-24",
-  "APR-24","MAY-24","JUN-24","AVG_Q1_2024-25",
-  "JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25",
-  "OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25",
-  "JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25",
-  "APR-25","MAY-25","JUN-25","AVG_Q1_2025-26",
-  "JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
+const baseTextCols=["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
+const monthOrder=[
+"APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
+"OCT-23","NOV-23","DEC-23","AVG_Q3_2023-24","JAN-24","FEB-24","MAR-24","AVG_Q4_2023-24","AVG_YEAR_2023-24",
+"APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25","OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25",
+"JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25","APR-25","MAY-25","JUN-25","AVG_Q1_2025-26",
+"JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
 ];
+const norm=s=>String(s||"").toUpperCase().trim();
+const getVal=(r,k)=>r[k]??r[k.toLowerCase()]??r[k.toUpperCase()]??"";
 
-// helper normalize (uppercase, trim)
-function norm(s){
-  return String(s||"").toUpperCase().trim();
-}
-
-// safe access for arbitrary key names (some keys may contain spaces/hyphens)
-function getVal(row, key){
-  return row.hasOwnProperty(key) ? row[key] : row[key.toLowerCase()] ?? row[key.toUpperCase()] ?? "";
-}
-
-// Start loading
-document.addEventListener('DOMContentLoaded', ()=> loadData(currentView));
-
-// Fetch and initialize
+document.addEventListener("DOMContentLoaded",()=>loadData(currentView));
 async function loadData(view){
-  try {
-    const loader = document.getElementById('loader');
-    loader.textContent = 'Loading data...';
-    loader.classList.remove('hidden');
-
-    const resp = await fetch(`/get_data/${view}`);
-    if(!resp.ok){
-      loader.textContent = `Error fetching data: ${resp.statusText || resp.status}`;
-      return;
-    }
-    const data = await resp.json();
-    if(!Array.isArray(data) || data.length===0){
-      loader.textContent = 'No data available';
-      return;
-    }
-
-    fullData = data;
-    originalKeys = Object.keys(data[0]); // keep original keys for property access
-
-    buildUI();        // build filters and table
-    applyFilters();   // initial render
-
-    loader.classList.add('hidden');
-  } catch(err){
-    console.error(err);
-    document.getElementById('loader').textContent = '⚠ Error loading data';
-  }
+ const loader=document.getElementById("loader");loader.classList.remove("hidden");loader.textContent="Loading data...";
+ try{
+  const res=await fetch(`/get_data/${view}`);if(!res.ok){loader.textContent="⚠ Error loading data";return;}
+  const data=await res.json();if(!Array.isArray(data)||!data.length){loader.textContent="No data";return;}
+  fullData=data;originalKeys=Object.keys(data[0]);
+  buildFilters();applyFilters();loader.classList.add("hidden");
+ }catch(e){loader.textContent="⚠ Failed to load";}
 }
 
-/* -----------------------------
-   Build the filters UI (once)
-   ----------------------------- */
-function buildUI(){
-  const filters = document.getElementById('filtersContainer');
-  filters.innerHTML = ""; // reset
+function buildFilters(){
+ const filters=document.getElementById("filtersContainer");filters.innerHTML="";
+ const headers=originalKeys.map(norm);
+ const textCols=baseTextCols.filter(c=>headers.includes(c));
+ const numCols=originalKeys.filter(k=>!textCols.includes(norm(k)));
+ const orderMap={};monthOrder.forEach((m,i)=>orderMap[m]=i);
+ const orderedNums=[...numCols].sort((a,b)=>(orderMap[norm(a)]??999)-(orderMap[norm(b)]??999));
 
-  // Detect which keys are text vs numeric
-  const keyLabels = originalKeys.slice(); // original order
-  const upperKeys = keyLabels.map(k => norm(k));
-  // textKeys: those that match baseTextCols (case-insensitive)
-  const textKeys = keyLabels.filter(k => baseTextCols.includes(norm(k)));
-  // numeric keys = everything else
-  const numericKeys = keyLabels.filter(k => !textKeys.includes(k));
+ // Filter order dynamic
+ const order=currentView==="product"
+ ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"]
+ :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"];
 
-  // order numeric by monthOrder when possible (case-insensitive)
-  const orderMap = {};
-  monthOrder.forEach((m,i) => orderMap[norm(m)] = i);
-  const numericSorted = numericKeys.slice().sort((a,b)=>{
-    const na = orderMap[norm(a)] ?? 9999;
-    const nb = orderMap[norm(b)] ?? 9999;
-    return na - nb || a.localeCompare(b);
-  });
+ function makeBox(title,vals,checkedAll,color){
+  const box=document.createElement("div");box.className="filter-box";box.style.background=color;
+  box.innerHTML=`<strong>${title}</strong><label><input type="checkbox" data-all="${title}">All</label>`+
+  vals.map(v=>`<label><input type="checkbox" name="${title}" value="${v}" ${checkedAll?'checked':''}>${v}</label>`).join("");
+  filters.appendChild(box);
+ }
 
-  // Build a helper to create boxes
-  function makeBox(title, items, opts = {}) {
-    // opts: {checkedAllByDefault: boolean, includeAllToggle: true/false, color: CSS}
-    const box = document.createElement('div');
-    box.className = 'filter-box';
-    if(opts.color) box.style.background = opts.color;
+ const colors=["#e0f7fa","#ede9fe","#fef9c3","#fce7f3","#dcfce7","#e0f2fe","#fffbe6","#eef2ff","#fff0f6"];
 
-    const header = document.createElement('strong');
-    header.textContent = title;
-    box.appendChild(header);
-
-    if(opts.includeAllToggle){
-      const allLabel = document.createElement('label');
-      allLabel.innerHTML = `<input type="checkbox" data-group="${title}" value="__ALL__">All`;
-      box.appendChild(allLabel);
-    }
-
-    items.forEach(it => {
-      const lab = document.createElement('label');
-      const checked = opts.checkedAllByDefault ? 'checked' : '';
-      lab.innerHTML = `<input type="checkbox" name="${title}" value="${escapeHtml(String(it))}" ${checked}> ${escapeHtml(String(it))}`;
-      box.appendChild(lab);
-    });
-    return box;
+ order.forEach((f,i)=>{
+  if(f==="SHOW COLUMNS") makeBox(f,textCols,true,colors[i%colors.length]);
+  else if(f==="MONTH / YEAR"||f==="COMPARISON") makeBox(f,monthOrder,true,colors[i%colors.length]);
+  else if(f==="TOTAL") makeBox(f,textCols,false,colors[i%colors.length]);
+  else if(textCols.includes(f)) {
+    const vals=[...new Set(fullData.map(r=>getVal(r,f)))].filter(Boolean).sort();
+    makeBox(f,vals,false,colors[i%colors.length]);
   }
+ });
 
-  // Colors for boxes
-  const colors = [
-    'linear-gradient(180deg,#f0f9ff,#dbeafe)',
-    'linear-gradient(180deg,#fff7ed,#ffe8d6)',
-    'linear-gradient(180deg,#fdf2f8,#fde8f1)',
-    'linear-gradient(180deg,#ecfdf5,#d1fae5)',
-    'linear-gradient(180deg,#eef2ff,#e0e7ff)'
-  ];
-
-  // Build text filters: STATE, MANAGER_NAME, DISTRICT, PARTY_NAME, PRODUCT, SKU (only those present)
-  const presentTextKeys = textKeys; // keys like 'state','manager_name',...
-  presentTextKeys.forEach((k, idx) => {
-    const label = norm(k); // e.g. 'STATE'
-    // unique values for this text key
-    const vals = Array.from(new Set(fullData.map(r=>String(getVal(r,k)).trim()).filter(v=>v!==""))).sort();
-    const box = makeBox(label, vals, { includeAllToggle:true, checkedAllByDefault:false, color: colors[idx % colors.length] });
-    filters.appendChild(box);
-  });
-
-  // Month / Year (numeric keys): default all selected (checked)
-  const monthLabels = numericSorted.map(k => k);
-  const monthBox = makeBox('MONTH / YEAR', monthLabels, { includeAllToggle:true, checkedAllByDefault:true, color:'linear-gradient(180deg,#eef2ff,#dbeafe)' });
-  filters.appendChild(monthBox);
-
-  // Comparison filter (choose any 2) - default none checked
-  const compBox = makeBox('COMPARISON', monthLabels, { includeAllToggle:true, checkedAllByDefault:false, color:'linear-gradient(180deg,#fffbe6,#fff1c2)' });
-  filters.appendChild(compBox);
-
-  // Show Columns filter (text columns) default ALL checked
-  const showBox = makeBox('SHOW COLUMNS', presentTextKeys.map(k=>norm(k)), { includeAllToggle:true, checkedAllByDefault:true, color:'linear-gradient(180deg,#eef2ff,#f3e8ff)' });
-  filters.appendChild(showBox);
-
-  // Total filter - choose which text columns to print "TOTAL for"
-  const totalBox = makeBox('TOTAL', presentTextKeys.map(k=>norm(k)), { includeAllToggle:true, checkedAllByDefault:false, color:'linear-gradient(180deg,#fff0f6,#ffe4ee)' });
-  filters.appendChild(totalBox);
-
-  // Wire All toggles and checkbox behavior using event delegation
-  filters.addEventListener('change', (ev) => {
-    const target = ev.target;
-    if(!target) return;
-
-    // If user clicked an All checkbox (value == '__ALL__')
-    if(target.value === '__ALL__' && target.dataset && target.dataset.group) {
-      const groupTitle = target.dataset.group;
-      const container = [...filters.children].find(b => b.querySelector('strong') && b.querySelector('strong').textContent === groupTitle);
-      if(container){
-        const boxes = container.querySelectorAll('input[type=checkbox]:not([value="__ALL__"])');
-        boxes.forEach(cb => cb.checked = target.checked);
-      }
-      applyFilters();
-      return;
-    }
-
-    // If user clicked an individual checkbox, keep the 'All' checkbox in sync
-    const parentBox = target.closest('.filter-box');
-    if(parentBox){
-      const allCB = parentBox.querySelector('input[value="__ALL__"]');
-      if(allCB){
-        const items = parentBox.querySelectorAll('input[type=checkbox]:not([value="__ALL__"])');
-        const checkedCount = [...items].filter(i=>i.checked).length;
-        allCB.checked = (checkedCount > 0 && checkedCount === items.length);
-        allCB.indeterminate = (checkedCount > 0 && checkedCount < items.length);
-      }
-    }
+ // "All" toggles
+ filters.querySelectorAll("input[data-all]").forEach(cb=>{
+  cb.addEventListener("change",e=>{
+    const group=e.target.getAttribute("data-all");
+    const boxes=filters.querySelectorAll(`input[name='${group}']`);
+    boxes.forEach(x=>x.checked=e.target.checked);
     applyFilters();
   });
-
-  // Hide/Show filters action
-  document.getElementById('toggleFiltersBtn').onclick = () => {
-    const container = document.getElementById('filtersContainer');
-    container.classList.toggle('hidden');
-    document.getElementById('toggleFiltersBtn').textContent = container.classList.contains('hidden') ? 'Show Filters' : 'Hide Filters';
-  };
-
-  // clear button
-  document.getElementById('clearBtn').onclick = () => {
-    // uncheck everything (except month/year keep checked? we'll uncheck everything)
-    const allCbs = filters.querySelectorAll('input[type=checkbox]');
-    allCbs.forEach(cb => cb.checked = false);
-    applyFilters();
-  };
-
-  // export
-  document.getElementById('exportBtn').onclick = () => exportCSV();
-
-  // switch view
-  document.getElementById('toggleViewBtn').onclick = () => {
-    currentView = currentView === 'product' ? 'sku' : 'product';
-    document.getElementById('toggleViewBtn').textContent = currentView === 'product' ? 'Switch to SKU View' : 'Switch to Product View';
-    // reload dataset for other view
-    loadData(currentView);
-  };
+ });
+ filters.addEventListener("change",()=>applyFilters());
+ document.getElementById("toggleFiltersBtn").onclick=()=>{
+  filters.classList.toggle("hidden");
+  document.getElementById("toggleFiltersBtn").textContent=filters.classList.contains("hidden")?"Show Filters":"Hide Filters";
+ };
+ document.getElementById("clearBtn").onclick=()=>{
+  filters.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
+  applyFilters();
+ };
+ document.getElementById("exportBtn").onclick=()=>exportCSV();
+ document.getElementById("toggleViewBtn").onclick=()=>{
+  currentView=currentView==="product"?"sku":"product";
+  document.getElementById("toggleViewBtn").textContent=currentView==="product"?"Switch to SKU View":"Switch to Product View";
+  loadData(currentView);
+ };
 }
 
-/* -----------------------------
-   Main filtering + rendering
-   ----------------------------- */
 function applyFilters(){
-  // if data not loaded yet
-  if(!fullData || !fullData.length) {
-    return;
-  }
+ const tHead=document.getElementById("tableHead"),tBody=document.getElementById("tableBody"),tFoot=document.getElementById("tableFoot");
+ if(!fullData.length) return;
+ const filters=document.getElementById("filtersContainer");
+ const allInputs=[...filters.querySelectorAll(".filter-box strong")].map(e=>e.textContent);
+ const selected={};
+ allInputs.forEach(f=>{
+  selected[f]=[...filters.querySelectorAll(`input[name='${f}']:checked`)].map(i=>i.value);
+ });
+ let filtered=[...fullData];
+ // Cascade order dynamic
+ const cascade=currentView==="product"?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]:["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
+ cascade.forEach(f=>{
+  const sel=selected[f]||[];
+  if(sel.length) filtered=filtered.filter(r=>sel.includes(getVal(r,f)));
+ });
 
-  const filters = document.getElementById('filtersContainer');
-  // discover present text and numeric keys again (originalKeys may have changed)
-  const keyLabels = originalKeys.slice();
-  const textKeys = keyLabels.filter(k => baseTextCols.includes(norm(k)));
-  const numericKeys = keyLabels.filter(k => !textKeys.includes(k));
-  // order numeric
-  const orderMap = {};
-  monthOrder.forEach((m,i)=> orderMap[norm(m)] = i);
-  const numericSorted = numericKeys.slice().sort((a,b)=>{
-    const na = orderMap[norm(a)] ?? 9999;
-    const nb = orderMap[norm(b)] ?? 9999;
-    return na - nb || a.localeCompare(b);
+ // Columns visible
+ const showCols=selected["SHOW COLUMNS"]?.length?selected["SHOW COLUMNS"]:baseTextCols;
+ const monthCols=selected["MONTH / YEAR"]?.length?selected["MONTH / YEAR"]:monthOrder;
+ const colsToShow=[...showCols,...monthCols];
+ if((selected["COMPARISON"]||[]).length===2) colsToShow.push("COMPARISON");
+ tHead.innerHTML="<tr>"+colsToShow.map(c=>`<th>${c}</th>`).join("")+"</tr>";
+
+ tBody.innerHTML="";
+ filtered.forEach(r=>{
+  const cells=colsToShow.map((c,i)=>{
+    if(c==="COMPARISON"){
+      const [a,b]=selected["COMPARISON"];
+      const diff=(Number(getVal(r,b))||0)-(Number(getVal(r,a))||0);
+      const color=diff>0?"color:green":diff<0?"color:red":"";
+      return `<td class="numeric" style="${color}">${diff}</td>`;
+    }
+    const val=getVal(r,c);
+    if(monthOrder.includes(c)){const v=Number(val)||0;return `<td class="numeric">${v}</td>`;}
+    return `<td>${val}</td>`;
   });
+  tBody.innerHTML+=`<tr>${cells.join("")}</tr>`;
+ });
 
-  // Helper get selected values from a box by title (case-sensitive title is uppercased label)
-  function getSelectedFromBox(title){
-    const box = [...filters.querySelectorAll('.filter-box')].find(b => b.querySelector('strong') && b.querySelector('strong').textContent === title);
-    if(!box) return [];
-    return [...box.querySelectorAll('input[type=checkbox]:not([value="__ALL__"])')].filter(cb => cb.checked).map(cb => decodeHtml(cb.value));
-  }
-
-  // Build filtered dataset
-  let filtered = fullData.slice();
-
-  // Apply cascade filters in order: STATE -> MANAGER_NAME -> DISTRICT -> PARTY_NAME -> PRODUCT -> SKU (but only those present)
-  const cascadeOrder = ['STATE','MANAGER_NAME','DISTRICT','PARTY_NAME','PRODUCT','SKU'].filter(t => {
-    // only include if present in header set
-    return originalKeys.some(k => norm(k) === t);
+ // Grouped totals
+ const totalBy=selected["TOTAL"]||[];
+ if(totalBy.length){
+  const groupKeys=totalBy;
+  const groups={};
+  filtered.forEach(r=>{
+    const key=groupKeys.map(g=>getVal(r,g)).join("|");
+    groups[key]=groups[key]||[];
+    groups[key].push(r);
   });
-
-  // For each cascade level, if any selected values exist, filter dataset
-  for(const label of cascadeOrder){
-    const selected = getSelectedFromBox(label);
-    if(selected.length && !selected.includes('__ALL__')){
-      // find original key name that matches this label
-      const originalKey = originalKeys.find(k => norm(k) === label);
-      if(originalKey){
-        filtered = filtered.filter(r => {
-          const v = String(getVal(r, originalKey)).trim();
-          return selected.includes(v);
-        });
-      }
-    }
-    // After filtering a parent, update the next child box visibility/options (cascade)
-    // We'll update the child options: hide items not present in filtered dataset
-    const idx = cascadeOrder.indexOf(label);
-    const childLabel = cascadeOrder[idx+1];
-    if(childLabel){
-      const childBox = [...filters.querySelectorAll('.filter-box')].find(b => b.querySelector('strong') && b.querySelector('strong').textContent === childLabel);
-      if(childBox){
-        const childKey = originalKeys.find(k => norm(k) === childLabel);
-        const allowed = new Set(filtered.map(r => String(getVal(r, childKey)).trim()).filter(v=>v!==""));
-        // show/hide child checkboxes
-        const chkboxes = childBox.querySelectorAll('input[type=checkbox]:not([value="__ALL__"])');
-        chkboxes.forEach(cb => {
-          const val = decodeHtml(cb.value);
-          if(allowed.has(val)) {
-            cb.closest('label').style.display = ''; // show
-          } else {
-            cb.closest('label').style.display = 'none'; // hide
-            cb.checked = false; // uncheck invisible items
-          }
-        });
-        // update All toggle state for child
-        const allCB = childBox.querySelector('input[value="__ALL__"]');
-        if(allCB){
-          const visibleItems = [...childBox.querySelectorAll('input[type=checkbox]:not([value="__ALL__"])')].filter(x=>x.closest('label').style.display!=='none');
-          allCB.checked = visibleItems.length && visibleItems.every(x=>x.checked);
-          allCB.indeterminate = visibleItems.some(x=>x.checked) && !allCB.checked;
-        }
-      }
-    }
-  } // end cascade loop
-
-  // Determine visible columns (Show Columns + Month/Year)
-  const showColsSelected = getSelectedFromBox('SHOW COLUMNS'); // values are uppercase labels of text cols
-  // If none selected, default to all text columns found (use uppercase labels)
-  const textColsUpper = originalKeys.filter(k=> baseTextCols.includes(norm(k))).map(k=>norm(k));
-  const textColsToShow = showColsSelected.length ? showColsSelected : textColsUpper;
-
-  // Month / Year selected
-  const monthSelected = getSelectedFromBox('MONTH / YEAR');
-  const monthColsToShow = monthSelected.length ? monthSelected : (numericSorted.map(k => k));
-
-  // Build columnsToShow names as actual keys: for text columns map uppercase label back to original key name
-  const colsToShowKeys = [];
-  // add text columns (in the order of original textKeys)
-  for(const origKey of originalKeys){
-    if(baseTextCols.includes(norm(origKey)) && textColsToShow.includes(norm(origKey))){
-      colsToShowKeys.push(origKey);
-    }
-  }
-  // add numeric month columns in order (map numericSorted names)
-  for(const m of numericSorted){
-    if(monthColsToShow.includes(m)){
-      colsToShowKeys.push(m);
-    }
-  }
-
-  // Comparison handling: if 2 comparison months selected, append "COMPARISON" virtual column
-  const compSelected = getSelectedFromBox('COMPARISON');
-  let comparisonPair = [];
-  if(compSelected.length === 2){
-    // compSelected contains display strings that match numeric keys (case-sensitive format)
-    // find matching original keys from numericSorted
-    const compKeys = numericSorted.filter(k => compSelected.includes(k));
-    if(compKeys.length === 2){
-      comparisonPair = compKeys.slice(0,2);
-      colsToShowKeys.push('COMPARISON'); // virtual column name
-    }
-  }
-
-  // Render thead
-  const head = document.getElementById('tableHead');
-  head.innerHTML = '<tr>' + colsToShowKeys.map(k => `<th>${escapeHtml(norm(k))}</th>`).join('') + '</tr>';
-
-  // Render rows
-  const body = document.getElementById('tableBody');
-  body.innerHTML = ''; // reset
-
-  // For each filtered row, build row in table using colsToShowKeys
-  const rowsHtml = filtered.map(row => {
-    const tds = colsToShowKeys.map((colKey, idx) => {
-      if(colKey === 'COMPARISON'){
-        // compute comp: compKeys[1] - compKeys[0]
-        const a = Number(getVal(row, comparisonPair[0])) || 0;
-        const b = Number(getVal(row, comparisonPair[1])) || 0;
-        const diff = b - a;
-        const color = diff > 0 ? 'color:green' : diff < 0 ? 'color:red' : '';
-        return `<td class="numeric" style="${color}">${diff}</td>`;
-      }
-
-      const raw = getVal(row, colKey);
-      // if numeric column (in numericSorted), show numeric cell
-      if(numericSorted.includes(colKey)){
-        const v = Number(raw) || 0;
-        // color compared to previous numeric column shown (if previous shown)
-        // find previous numeric column index among colsToShowKeys before idx
-        let prevVal = null;
-        for(let j = idx-1; j >= 0; j--){
-          const prevKey = colsToShowKeys[j];
-          if(numericSorted.includes(prevKey)){
-            prevVal = Number(getVal(row, prevKey)) || 0;
-            break;
-          }
-        }
-        const color = prevVal === null ? '' : (v > prevVal ? 'color:green' : v < prevVal ? 'color:red' : '');
-        return `<td class="numeric" style="${color}">${v}</td>`;
-      }
-      // text column: show as-is
-      return `<td>${escapeHtml(String(raw))}</td>`;
-    });
-    return `<tr>${tds.join('')}</tr>`;
-  });
-
-  body.innerHTML = rowsHtml.join('');
-
-  // Total row when TOTAL filter selections present
-  const totalSel = getSelectedFromBox('TOTAL'); // uppercase labels of text columns
-  const tableFoot = document.getElementById('tableFoot');
-  if(totalSel.length){
-    // Build totals for numeric columns only
-    const totals = {};
-    for(const numKey of numericSorted){
-      // if numeric Key included in colsToShowKeys then sum; else still compute but not show
-      const sum = filtered.reduce((s,r) => s + (Number(getVal(r, numKey)) || 0), 0);
-      totals[numKey] = sum;
-    }
-    // For text columns selected for TOTAL, we'll show a label like TOTAL <COL>
-    // Build tfoot row cells matching colsToShowKeys order
-    const footCells = colsToShowKeys.map(k => {
-      if(numericSorted.includes(k)){
-        return `<td>${totals[k] ?? 0}</td>`;
-      }
-      // text columns: if selected for total show "TOTAL <label>" once; else blank
-      if(totalSel.includes(norm(k))){
-        return `<td>${escapeHtml('TOTAL ' + norm(k))}</td>`;
-      }
+  tFoot.innerHTML="";
+  Object.entries(groups).forEach(([gKey,rows])=>{
+    const totals={};
+    monthOrder.forEach(m=>totals[m]=rows.reduce((a,b)=>a+(Number(getVal(b,m))||0),0));
+    const totalCells=colsToShow.map(c=>{
+      if(monthOrder.includes(c)) return `<td>${totals[c]||0}</td>`;
+      if(groupKeys.includes(c)) return `<td>TOTAL ${gKey.split("|")[groupKeys.indexOf(c)]||""}</td>`;
       return `<td></td>`;
     });
-    tableFoot.innerHTML = `<tr>${footCells.join('')}</tr>`;
-  } else {
-    tableFoot.innerHTML = '';
-  }
-
-  // Ensure table visible
-  document.getElementById('dataTable').classList.remove('hidden');
-}
-
-/* -----------------------------
-   CSV Export (simple)
-   ----------------------------- */
-function exportCSV(){
-  const head = document.querySelectorAll('#tableHead th');
-  if(!head.length) return alert('No data to export');
-
-  const rows = [];
-  rows.push([...head].map(h => h.textContent.trim()).join(','));
-  document.querySelectorAll('#tableBody tr').forEach(tr=>{
-    const vals = [...tr.querySelectorAll('td')].map(td => `"${td.textContent.replace(/"/g,'""')}"`);
-    rows.push(vals.join(','));
+    tFoot.innerHTML+=`<tr>${totalCells.join("")}</tr>`;
   });
-
-  // if tfoot totals present, include them
-  const tfootRow = document.querySelector('#tableFoot tr');
-  if(tfootRow){
-    const vals = [...tfootRow.querySelectorAll('td')].map(td => `"${td.textContent.replace(/"/g,'""')}"`);
-    rows.push(vals.join(','));
-  }
-
-  const csv = rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${currentView}_export.csv`;
-  a.click();
+ } else tFoot.innerHTML="";
+ document.getElementById("dataTable").classList.remove("hidden");
 }
 
-/* -----------------------------
-   Helpers: escape HTML, decode HTML
-   ----------------------------- */
-function escapeHtml(s){
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-function decodeHtml(s){
-  // reverse of escape (for values)
-  const txt = document.createElement('textarea');
-  txt.innerHTML = s;
-  return txt.value;
+function exportCSV(){
+ const rows=[...document.querySelectorAll("table tr")].map(r=>[...r.children].map(td=>`"${td.innerText.replace(/"/g,'""')}"`).join(","));
+ const csv=rows.join("\n");
+ const blob=new Blob([csv],{type:"text/csv"});const a=document.createElement("a");
+ a.href=URL.createObjectURL(blob);a.download=`${currentView}_export.csv`;a.click();
 }
 </script>
 </body>
