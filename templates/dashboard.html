@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>SMC Madhusudan Sales Dashboard</title>
 
-  <!-- Static CSS -->
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 </head>
@@ -22,19 +21,17 @@
         <button id="clearBtn" class="btn btn-gray">🧹 Clear</button>
         <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
         <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
-        <button id="themeToggle" class="btn btn-gray" id="themeToggle">🌙 Dark</button>
+        <button id="themeToggle" class="btn btn-gray">🌙 Dark</button>
       </div>
     </div>
   </header>
 
   <main class="container">
     <section>
-      <!-- Filters -->
       <div id="filtersContainer" class="filter-bar"></div>
       <div id="loader" class="loader">Loading data...</div>
       <div id="overlayLoader" class="overlay hidden">Updating filters…</div>
 
-      <!-- Data table -->
       <div class="table-wrapper">
         <table id="dataTable" class="hidden">
           <thead id="tableHead"></thead>
@@ -46,30 +43,24 @@
   </main>
 
   <footer>
-    <p>© {{ current_year }} Created & Hosted by <strong>SMC Madhusudan - Amit Sharma</strong></p>
+    <p>© {{ current_year }} Created & Hosted by <strong>Amit Sharma</strong></p>
   </footer>
 
 <script>
-let currentView = "product";
-let fullData = [], originalKeys = [];
-
-const baseTextCols = ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
-const monthOrder = [
+let currentView="product";
+let fullData=[],originalKeys=[];
+const baseTextCols=["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
+const monthOrder=[
 "APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
 "OCT-23","NOV-23","DEC-23","AVG_Q3_2023-24","JAN-24","FEB-24","MAR-24","AVG_Q4_2023-24","AVG_YEAR_2023-24",
-"APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25",
-"OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25","JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25",
-"AVG_YEAR_2024-25","APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
+"APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25","OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25",
+"JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25","APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
 ];
-const norm = s => String(s || "").toUpperCase().trim();
-const getVal = (r, k) => r[k] ?? r[k.toLowerCase()] ?? r[k.toUpperCase()] ?? "";
+const norm=s=>String(s||"").toUpperCase().trim();
+const getVal=(r,k)=>r[k]??r[k.toLowerCase()]??r[k.toUpperCase()]??"";
 
-/* Debounce helper */
-function debounce(fn, delay = 400) {
-  let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); };
-}
+function debounce(fn,delay=400){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),delay);}};
 
-/* Initialize */
 document.addEventListener("DOMContentLoaded",()=>loadData(currentView));
 
 async function loadData(view){
@@ -84,7 +75,6 @@ async function loadData(view){
   loader.classList.add("hidden");
 }
 
-/* Build Filters */
 function buildFilters(){
   const filters=document.getElementById("filtersContainer");
   filters.innerHTML="";
@@ -93,13 +83,13 @@ function buildFilters(){
     ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"]
     :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"];
 
-  const colors=["#fdf2f8","#ecfdf5","#fef3c7","#e0f2fe","#ede9fe","#f3f4f6","#fff7ed","#fef2f2","#eef2ff"];
-  let colorIndex=0;
+  const colors=["#fff7ed","#ecfdf5","#e0f2fe","#fdf2f8","#fef3c7","#e0f2fe","#f3e8ff","#fef2f2","#f3f4f6"];
+  let ci=0;
 
   function makeBox(title,vals,checkedAll){
     const box=document.createElement("div");
     box.className="filter-box";
-    box.style.background=colors[colorIndex++ % colors.length];
+    box.style.background=colors[ci++ % colors.length];
     box.innerHTML=`<strong>${title}</strong>
       <label><input type="checkbox" data-all="${title}">All</label>`+
       vals.map(v=>`<label><input type="checkbox" name="${title}" value="${v}" ${checkedAll?"checked":""}>${v}</label>`).join("");
@@ -125,6 +115,14 @@ function buildFilters(){
   });
 
   filters.addEventListener("change",debounce(applyFilters,400));
+
+  // Hide/Show filter toggle (smooth)
+  document.getElementById("toggleFiltersBtn").onclick=()=>{
+    const bar=filters;
+    if(bar.style.maxHeight){ bar.style.maxHeight=null; document.getElementById("toggleFiltersBtn").textContent="Hide Filters"; }
+    else { bar.style.maxHeight="0"; document.getElementById("toggleFiltersBtn").textContent="Show Filters"; }
+  };
+
   document.getElementById("clearBtn").onclick=()=>{
     filters.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
     applyFilters();
@@ -137,15 +135,11 @@ function buildFilters(){
   };
 }
 
-/* Apply Filters */
 function applyFilters(){
   const overlay=document.getElementById("overlayLoader");
   overlay.classList.remove("hidden");
   requestAnimationFrame(()=>{
-
-  const tHead=document.getElementById("tableHead"),
-        tBody=document.getElementById("tableBody"),
-        tFoot=document.getElementById("tableFoot");
+  const tHead=document.getElementById("tableHead"),tBody=document.getElementById("tableBody"),tFoot=document.getElementById("tableFoot");
   if(!fullData.length) return;
 
   const filters=document.getElementById("filtersContainer");
@@ -216,11 +210,10 @@ function applyFilters(){
   });
 }
 
-/* Export CSV with filename = filters + date */
 function exportCSV(){
   const date=new Date().toISOString().split('T')[0];
   const selectedFilters=[...document.querySelectorAll(".filter-box strong")]
-    .map(s=>s.textContent).join("_");
+    .map(s=>s.textContent.replace(/ /g,"_")).join("_");
   const filename=`${currentView}_${selectedFilters}_${date}.csv`;
 
   const rows=[...document.querySelectorAll("table tr")].map(r=>[...r.children].map(td=>`"${td.innerText.replace(/"/g,'""')}"`).join(","));
@@ -231,7 +224,6 @@ function exportCSV(){
   a.click();
 }
 
-/* Dark mode toggle */
 const themeBtn=document.getElementById("themeToggle");
 if(localStorage.getItem("theme")==="dark"){document.documentElement.classList.add("dark-mode");themeBtn.textContent="☀️ Light";}
 themeBtn.addEventListener("click",()=>{
