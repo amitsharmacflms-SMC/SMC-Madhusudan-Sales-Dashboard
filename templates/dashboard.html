@@ -30,6 +30,7 @@
   <main class="container">
     <section>
       <div id="filtersContainer" class="filter-bar"></div>
+
       <div id="loader" class="loader">Loading data...</div>
       <div id="overlayLoader" class="overlay hidden">Updating filters…</div>
 
@@ -98,6 +99,7 @@ function toggleFilters(){
   if(bar.style.maxHeight){bar.style.maxHeight=null;this.textContent="Hide Filters";}
   else{bar.style.maxHeight="0";this.textContent="Show Filters";}
 }
+
 function clearFilters(){
   const filters=document.getElementById("filtersContainer");
   filters.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
@@ -181,20 +183,17 @@ function applyFilters(){
         ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
         :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
 
-      // Smart cascade
+      /* ✅ Fixed: Cascade + Real Data Filtering */
+      let filtered=[...fullData];
       cascade.forEach((f,idx)=>{
         const sel=selected[f]||[];
-        let tempData=fullData;
-        for(let j=0;j<=idx;j++){
-          const sf=cascade[j];
-          if(selected[sf]?.length)tempData=tempData.filter(r=>selected[sf].includes(getVal(r,sf)));
-        }
+        if(sel.length>0){filtered=filtered.filter(r=>sel.includes(getVal(r,f)));}
         const next=cascade[idx+1];
         if(next){
-          const valid=new Set(tempData.map(r=>getVal(r,next)).filter(Boolean));
-          const box=[...filters.querySelectorAll(".filter-box")].find(b=>b.querySelector("strong").textContent===next);
-          if(box){
-            box.querySelectorAll("input[name='"+next+"']").forEach(cb=>{
+          const nextBox=[...filters.querySelectorAll(".filter-box")].find(b=>b.querySelector("strong").textContent===next);
+          if(nextBox){
+            const valid=new Set(filtered.map(r=>getVal(r,next)).filter(Boolean));
+            nextBox.querySelectorAll(`input[name='${next}']`).forEach(cb=>{
               cb.closest("label").style.display=valid.has(cb.value)?"":"none";
               if(!valid.has(cb.value))cb.checked=false;
             });
@@ -210,7 +209,7 @@ function applyFilters(){
       tHead.innerHTML="<tr>"+colsToShow.map(c=>`<th>${c}</th>`).join("")+"</tr>";
 
       const map=new Map();
-      fullData.forEach(r=>{
+      filtered.forEach(r=>{
         const key=showCols.map(k=>getVal(r,k)).join("|");
         if(!map.has(key)){
           const obj={};showCols.forEach(k=>obj[k]=getVal(r,k));
@@ -223,11 +222,9 @@ function applyFilters(){
       });
       const grouped=[...map.values()];
 
-      // Clear & fade
       tBody.innerHTML="";
       tBody.classList.remove("fade-in");
 
-      // Render data
       if(totalCols.length){
         const groups={};
         grouped.forEach(row=>{
@@ -250,10 +247,9 @@ function applyFilters(){
         grouped.forEach(r=>appendRow(r,colsToShow,selected,tBody));
       }
 
-      // ✅ Fade in animation after render
-      requestAnimationFrame(() => tBody.classList.add("fade-in"));
+      /* ✅ Fade animation after rendering */
+      requestAnimationFrame(()=>tBody.classList.add("fade-in"));
 
-      // Totals
       tFoot.innerHTML="";
       if(grouped.length){
         const totals={};monthCols.forEach(m=>totals[m]=grouped.reduce((s,r)=>s+(Number(r[m])||0),0));
