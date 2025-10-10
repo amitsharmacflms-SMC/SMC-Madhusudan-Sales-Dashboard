@@ -160,3 +160,91 @@ footer strong { color: #1e40af; }
 .filter-box::-webkit-scrollbar, .table-wrapper::-webkit-scrollbar { height: 8px; width: 8px; }
 .filter-box::-webkit-scrollbar-thumb, .table-wrapper::-webkit-scrollbar-thumb { background: #cfe1ff; border-radius: 10px; }
 .filter-box::-webkit-scrollbar-thumb:hover, .table-wrapper::-webkit-scrollbar-thumb:hover { background: #93c5fd; }
+
+/* Sticky header table adjustments */
+.table-wrapper {
+  position: relative;
+  overflow-y: auto;
+  max-height: 80vh;
+}
+table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: linear-gradient(90deg,#eef2ff,#e0e7ff);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+/* Improve dark mode visibility */
+.dark-mode .filter-bar {
+  background: #0f1724;
+}
+.dark-mode .filter-box {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+.dark-mode .filter-box strong {
+  color: #93c5fd;
+}
+.dark-mode .filter-box label:hover {
+  background: #1e40af;
+  color: #fff;
+}
+.dark-mode .filter-box input[type=checkbox] {
+  accent-color: #60a5fa;
+}
+.dark-mode .table-wrapper {
+  background: #0f1724;
+}
+.dark-mode td, .dark-mode th {
+  color: #e2e8f0;
+  border-color: #334155;
+}
+.dark-mode .subtotal-row td {
+  background: #1e3a8a;
+  color: #e0f2fe;
+}
+.dark-mode .grandtotal-row td {
+  background: #312e81;
+  color: #e0e7ff;
+}
+/* === Elegant fade + shimmer animations === */
+
+/* Fade-in animation for data table updates */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+/* Shimmer loader background for “Updating filters…” overlay */
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+.overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+      rgba(255,255,255,0.05) 0%,
+      rgba(255,255,255,0.15) 50%,
+      rgba(255,255,255,0.05) 100%);
+  background-size: 400px 100%;
+  animation: shimmer 1.2s infinite;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.4;
+}
+
+/* Dark-mode shimmer contrast */
+.dark-mode .overlay::before {
+  background: linear-gradient(90deg,
+      rgba(255,255,255,0.08) 0%,
+      rgba(255,255,255,0.18) 50%,
+      rgba(255,255,255,0.08) 100%);
+  opacity: 0.3;
+}
