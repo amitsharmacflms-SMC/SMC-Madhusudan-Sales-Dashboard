@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SMC Madhusudan Dashboard</title>
+  <title>SMC Madhusudan Sales Dashboard</title>
 
   <!-- Static CSS -->
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
@@ -14,7 +14,7 @@
     <div class="container header-row">
       <div class="brand">
         <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="logo">
-        <h1>SMC Madhusudan Dashboard</h1>
+        <h1>SMC Madhusudan Sales Dashboard</h1>
       </div>
 
       <div class="toolbar">
@@ -29,18 +29,14 @@
 
   <main class="container">
     <section>
-      <!-- Filters row (flex, horizontal scroll) -->
-      <div id="filtersContainer" class="filter-bar" aria-hidden="false"></div>
-
-      <!-- small loader text -->
+      <!-- Filters -->
+      <div id="filtersContainer" class="filter-bar"></div>
       <div id="loader" class="loader">Loading data...</div>
-
-      <!-- overlay while updating -->
       <div id="overlayLoader" class="overlay hidden">Updating filters…</div>
 
-      <!-- data table -->
+      <!-- Data table -->
       <div class="table-wrapper">
-        <table id="dataTable" class="hidden" role="table" aria-label="data table">
+        <table id="dataTable" class="hidden">
           <thead id="tableHead"></thead>
           <tbody id="tableBody"></tbody>
           <tfoot id="tableFoot"></tfoot>
@@ -49,310 +45,200 @@
     </section>
   </main>
 
-<script>
-/* ---------------------------
-   Dashboard client-side logic
-   --------------------------- */
+  <footer>
+    <p>© {{ current_year }} Created & Hosted by <strong>SMC Madhusudan - Amit Sharma</strong></p>
+  </footer>
 
+<script>
 let currentView = "product";
-let fullData = [];
-let originalKeys = [];
+let fullData = [], originalKeys = [];
 
 const baseTextCols = ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
 const monthOrder = [
 "APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
 "OCT-23","NOV-23","DEC-23","AVG_Q3_2023-24","JAN-24","FEB-24","MAR-24","AVG_Q4_2023-24","AVG_YEAR_2023-24",
-"APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25","OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25",
-"JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25","APR-25","MAY-25","JUN-25","AVG_Q1_2025-26",
-"JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
+"APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25",
+"OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25","JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25",
+"AVG_YEAR_2024-25","APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
 ];
-
 const norm = s => String(s || "").toUpperCase().trim();
-const getVal = (r,k)=> r?.[k] ?? r?.[k.toLowerCase()] ?? r?.[k.toUpperCase()] ?? "";
+const getVal = (r, k) => r[k] ?? r[k.toLowerCase()] ?? r[k.toUpperCase()] ?? "";
 
-function debounce(fn, wait=350){
-  let t;
-  return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); };
+/* Debounce helper */
+function debounce(fn, delay = 400) {
+  let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); };
 }
 
-/* --------------- Initialization --------------- */
-document.addEventListener("DOMContentLoaded", ()=> {
-  initUI();
-  loadData(currentView);
-});
+/* Initialize */
+document.addEventListener("DOMContentLoaded",()=>loadData(currentView));
 
-/* --------------- UI helpers --------------- */
-function initUI(){
-  document.getElementById("toggleFiltersBtn").addEventListener("click", toggleFilters);
-  document.getElementById("clearBtn").addEventListener("click", clearFilters);
-  document.getElementById("exportBtn").addEventListener("click", exportCSV);
-  document.getElementById("toggleViewBtn").addEventListener("click", ()=>{
-    currentView = currentView==="product"?"sku":"product";
-    document.getElementById("toggleViewBtn").textContent = currentView==="product"?"Switch to SKU View":"Switch to Product View";
-    loadData(currentView);
-  });
-
-  // theme persistence toggle
-  const themeBtn = document.getElementById("themeToggle");
-  if(localStorage.getItem("theme")==="dark"){ document.documentElement.classList.add("dark-mode"); themeBtn.textContent = "☀️ Light"; }
-  themeBtn.addEventListener("click", ()=>{
-    if(document.documentElement.classList.contains("dark-mode")){
-      document.documentElement.classList.remove("dark-mode"); localStorage.setItem("theme","light"); themeBtn.textContent = "🌙 Dark";
-    } else {
-      document.documentElement.classList.add("dark-mode"); localStorage.setItem("theme","dark"); themeBtn.textContent = "☀️ Light";
-    }
-  });
-}
-
-function toggleFilters(){
-  const bar = document.getElementById("filtersContainer");
-  if(bar.style.maxHeight){ bar.style.maxHeight = null; this.textContent="Hide Filters"; }
-  else { bar.style.maxHeight = "0"; this.textContent = "Show Filters"; }
-}
-function clearFilters(){
-  const filters = document.getElementById("filtersContainer");
-  filters.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
-  applyFilters();
-}
-
-/* --------------- Data loading --------------- */
 async function loadData(view){
-  const loader = document.getElementById("loader");
-  loader.classList.remove("hidden"); loader.textContent = "Loading data...";
-  try {
-    const res = await fetch(`/get_data/${view}`);
-    if(!res.ok) throw new Error("Server returned "+res.status);
-    const data = await res.json();
-    if(!Array.isArray(data) || data.length===0){
-      loader.textContent = "No data found";
-      return;
-    }
-    fullData = data;
-    originalKeys = Object.keys(data[0]);
-    buildFilters();
-    applyFilters();
-  } catch(err){
-    console.error("loadData error", err);
-    loader.textContent = "⚠ Error loading data: "+err.message;
-    // hide overlay if visible
-    document.getElementById("overlayLoader").classList.add("hidden");
-  } finally {
-    // small delay so user sees "Loading"
-    setTimeout(()=>loader.classList.add("hidden"), 200);
-  }
+  const loader=document.getElementById("loader");
+  loader.classList.remove("hidden");
+  try{
+    const res=await fetch(`/get_data/${view}`);
+    const data=await res.json();
+    fullData=data; originalKeys=Object.keys(data[0]);
+    buildFilters(); applyFilters();
+  }catch{ loader.textContent="⚠ Error loading data"; }
+  loader.classList.add("hidden");
 }
 
-/* --------------- Build filter UI --------------- */
+/* Build Filters */
 function buildFilters(){
-  const filters = document.getElementById("filtersContainer");
-  filters.innerHTML = "";
-  const headers = originalKeys.map(norm);
-  const textCols = baseTextCols.filter(c => headers.includes(c));
-  const order = currentView==="product"
-    ? ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"]
-    : ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"];
+  const filters=document.getElementById("filtersContainer");
+  filters.innerHTML="";
+  const textCols=baseTextCols.filter(c=>originalKeys.map(norm).includes(c));
+  const order=currentView==="product"
+    ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"]
+    :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"];
 
-  function makeBox(title, vals=[], checkedAll=false){
-    const box = document.createElement("div");
-    box.className = "filter-box";
-    const hdr = document.createElement("strong"); hdr.textContent = title; box.appendChild(hdr);
-    const allLabel = document.createElement("label");
-    allLabel.className = "all-label";
-    const allCb = document.createElement("input"); allCb.type="checkbox"; allCb.dataset.all = title;
-    allLabel.appendChild(allCb); allLabel.appendChild(document.createTextNode(" All"));
-    box.appendChild(allLabel);
-    const container = document.createElement("div"); container.className = "options";
-    vals.forEach(v=>{
-      const lab = document.createElement("label");
-      const cb = document.createElement("input"); cb.type="checkbox"; cb.name = title; cb.value = v;
-      if(checkedAll) cb.checked = true;
-      lab.appendChild(cb); lab.appendChild(document.createTextNode(" "+v));
-      container.appendChild(lab);
-    });
-    box.appendChild(container);
+  const colors=["#fdf2f8","#ecfdf5","#fef3c7","#e0f2fe","#ede9fe","#f3f4f6","#fff7ed","#fef2f2","#eef2ff"];
+  let colorIndex=0;
+
+  function makeBox(title,vals,checkedAll){
+    const box=document.createElement("div");
+    box.className="filter-box";
+    box.style.background=colors[colorIndex++ % colors.length];
+    box.innerHTML=`<strong>${title}</strong>
+      <label><input type="checkbox" data-all="${title}">All</label>`+
+      vals.map(v=>`<label><input type="checkbox" name="${title}" value="${v}" ${checkedAll?"checked":""}>${v}</label>`).join("");
     filters.appendChild(box);
   }
 
   order.forEach(f=>{
-    if(f==="SHOW COLUMNS") makeBox(f, textCols, true);
-    else if(f==="MONTH / YEAR" || f==="COMPARISON") makeBox(f, monthOrder, true);
-    else if(f==="TOTAL") makeBox(f, textCols, false);
+    if(f==="SHOW COLUMNS") makeBox(f,textCols,true);
+    else if(f==="MONTH / YEAR"||f==="COMPARISON") makeBox(f,monthOrder,true);
+    else if(f==="TOTAL") makeBox(f,textCols,false);
     else if(textCols.includes(f)){
-      const vals = [...new Set(fullData.map(r=>getVal(r,f)))].filter(Boolean).sort();
-      makeBox(f, vals, false);
+      const vals=[...new Set(fullData.map(r=>getVal(r,f)))].filter(Boolean).sort();
+      makeBox(f,vals,false);
     }
   });
 
-  // Add event listeners (delegated)
   filters.querySelectorAll("input[data-all]").forEach(cb=>{
-    cb.addEventListener("change", e=>{
-      const title = e.target.dataset.all;
-      const checked = e.target.checked;
-      filters.querySelectorAll(`input[name='${title}']`).forEach(i=>i.checked = checked);
+    cb.addEventListener("change",e=>{
+      const g=e.target.getAttribute("data-all");
+      filters.querySelectorAll(`input[name='${g}']`).forEach(x=>x.checked=e.target.checked);
       applyFilters();
     });
   });
 
-  // Delegate checkboxes -> debounce applyFilters & cascade
-  filters.addEventListener("change", debounce(()=>applyFilters(), 300), {passive:true});
+  filters.addEventListener("change",debounce(applyFilters,400));
+  document.getElementById("clearBtn").onclick=()=>{
+    filters.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
+    applyFilters();
+  };
+  document.getElementById("exportBtn").onclick=()=>exportCSV();
+  document.getElementById("toggleViewBtn").onclick=()=>{
+    currentView=currentView==="product"?"sku":"product";
+    document.getElementById("toggleViewBtn").textContent=currentView==="product"?"Switch to SKU View":"Switch to Product View";
+    loadData(currentView);
+  };
 }
 
-/* --------------- Filtering, grouping, rendering --------------- */
+/* Apply Filters */
 function applyFilters(){
-  const overlay = document.getElementById("overlayLoader");
+  const overlay=document.getElementById("overlayLoader");
   overlay.classList.remove("hidden");
+  requestAnimationFrame(()=>{
 
-  // do heavy work inside animation frame to keep UI responsive
-  requestAnimationFrame(()=> {
-    try {
-      const tHead = document.getElementById("tableHead"),
-            tBody = document.getElementById("tableBody"),
-            tFoot = document.getElementById("tableFoot");
-      if(!fullData.length){ tBody.innerHTML=""; tHead.innerHTML=""; overlay.classList.add("hidden"); return; }
+  const tHead=document.getElementById("tableHead"),
+        tBody=document.getElementById("tableBody"),
+        tFoot=document.getElementById("tableFoot");
+  if(!fullData.length) return;
 
-      const filters = document.getElementById("filtersContainer");
-      const selected = {};
-      [...filters.querySelectorAll(".filter-box strong")].forEach(h=>{
-        const title = h.textContent;
-        selected[title] = [...filters.querySelectorAll(`input[name='${title}']:checked`)].map(i=>i.value);
-      });
+  const filters=document.getElementById("filtersContainer");
+  const selected={};
+  [...filters.querySelectorAll(".filter-box strong")].forEach(f=>{
+    const t=f.textContent; selected[t]=[...filters.querySelectorAll(`input[name='${t}']:checked`)].map(i=>i.value);
+  });
 
-      // cascade filtering
-      const cascade = currentView==="product"
-        ? ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
-        : ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
+  const showCols=selected["SHOW COLUMNS"]?.length?selected["SHOW COLUMNS"]:baseTextCols;
+  const monthCols=selected["MONTH / YEAR"]?.length?selected["MONTH / YEAR"]:monthOrder;
+  const colsToShow=[...showCols,...monthCols];
+  if((selected["COMPARISON"]||[]).length===2) colsToShow.push("COMPARISON");
 
-      let filtered = [...fullData];
-      cascade.forEach((f, idx)=>{
-        const sel = selected[f] || [];
-        if(sel.length) filtered = filtered.filter(r=>sel.includes(getVal(r,f)));
-        // update next filter options (smart cascade)
-        const next = cascade[idx+1];
-        if(next){
-          const nextBox = [...filters.querySelectorAll(".filter-box")].find(b=>b.querySelector("strong").textContent===next);
-          if(nextBox){
-            const valid = new Set(filtered.map(r=>getVal(r,next)).filter(Boolean));
-            nextBox.querySelectorAll("input[name='"+next+"']").forEach(cb=>{
-              cb.closest("label").style.display = valid.has(cb.value) ? "" : "none";
-              if(!valid.has(cb.value)) cb.checked = false;
-            });
-          }
-        }
-      });
+  tHead.innerHTML="<tr>"+colsToShow.map(c=>`<th>${c}</th>`).join("")+"</tr>";
 
-      // columns to show
-      const showCols = selected["SHOW COLUMNS"]?.length ? selected["SHOW COLUMNS"] : baseTextCols;
-      const monthCols = selected["MONTH / YEAR"]?.length ? selected["MONTH / YEAR"] : monthOrder;
-      const colsToShow = [...showCols, ...monthCols];
-      if((selected["COMPARISON"]||[]).length===2) colsToShow.push("COMPARISON");
-
-      // header
-      tHead.innerHTML = "<tr>" + colsToShow.map(c=>`<th>${c}</th>`).join("") + "</tr>";
-
-      // dedupe + sum numeric fields by showCols
-      const map = new Map();
-      filtered.forEach(r=>{
-        const key = showCols.map(k=>getVal(r,k)).join("|");
-        if(!map.has(key)){
-          const obj = {};
-          showCols.forEach(k=> obj[k] = getVal(r,k));
-          monthCols.forEach(m=> obj[m] = Number(getVal(r,m)) || 0);
-          map.set(key, obj);
-        } else {
-          const obj = map.get(key);
-          monthCols.forEach(m=> obj[m] = obj[m] + (Number(getVal(r,m))||0));
-        }
-      });
-      const grouped = [...map.values()];
-
-      // render rows with optional subtotal groups
-      tBody.innerHTML = "";
-      const totalBy = selected["TOTAL"] || [];
-
-      if(totalBy.length){
-        // make groups based on totalBy columns
-        const groups = {};
-        grouped.forEach(row=>{
-          const key = totalBy.map(k=>row[k]).join("|");
-          if(!groups[key]) groups[key] = [];
-          groups[key].push(row);
-        });
-
-        // render groups + subtotal after each
-        Object.entries(groups).forEach(([gKey, rows])=>{
-          rows.forEach(r => appendRow(r, colsToShow, tBody));
-          // subtotal
-          const subtotal = {};
-          monthCols.forEach(m => subtotal[m] = rows.reduce((s,r)=>s + (Number(r[m])||0), 0));
-          const subCells = colsToShow.map(c=>{
-            if(monthOrder.includes(c)) return `<td class="numeric">${subtotal[c]||0}</td>`;
-            if(totalBy.includes(c)) return `<td class="subtotal-label">Subtotal</td>`;
-            return `<td></td>`;
-          }).join("");
-          tBody.insertAdjacentHTML('beforeend', `<tr class="subtotal-row">${subCells}</tr>`);
-        });
-      } else {
-        grouped.forEach(r => appendRow(r, colsToShow, tBody));
-      }
-
-      // grand total footer
-      tFoot.innerHTML = "";
-      if(grouped.length){
-        const totals = {};
-        monthCols.forEach(m => totals[m] = grouped.reduce((s,r)=>s + (Number(r[m])||0), 0));
-        const totalCells = colsToShow.map(c=>{
-          if(monthOrder.includes(c)) return `<td class="numeric">${totals[c]||0}</td>`;
-          if(showCols.includes(c)) return `<td class="subtotal-label">TOTAL</td>`;
-          return `<td></td>`;
-        }).join("");
-        tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
-      }
-
-      // show table
-      document.getElementById("dataTable").classList.remove("hidden");
-    } catch(err){
-      console.error("applyFilters error:", err);
-    } finally {
-      overlay.classList.add("hidden");
+  const map=new Map();
+  fullData.forEach(r=>{
+    const key=showCols.map(k=>getVal(r,k)).join("|");
+    if(!map.has(key)){
+      const obj={}; showCols.forEach(k=>obj[k]=getVal(r,k));
+      monthCols.forEach(m=>obj[m]=Number(getVal(r,m))||0);
+      map.set(key,obj);
+    } else {
+      const obj=map.get(key);
+      monthCols.forEach(m=>obj[m]+=Number(getVal(r,m))||0);
     }
+  });
+  const grouped=[...map.values()];
+  tBody.innerHTML="";
+
+  grouped.forEach(r=>{
+    const cells=colsToShow.map((c,idx)=>{
+      if(c==="COMPARISON"&&(selected["COMPARISON"]||[]).length===2){
+        const [a,b]=selected["COMPARISON"];
+        const diff=(Number(r[b])||0)-(Number(r[a])||0);
+        const color=diff>0?"color:green":diff<=0?"color:red":"";
+        return `<td class="numeric" style="${color}">${diff}</td>`;
+      }
+      const v=r[c]??getVal(r,c);
+      if(monthOrder.includes(c)){
+        let prevVal=null;
+        for(let j=idx-1;j>=0;j--){
+          if(monthOrder.includes(colsToShow[j])){ prevVal=Number(r[colsToShow[j]])||0; break; }
+        }
+        const num=Number(v)||0;
+        const color=prevVal!=null?(num>prevVal?"color:green":num<prevVal?"color:red":""):"";
+        return `<td class="numeric" style="${color}">${num}</td>`;
+      }
+      return `<td>${v}</td>`;
+    });
+    tBody.innerHTML+=`<tr>${cells.join("")}</tr>`;
+  });
+
+  tFoot.innerHTML="";
+  if(grouped.length){
+    const totals={};
+    monthCols.forEach(m=>totals[m]=grouped.reduce((s,r)=>s+(Number(r[m])||0),0));
+    const totalCells=colsToShow.map(c=>{
+      if(monthOrder.includes(c)) return `<td>${totals[c]}</td>`;
+      if(showCols.includes(c)) return `<td><b>TOTAL</b></td>`;
+      return `<td></td>`;
+    }).join("");
+    tFoot.innerHTML=`<tr class="grandtotal-row">${totalCells}</tr>`;
+  }
+
+  document.getElementById("dataTable").classList.remove("hidden");
+  overlay.classList.add("hidden");
   });
 }
 
-/* Append one row with color coding vs previous numeric visible column */
-function appendRow(row, colsToShow, tBody){
-  // compute cell htmls
-  const cells = colsToShow.map((c, idx)=>{
-    if(c==="COMPARISON"){
-      // skip, comparison handled by user choice separately (not aggregated)
-      return `<td class="numeric">${row[c] ?? ""}</td>`;
-    }
-    if(monthOrder.includes(c)){
-      // find previous visible numeric column value (in same row)
-      let prevVal = null;
-      for(let j = idx - 1; j >= 0; j--){
-        if(monthOrder.includes(colsToShow[j])){
-          prevVal = Number(row[colsToShow[j]]) || 0;
-          break;
-        }
-      }
-      const num = Number(row[c]) || 0;
-      const cls = (prevVal !== null) ? (num > prevVal ? 'pos' : (num < prevVal ? 'neg' : '')) : '';
-      return `<td class="numeric ${cls}">${num}</td>`;
-    }
-    // text column
-    return `<td>${row[c] ?? ""}</td>`;
-  });
-
-  tBody.insertAdjacentHTML('beforeend', `<tr>${cells.join('')}</tr>`);
-}
-
-/* --------------- CSV export --------------- */
+/* Export CSV with filename = filters + date */
 function exportCSV(){
-  const rows = [...document.querySelectorAll("table tr")].map(r => [...r.children].map(td=>`"${td.innerText.replace(/"/g,'""')}"`).join(","));
-  const csv = rows.join("\n");
-  const blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${currentView}_export.csv`; a.click();
+  const date=new Date().toISOString().split('T')[0];
+  const selectedFilters=[...document.querySelectorAll(".filter-box strong")]
+    .map(s=>s.textContent).join("_");
+  const filename=`${currentView}_${selectedFilters}_${date}.csv`;
+
+  const rows=[...document.querySelectorAll("table tr")].map(r=>[...r.children].map(td=>`"${td.innerText.replace(/"/g,'""')}"`).join(","));
+  const blob=new Blob([rows.join("\n")],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click();
 }
+
+/* Dark mode toggle */
+const themeBtn=document.getElementById("themeToggle");
+if(localStorage.getItem("theme")==="dark"){document.documentElement.classList.add("dark-mode");themeBtn.textContent="☀️ Light";}
+themeBtn.addEventListener("click",()=>{
+  const html=document.documentElement;
+  if(html.classList.contains("dark-mode")){html.classList.remove("dark-mode");localStorage.setItem("theme","light");themeBtn.textContent="🌙 Dark";}
+  else{html.classList.add("dark-mode");localStorage.setItem("theme","dark");themeBtn.textContent="☀️ Light";}
+});
 </script>
 </body>
 </html>
