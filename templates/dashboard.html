@@ -102,7 +102,6 @@ function buildFilters(){
     }
   });
 
-  // All toggles
   filters.querySelectorAll("input[data-all]").forEach(cb=>{
     cb.addEventListener("change",e=>{
       const g=e.target.getAttribute("data-all");
@@ -188,29 +187,29 @@ function applyFilters(){
 
   /* ---- Render ---- */
   tBody.innerHTML="";
-  grouped.forEach(row=>{
-    const cells=colsToShow.map((c,idx)=>{
-      if(c==="COMPARISON"&&(selected["COMPARISON"]||[]).length===2){
-        const [a,b]=selected["COMPARISON"];
-        const diff=(Number(row[b])||0)-(Number(row[a])||0);
-        const color=diff>0?"color:green":diff<=0?"color:red":"";
-        return `<td class="numeric" style="${color}">${diff}</td>`;
-      }
-      const v=row[c]??getVal(row,c);
-      if(monthOrder.includes(c)){
-        // compare with previous visible numeric col
-        let prevVal=null;
-        for(let j=idx-1;j>=0;j--){
-          if(monthOrder.includes(colsToShow[j])){ prevVal=Number(row[colsToShow[j]])||0; break; }
-        }
-        const num=Number(v)||0;
-        const color=prevVal!=null?(num>prevVal?"color:green":num<prevVal?"color:red":""):"";
-        return `<td class="numeric" style="${color}">${num}</td>`;
-      }
-      return `<td>${v}</td>`;
+  const totalBy=selected["TOTAL"]||[];
+
+  // If grouping (subtotal) selected
+  if(totalBy.length){
+    const groups={};
+    grouped.forEach(r=>{
+      const key=totalBy.map(c=>r[c]).join("|");
+      if(!groups[key]) groups[key]=[];
+      groups[key].push(r);
     });
-    tBody.innerHTML+=`<tr>${cells.join("")}</tr>`;
-  });
+    Object.entries(groups).forEach(([key,rows])=>{
+      rows.forEach(row=>appendRow(row,colsToShow,tBody));
+      // Subtotal row
+      const subtotal={};
+      monthCols.forEach(m=>subtotal[m]=rows.reduce((s,r)=>s+(Number(r[m])||0),0));
+      const subCells=colsToShow.map(c=>{
+        if(monthOrder.includes(c)) return `<td>${subtotal[c]}</td>`;
+        if(totalBy.includes(c)) return `<td><b>Subtotal</b></td>`;
+        return `<td></td>`;
+      }).join("");
+      tBody.innerHTML+=`<tr class="subtotal-row">${subCells}</tr>`;
+    });
+  } else grouped.forEach(r=>appendRow(r,colsToShow,tBody));
 
   /* ---- Grand Total ---- */
   tFoot.innerHTML="";
@@ -219,7 +218,7 @@ function applyFilters(){
     monthCols.forEach(m=>totals[m]=grouped.reduce((s,r)=>s+(Number(r[m])||0),0));
     const totalCells=colsToShow.map(c=>{
       if(monthOrder.includes(c)) return `<td>${totals[c]}</td>`;
-      if(showCols.includes(c)) return `<td>TOTAL</td>`;
+      if(showCols.includes(c)) return `<td><b>TOTAL</b></td>`;
       return `<td></td>`;
     }).join("");
     tFoot.innerHTML=`<tr class="grandtotal-row">${totalCells}</tr>`;
@@ -228,6 +227,26 @@ function applyFilters(){
   document.getElementById("dataTable").classList.remove("hidden");
   overlay.classList.add("hidden");
   });
+}
+
+/* ---- Helper to render one data row with color coding ---- */
+function appendRow(row,colsToShow,tBody){
+  const cells=colsToShow.map((c,idx)=>{
+    if(c==="COMPARISON"){
+      return `<td class="numeric">${row[c]||""}</td>`;
+    }
+    if(monthOrder.includes(c)){
+      let prevVal=null;
+      for(let j=idx-1;j>=0;j--){
+        if(monthOrder.includes(colsToShow[j])){ prevVal=Number(row[colsToShow[j]])||0; break; }
+      }
+      const num=Number(row[c])||0;
+      const color=prevVal!=null?(num>prevVal?"color:green":num<prevVal?"color:red":""):"";
+      return `<td class="numeric" style="${color}">${num}</td>`;
+    }
+    return `<td>${row[c]}</td>`;
+  });
+  tBody.innerHTML+=`<tr>${cells.join("")}</tr>`;
 }
 
 /* ---------- CSV Export ---------- */
