@@ -2,153 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>SMC Madhusudan Dashboard</title>
-  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
-
-  <style>
-    :root {
-      --blue-light: #e0f2fe;
-      --blue-dark: #2563eb;
-      --violet-light: #f3e8ff;
-    }
-    body {
-      font-family: 'Inter', system-ui, sans-serif;
-      background: #f9fafb;
-      margin: 0;
-    }
-    header {
-      background: #fff;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-    }
-    header h1 {
-      font-weight: 700;
-      color: #1e40af;
-    }
-    .container {
-      max-width: 1500px;
-      margin: 0 auto;
-      padding: 1rem;
-    }
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .btn {
-      padding: .4rem .8rem;
-      border-radius: .5rem;
-      font-weight: 600;
-      font-size: .85rem;
-      border: none;
-      cursor: pointer;
-    }
-    .btn-blue {
-      background: linear-gradient(90deg,#2563eb,#4f46e5);
-      color: #fff;
-    }
-    .btn-gray {
-      background: #f3f4f6;
-      color: #111827;
-    }
-    .filter-bar {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: .75rem;
-      background: #fff;
-      padding: .75rem;
-      border-radius: .75rem;
-      box-shadow: inset 0 0 5px #e5e7eb;
-    }
-    .filter-box {
-      border: 1px solid #93c5fd;
-      border-radius: .6rem;
-      padding: 6px;
-      font-size: .8rem;
-      max-height: 190px;
-      overflow-y: auto;
-      background: linear-gradient(180deg,#f0f9ff,#dbeafe);
-    }
-    .filter-box strong {
-      display: block;
-      text-align: center;
-      color: #1d4ed8;
-      font-size: .75rem;
-      margin-bottom: 4px;
-    }
-    .filter-box label {
-      display: block;
-      padding: 2px 4px;
-      cursor: pointer;
-    }
-    .filter-box label:hover {
-      background: #bfdbfe;
-    }
-    .filter-box input[type=checkbox] {
-      margin-right: 5px;
-      accent-color: #2563eb;
-    }
-    .table-wrapper {
-      overflow-x: auto;
-      background: white;
-      border-radius: .75rem;
-      margin-top: 1rem;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      min-width: 1200px;
-    }
-    th, td {
-      border: 2px solid #4b5563;
-      padding: 8px;
-      font-weight: 700;
-      font-size: .85rem;
-    }
-    th {
-      background: linear-gradient(90deg,#eef2ff,#e0e7ff);
-      color: #1e3a8a;
-      position: sticky;
-      top: 0;
-    }
-    td.numeric {
-      text-align: center;
-    }
-    tr.subtotal-row td {
-      background: var(--blue-light);
-      font-weight: 800;
-    }
-    tr.grandtotal-row td {
-      background: var(--violet-light);
-      font-weight: 900;
-    }
-    .hidden {
-      display: none !important;
-    }
-    .loader {
-      text-align: center;
-      padding: 1rem;
-      color: #6b7280;
-    }
-    @media(max-width: 900px) {
-      .filter-box {
-        font-size: .75rem;
-      }
-      th, td {
-        font-size: .78rem;
-        padding: 6px;
-      }
-    }
-  </style>
+  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
 </head>
 <body>
   <header>
-    <div class="container" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div class="container" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
       <div style="display:flex;align-items:center;gap:10px;">
         <img src="{{ url_for('static', filename='onlylogo.png') }}" style="height:38px;">
         <h1>SMC Madhusudan Dashboard</h1>
@@ -158,6 +19,7 @@
         <button id="clearBtn" class="btn btn-gray">🧹 Clear</button>
         <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
         <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
+        <button id="themeToggle" class="btn btn-gray">🌙 Dark</button>
       </div>
     </div>
   </header>
@@ -166,6 +28,11 @@
     <section>
       <div id="filtersContainer" class="filter-bar"></div>
       <div id="loader" class="loader">Loading data...</div>
+      <div id="overlayLoader" class="hidden"
+        style="position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:1.1rem;z-index:2000;">
+        Updating filters…
+      </div>
+
       <div class="table-wrapper">
         <table id="dataTable" class="hidden">
           <thead id="tableHead"></thead>
@@ -183,201 +50,201 @@ const baseTextCols = ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_N
 const monthOrder = [
 "APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
 "OCT-23","NOV-23","DEC-23","AVG_Q3_2023-24","JAN-24","FEB-24","MAR-24","AVG_Q4_2023-24","AVG_YEAR_2023-24",
-"APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25",
-"OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25","JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25",
-"APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
+"APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25","OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25",
+"JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25","APR-25","MAY-25","JUN-25","AVG_Q1_2025-26",
+"JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
 ];
 const norm = s => String(s || "").toUpperCase().trim();
 const getVal = (r, k) => r[k] ?? r[k.toLowerCase()] ?? r[k.toUpperCase()] ?? "";
 
-document.addEventListener("DOMContentLoaded", () => loadData(currentView));
+/* ---------- Debounce ---------- */
+function debounce(fn, delay = 400) {
+  let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); };
+}
 
-async function loadData(view) {
-  const loader = document.getElementById("loader");
+document.addEventListener("DOMContentLoaded",()=>loadData(currentView));
+
+async function loadData(view){
+  const loader=document.getElementById("loader");
   loader.classList.remove("hidden");
-  try {
-    const res = await fetch(`/get_data/${view}`);
-    if (!res.ok) throw new Error("Failed to load data");
-    const data = await res.json();
-    fullData = data;
-    originalKeys = Object.keys(data[0]);
-    buildFilters();
-    applyFilters();
-  } catch {
-    loader.textContent = "⚠ Error loading data";
-  }
+  try{
+    const res=await fetch(`/get_data/${view}`);
+    const data=await res.json();
+    fullData=data; originalKeys=Object.keys(data[0]);
+    buildFilters(); applyFilters();
+  }catch{ loader.textContent="⚠ Error loading data"; }
   loader.classList.add("hidden");
 }
 
-function buildFilters() {
-  const filters = document.getElementById("filtersContainer");
-  filters.innerHTML = "";
-  const headers = originalKeys.map(norm);
-  const textCols = baseTextCols.filter(c => headers.includes(c));
-  const order = currentView === "product"
-    ? ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"]
-    : ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"];
+function buildFilters(){
+  const filters=document.getElementById("filtersContainer");
+  filters.innerHTML="";
+  const textCols=baseTextCols.filter(c=>originalKeys.map(norm).includes(c));
+  const order=currentView==="product"
+    ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"]
+    :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"];
 
-  function makeBox(title, vals, checkedAll) {
-    const box = document.createElement("div");
-    box.className = "filter-box";
-    box.innerHTML = `<strong>${title}</strong>
-      <label><input type="checkbox" data-all="${title}">All</label>` +
-      vals.map(v => `<label><input type="checkbox" name="${title}" value="${v}" ${checkedAll ? "checked" : ""}>${v}</label>`).join("");
+  function makeBox(title,vals,checkedAll){
+    const box=document.createElement("div");box.className="filter-box";
+    box.innerHTML=`<strong>${title}</strong>
+      <label><input type="checkbox" data-all="${title}">All</label>`+
+      vals.map(v=>`<label><input type="checkbox" name="${title}" value="${v}" ${checkedAll?"checked":""}>${v}</label>`).join("");
     filters.appendChild(box);
   }
 
-  order.forEach(f => {
-    if (f === "SHOW COLUMNS") makeBox(f, textCols, true);
-    else if (f === "MONTH / YEAR" || f === "COMPARISON") makeBox(f, monthOrder, true);
-    else if (f === "TOTAL") makeBox(f, textCols, false);
-    else if (textCols.includes(f)) {
-      const vals = [...new Set(fullData.map(r => getVal(r, f)))].filter(Boolean).sort();
-      makeBox(f, vals, false);
+  order.forEach(f=>{
+    if(f==="SHOW COLUMNS") makeBox(f,textCols,true);
+    else if(f==="MONTH / YEAR"||f==="COMPARISON") makeBox(f,monthOrder,true);
+    else if(f==="TOTAL") makeBox(f,textCols,false);
+    else if(textCols.includes(f)){
+      const vals=[...new Set(fullData.map(r=>getVal(r,f)))].filter(Boolean).sort();
+      makeBox(f,vals,false);
     }
   });
 
   // All toggles
-  filters.querySelectorAll("input[data-all]").forEach(cb => {
-    cb.addEventListener("change", e => {
-      const group = e.target.getAttribute("data-all");
-      const boxes = filters.querySelectorAll(`input[name='${group}']`);
-      boxes.forEach(x => x.checked = e.target.checked);
+  filters.querySelectorAll("input[data-all]").forEach(cb=>{
+    cb.addEventListener("change",e=>{
+      const g=e.target.getAttribute("data-all");
+      filters.querySelectorAll(`input[name='${g}']`).forEach(x=>x.checked=e.target.checked);
       applyFilters();
     });
   });
 
-  filters.addEventListener("change", () => applyFilters());
-  document.getElementById("toggleFiltersBtn").onclick = () => {
-    filters.classList.toggle("hidden");
-    document.getElementById("toggleFiltersBtn").textContent = filters.classList.contains("hidden") ? "Show Filters" : "Hide Filters";
+  filters.addEventListener("change",debounce(applyFilters,400));
+  document.getElementById("toggleFiltersBtn").onclick=()=>{
+    const bar=filters;
+    if(bar.style.maxHeight){ bar.style.maxHeight=null; document.getElementById("toggleFiltersBtn").textContent="Hide Filters";}
+    else{ bar.style.maxHeight="0"; document.getElementById("toggleFiltersBtn").textContent="Show Filters"; }
   };
-  document.getElementById("clearBtn").onclick = () => {
-    filters.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = false);
+  document.getElementById("clearBtn").onclick=()=>{
+    filters.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
     applyFilters();
   };
-  document.getElementById("exportBtn").onclick = () => exportCSV();
-  document.getElementById("toggleViewBtn").onclick = () => {
-    currentView = currentView === "product" ? "sku" : "product";
-    document.getElementById("toggleViewBtn").textContent = currentView === "product" ? "Switch to SKU View" : "Switch to Product View";
+  document.getElementById("exportBtn").onclick=()=>exportCSV();
+  document.getElementById("toggleViewBtn").onclick=()=>{
+    currentView=currentView==="product"?"sku":"product";
+    document.getElementById("toggleViewBtn").textContent=currentView==="product"?"Switch to SKU View":"Switch to Product View";
     loadData(currentView);
   };
 }
 
-function applyFilters() {
-  const tHead = document.getElementById("tableHead"),
-        tBody = document.getElementById("tableBody"),
-        tFoot = document.getElementById("tableFoot");
-  if (!fullData.length) return;
+/* ---------- Apply Filters ---------- */
+function applyFilters(){
+  const overlay=document.getElementById("overlayLoader"); overlay.classList.remove("hidden");
+  requestAnimationFrame(()=>{
 
-  const filters = document.getElementById("filtersContainer");
-  const selected = {};
-  [...filters.querySelectorAll(".filter-box strong")].forEach(f => {
-    const title = f.textContent;
-    selected[title] = [...filters.querySelectorAll(`input[name='${title}']:checked`)].map(i => i.value);
+  const tHead=document.getElementById("tableHead"),
+        tBody=document.getElementById("tableBody"),
+        tFoot=document.getElementById("tableFoot");
+  if(!fullData.length) return;
+
+  const filters=document.getElementById("filtersContainer");
+  const selected={};
+  [...filters.querySelectorAll(".filter-box strong")].forEach(f=>{
+    const t=f.textContent; selected[t]=[...filters.querySelectorAll(`input[name='${t}']:checked`)].map(i=>i.value);
   });
 
-  const cascade = currentView === "product"
-    ? ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
-    : ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
-  let filtered = [...fullData];
-  cascade.forEach(f => {
-    const sel = selected[f] || [];
-    if (sel.length) filtered = filtered.filter(r => sel.includes(getVal(r, f)));
+  const cascade=currentView==="product"
+    ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
+    :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
+  let filtered=[...fullData];
+  cascade.forEach((f,i)=>{
+    const sel=selected[f]||[];
+    if(sel.length) filtered=filtered.filter(r=>sel.includes(getVal(r,f)));
+    const next=cascade[i+1];
+    if(next){
+      const nextBox=[...filters.querySelectorAll(".filter-box")].find(b=>b.querySelector("strong")?.textContent===next);
+      if(nextBox){
+        const vals=new Set(filtered.map(r=>getVal(r,next)).filter(Boolean));
+        nextBox.querySelectorAll(`input[name='${next}']`).forEach(cb=>{
+          cb.closest("label").style.display=vals.has(cb.value)?"":"none";
+          if(!vals.has(cb.value)) cb.checked=false;
+        });
+      }
+    }
   });
 
-  const showCols = selected["SHOW COLUMNS"]?.length ? selected["SHOW COLUMNS"] : baseTextCols;
-  const monthCols = selected["MONTH / YEAR"]?.length ? selected["MONTH / YEAR"] : monthOrder;
-  const colsToShow = [...showCols, ...monthCols];
-  if ((selected["COMPARISON"] || []).length === 2) colsToShow.push("COMPARISON");
-  tHead.innerHTML = "<tr>" + colsToShow.map(c => `<th>${c}</th>`).join("") + "</tr>";
+  const showCols=selected["SHOW COLUMNS"]?.length?selected["SHOW COLUMNS"]:baseTextCols;
+  const monthCols=selected["MONTH / YEAR"]?.length?selected["MONTH / YEAR"]:monthOrder;
+  const colsToShow=[...showCols,...monthCols];
+  if((selected["COMPARISON"]||[]).length===2) colsToShow.push("COMPARISON");
+  tHead.innerHTML="<tr>"+colsToShow.map(c=>`<th>${c}</th>`).join("")+"</tr>";
 
-  const totalBy = selected["TOTAL"] || [];
-  let groupedRows = [];
+  /* ---- Deduplicate & Sum Numeric ---- */
+  const groupKeys=showCols; const map=new Map();
+  filtered.forEach(r=>{
+    const key=groupKeys.map(k=>getVal(r,k)).join("|");
+    if(!map.has(key)){
+      const obj={}; groupKeys.forEach(k=>obj[k]=getVal(r,k));
+      monthCols.forEach(m=>obj[m]=Number(getVal(r,m))||0);
+      map.set(key,obj);
+    } else {
+      const obj=map.get(key);
+      monthCols.forEach(m=>obj[m]+=Number(getVal(r,m))||0);
+    }
+  });
+  const grouped=[...map.values()];
 
-  if (totalBy.length) {
-    const groups = {};
-    filtered.forEach(r => {
-      const key = totalBy.map(c => getVal(r, c)).join("|");
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(r);
-    });
-    Object.entries(groups).forEach(([key, rows]) => {
-      const row = {};
-      colsToShow.forEach(c => {
-        if (monthOrder.includes(c)) row[c] = rows.reduce((sum, rr) => sum + (Number(getVal(rr, c)) || 0), 0);
-        else if (totalBy.includes(c)) {
-          const idx = totalBy.indexOf(c);
-          row[c] = key.split("|")[idx];
-        } else row[c] = "";
-      });
-      groupedRows.push(row);
-    });
-  } else {
-    groupedRows = filtered;
-  }
-
-  tBody.innerHTML = "";
-  groupedRows.forEach(r => {
-    const cells = colsToShow.map(c => {
-      if (c === "COMPARISON" && (selected["COMPARISON"] || []).length === 2) {
-        const [a, b] = selected["COMPARISON"];
-        const diff = (Number(getVal(r, b)) || 0) - (Number(getVal(r, a)) || 0);
-        const color = diff > 0 ? "color:green" : diff < 0 ? "color:red" : "";
+  /* ---- Render ---- */
+  tBody.innerHTML="";
+  grouped.forEach(row=>{
+    const cells=colsToShow.map((c,idx)=>{
+      if(c==="COMPARISON"&&(selected["COMPARISON"]||[]).length===2){
+        const [a,b]=selected["COMPARISON"];
+        const diff=(Number(row[b])||0)-(Number(row[a])||0);
+        const color=diff>0?"color:green":diff<=0?"color:red":"";
         return `<td class="numeric" style="${color}">${diff}</td>`;
       }
-      const v = getVal(r, c);
-      if (monthOrder.includes(c)) return `<td class="numeric">${Number(v) || 0}</td>`;
+      const v=row[c]??getVal(row,c);
+      if(monthOrder.includes(c)){
+        // compare with previous visible numeric col
+        let prevVal=null;
+        for(let j=idx-1;j>=0;j--){
+          if(monthOrder.includes(colsToShow[j])){ prevVal=Number(row[colsToShow[j]])||0; break; }
+        }
+        const num=Number(v)||0;
+        const color=prevVal!=null?(num>prevVal?"color:green":num<prevVal?"color:red":""):"";
+        return `<td class="numeric" style="${color}">${num}</td>`;
+      }
       return `<td>${v}</td>`;
-    }).join("");
-    tBody.innerHTML += `<tr>${cells}</tr>`;
+    });
+    tBody.innerHTML+=`<tr>${cells.join("")}</tr>`;
   });
 
-  // Add subtotal after each group
-  if (totalBy.length) {
-    const groups = {};
-    filtered.forEach(r => {
-      const key = totalBy.map(c => getVal(r, c)).join("|");
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(r);
-    });
-    Object.entries(groups).forEach(([key, rows]) => {
-      const subtot = {};
-      monthOrder.forEach(m => subtot[m] = rows.reduce((s, rr) => s + (Number(getVal(rr, m)) || 0), 0));
-      const subCells = colsToShow.map(c => {
-        if (monthOrder.includes(c)) return `<td>${subtot[c] || 0}</td>`;
-        if (totalBy.includes(c)) return `<td>Subtotal</td>`;
-        return `<td></td>`;
-      }).join("");
-      tBody.innerHTML += `<tr class="subtotal-row">${subCells}</tr>`;
-    });
-  }
-
-  // Grand total
-  tFoot.innerHTML = "";
-  if (!totalBy.length && filtered.length) {
-    const totals = {};
-    monthOrder.forEach(m => totals[m] = filtered.reduce((s, r) => s + (Number(getVal(r, m)) || 0), 0));
-    const totalRow = colsToShow.map(c => {
-      if (monthOrder.includes(c)) return `<td>${totals[c] || 0}</td>`;
-      if (showCols.includes(c)) return `<td>TOTAL</td>`;
+  /* ---- Grand Total ---- */
+  tFoot.innerHTML="";
+  if(grouped.length){
+    const totals={};
+    monthCols.forEach(m=>totals[m]=grouped.reduce((s,r)=>s+(Number(r[m])||0),0));
+    const totalCells=colsToShow.map(c=>{
+      if(monthOrder.includes(c)) return `<td>${totals[c]}</td>`;
+      if(showCols.includes(c)) return `<td>TOTAL</td>`;
       return `<td></td>`;
     }).join("");
-    tFoot.innerHTML = `<tr class="grandtotal-row">${totalRow}</tr>`;
+    tFoot.innerHTML=`<tr class="grandtotal-row">${totalCells}</tr>`;
   }
 
   document.getElementById("dataTable").classList.remove("hidden");
+  overlay.classList.add("hidden");
+  });
 }
 
-function exportCSV() {
-  const rows = [...document.querySelectorAll("table tr")].map(r => [...r.children].map(td => `"${td.innerText.replace(/"/g,'""')}"`).join(","));
-  const csv = rows.join("\n");
-  const blob = new Blob([csv], { type: "text/csv" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${currentView}_export.csv`;
-  a.click();
+/* ---------- CSV Export ---------- */
+function exportCSV(){
+  const rows=[...document.querySelectorAll("table tr")].map(r=>[...r.children].map(td=>`"${td.innerText.replace(/"/g,'""')}"`).join(","));
+  const blob=new Blob([rows.join("\n")],{type:"text/csv"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`${currentView}_export.csv`; a.click();
 }
+
+/* ---------- Theme Toggle ---------- */
+const themeBtn=document.getElementById("themeToggle");
+if(localStorage.getItem("theme")==="dark"){document.documentElement.classList.add("dark-mode");themeBtn.textContent="☀️ Light";}
+themeBtn.addEventListener("click",()=>{
+  const html=document.documentElement;
+  if(html.classList.contains("dark-mode")){html.classList.remove("dark-mode");localStorage.setItem("theme","light");themeBtn.textContent="🌙 Dark";}
+  else{html.classList.add("dark-mode");localStorage.setItem("theme","dark");themeBtn.textContent="☀️ Light";}
+});
 </script>
 </body>
 </html>
