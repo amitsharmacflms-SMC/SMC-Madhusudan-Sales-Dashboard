@@ -8,6 +8,12 @@
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+  <style>
+    /* Reduce table row height by ~50% */
+    th, td { padding: 4px 6px !important; height: 22px !important; font-size: 0.85rem; }
+    .subtotal-row td, .grandtotal-row td { height: 26px !important; }
+  </style>
 </head>
 
 <body>
@@ -64,7 +70,6 @@ const monthOrder=[
 
 const norm=s=>String(s||"").toUpperCase().trim();
 const getVal=(r,k)=>r[k]??r[k.toLowerCase()]??r[k.toUpperCase()]??"";
-
 function debounce(fn,wait=300){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),wait);}};
 
 document.addEventListener("DOMContentLoaded",()=>{initUI();loadData(currentView);});
@@ -97,7 +102,7 @@ function initUI(){
 
 const safeApplyFilters=(fn)=>{if("requestIdleCallback" in window){requestIdleCallback(fn,{timeout:300});}else{requestAnimationFrame(fn);}};
 
-// ✅ New: Fully hide/show filters
+// ✅ Completely hide/show filters
 let filtersVisible = true;
 function toggleFilters(){
   const wrapper=document.getElementById("filtersWrapper");
@@ -235,8 +240,6 @@ function applyFilters(){
       const grouped=[...map.values()];
 
       tBody.innerHTML="";
-      tBody.classList.remove("fade-in");
-
       if(totalCols.length){
         const groups={};
         grouped.forEach(row=>{
@@ -253,12 +256,12 @@ function applyFilters(){
             if(c==="COMPARISON"&&(selected["COMPARISON"]||[]).length===2){
               const[colA,colB]=selected["COMPARISON"];
               const diff=(subtotal[colB]||0)-(subtotal[colA]||0);
-              const cls=diff>0?'pos':diff<0?'neg':'';
+              const cls=diff>0?'pos':'neg';
               return `<td class="numeric ${cls}">${diff}</td>`;
             }
             if(monthOrder.includes(c)){
               const val=subtotal[c]||0;
-              const cls=val>0?'pos':val<0?'neg':'';
+              const cls=val>0?'pos':'neg';
               return `<td class="numeric ${cls}">${val}</td>`;
             }
             if(totalCols.includes(c))return `<td class="subtotal-label">Subtotal</td>`;
@@ -268,8 +271,6 @@ function applyFilters(){
         });
       } else grouped.forEach(r=>appendRow(r,colsToShow,selected,tBody));
 
-      requestAnimationFrame(()=>tBody.classList.add("fade-in"));
-
       tFoot.innerHTML="";
       if(grouped.length){
         const totals={};monthCols.forEach(m=>totals[m]=grouped.reduce((s,r)=>s+(Number(r[m])||0),0));
@@ -277,12 +278,12 @@ function applyFilters(){
           if(c==="COMPARISON"&&(selected["COMPARISON"]||[]).length===2){
             const[colA,colB]=selected["COMPARISON"];
             const diff=(totals[colB]||0)-(totals[colA]||0);
-            const cls=diff>0?'pos':diff<0?'neg':'';
+            const cls=diff>0?'pos':'neg';
             return `<td class="numeric ${cls}">${diff}</td>`;
           }
           if(monthOrder.includes(c)){
             const val=totals[c]||0;
-            const cls=val>0?'pos':val<0?'neg':'';
+            const cls=val>0?'pos':'neg';
             return `<td class="numeric ${cls}">${val}</td>`;
           }
           if(showCols.includes(c))return `<td class="subtotal-label"><b>TOTAL</b></td>`;
@@ -303,7 +304,7 @@ function appendRow(r,colsToShow,selected,tBody){
       if(compareCols.length===2){
         const[colA,colB]=compareCols;
         const diff=(Number(r[colB])||0)-(Number(r[colA])||0);
-        const color=diff>0?"color:green":diff<0?"color:red":"";
+        const color=diff>0?"color:green":"color:red";
         return `<td class="numeric" style="${color}">${diff}</td>`;
       }return `<td></td>`;
     }
@@ -312,42 +313,12 @@ function appendRow(r,colsToShow,selected,tBody){
       let prevVal=null;
       for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prevVal=Number(r[colsToShow[j]])||0;break;}}
       const num=Number(v)||0;
-      const color=prevVal!=null?(num>prevVal?"color:green":num<prevVal?"color:red":""):"";
+      const color=num>0?"color:green":"color:red";
       return `<td class="numeric" style="${color}">${num}</td>`;
     }
     return `<td>${v}</td>`;
   });
   tBody.insertAdjacentHTML("beforeend",`<tr>${cells.join("")}</tr>`);
-}
-
-/* ---------------- Excel Export ---------------- */
-async function exportExcel() {
-  const date = new Date().toISOString().split("T")[0];
-  const filename = `${currentView}_export_${date}.xlsx`;
-  const table = document.getElementById("dataTable");
-  const ws_data = [];
-  table.querySelectorAll("tr").forEach(row=>{
-    ws_data.push([...row.querySelectorAll("th,td")].map(td=>td.innerText.trim()));
-  });
-  const ws = XLSX.utils.aoa_to_sheet(ws_data);
-  ws["!cols"]=ws_data[0].map(()=>({wch:15}));
-  const range=XLSX.utils.decode_range(ws["!ref"]);
-  for(let R=range.s.r;R<=range.e.r;++R){
-    for(let C=range.s.c;C<=range.e.c;++C){
-      const ref=XLSX.utils.encode_cell({r:R,c:C});
-      const cell=ws[ref]; if(!cell)continue;
-      const val=cell.v;
-      if(R===0)cell.s={fill:{fgColor:{rgb:"E0E7FF"}},font:{bold:true,color:{rgb:"1E3A8A"}},alignment:{horizontal:"center",vertical:"center"}};
-      else if(String(val).toUpperCase().includes("SUBTOTAL"))cell.s={fill:{fgColor:{rgb:"E0F2FE"}},font:{bold:true,color:{rgb:"1E3A8A"}},alignment:{horizontal:"center",vertical:"center"}};
-      else if(String(val).toUpperCase().includes("TOTAL"))cell.s={fill:{fgColor:{rgb:"F3E8FF"}},font:{bold:true,color:{rgb:"4C1D95"}},alignment:{horizontal:"center",vertical:"center"}};
-      else if(!isNaN(parseFloat(val))&&val!==""){
-        const num=parseFloat(val);
-        const color=num>0?"16A34A":num<0?"EF4444":"000000";
-        cell.s={font:{color:{rgb:color}},alignment:{horizontal:"center",vertical:"center"}};
-      }else cell.s={alignment:{horizontal:"center",vertical:"center"}};
-    }
-  }
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"SMC Dashboard Data"); XLSX.writeFile(wb,filename);
 }
 </script>
 </body>
