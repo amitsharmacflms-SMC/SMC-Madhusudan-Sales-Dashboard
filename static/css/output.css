@@ -248,3 +248,85 @@ table thead th {
       rgba(255,255,255,0.08) 100%);
   opacity: 0.3;
 }
+/* ========== FINAL TABLE STYLES ========== */
+
+/* Make row height tighter (50% less) */
+th, td {
+  padding: 5px 6px;     /* Reduced from 10px 8px */
+  border: 2px solid #4b5563;
+  font-weight: 700;
+  font-size: .85rem;
+  height: 28px;         /* Compact rows */
+}
+
+/* Keep text vertically centered */
+td { 
+  background: #fff;
+  vertical-align: middle;
+}
+td.numeric {
+  text-align: center;
+  font-weight: 700;
+}
+
+/* Subtotal + Total alignment and color consistency */
+.subtotal-row td, .grandtotal-row td {
+  text-align: center;
+}
+.subtotal-label {
+  font-weight: 800;
+  text-align: left;
+  padding-left: 8px;
+}
+
+/* Color classes reused */
+.pos { color: #16a34a; }
+.neg { color: #ef4444; }
+
+/* Maintain same style when exporting (browser hint for Excel preview) */
+table, th, td {
+  border-collapse: collapse;
+  mso-border-alt: solid #4b5563 1pt;
+}
+
+/* ========== DARK MODE FIX ========== */
+.dark-mode body {
+  background: #0b1220;
+  color: #e6eef8;
+}
+
+.dark-mode header,
+.dark-mode .filter-bar,
+.dark-mode .table-wrapper {
+  background: #0f1724;
+}
+
+.dark-mode th {
+  background: linear-gradient(90deg,#0f1724,#071026);
+  color: #99ccff;
+  border-color: #2b3a4a;
+}
+
+.dark-mode td {
+  border-color: #263245;
+  color: #dbeafe;
+  background: transparent;
+}
+
+/* ✅ Filter boxes in dark mode – show text in black/white contrast */
+.dark-mode .filter-box {
+  background: linear-gradient(180deg,#e8edf7,#cbd5e1);
+  border-color: #94a3b8;
+  color: #000; /* Black text */
+}
+
+.dark-mode .filter-box label {
+  color: #000;
+}
+.dark-mode .filter-box strong {
+  color: #1e3a8a;
+}
+
+.dark-mode .filter-box input[type=checkbox] {
+  accent-color: #1e3a8a;
+}
