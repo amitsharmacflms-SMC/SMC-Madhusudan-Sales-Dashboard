@@ -10,9 +10,28 @@
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
   <style>
-    /* Reduce table row height by ~50% */
-    th, td { padding: 4px 6px !important; height: 22px !important; font-size: 0.85rem; }
-    .subtotal-row td, .grandtotal-row td { height: 26px !important; }
+    /* Compact row height */
+    th, td {
+      padding: 4px 6px !important;
+      height: 22px !important;
+      font-size: 0.85rem;
+    }
+    .subtotal-row td, .grandtotal-row td {
+      height: 26px !important;
+    }
+
+    /* Smooth hide/show animation */
+    #filtersWrapper {
+      transition: all 0.4s ease;
+      opacity: 1;
+      max-height: 600px;
+      overflow: hidden;
+    }
+    #filtersWrapper.hidden {
+      opacity: 0;
+      max-height: 0;
+      overflow: hidden;
+    }
   </style>
 </head>
 
@@ -102,17 +121,17 @@ function initUI(){
 
 const safeApplyFilters=(fn)=>{if("requestIdleCallback" in window){requestIdleCallback(fn,{timeout:300});}else{requestAnimationFrame(fn);}};
 
-// ✅ Completely hide/show filters
+// ✅ Animated hide/show filters
 let filtersVisible = true;
 function toggleFilters(){
   const wrapper=document.getElementById("filtersWrapper");
   const btn=document.getElementById("toggleFiltersBtn");
   if(filtersVisible){
-    wrapper.style.display="none";
+    wrapper.classList.add("hidden");
     btn.textContent="Show Filters";
     filtersVisible=false;
   }else{
-    wrapper.style.display="block";
+    wrapper.classList.remove("hidden");
     btn.textContent="Hide Filters";
     filtersVisible=true;
   }
