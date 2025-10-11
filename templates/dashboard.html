@@ -7,8 +7,7 @@
 
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
-<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -32,7 +31,6 @@
   <main class="container">
     <section>
       <div id="filtersContainer" class="filter-bar"></div>
-
       <div id="loader" class="loader">Loading data...</div>
       <div id="overlayLoader" class="overlay hidden">Updating filters…</div>
 
@@ -63,7 +61,6 @@ const monthOrder=[
 
 const norm=s=>String(s||"").toUpperCase().trim();
 const getVal=(r,k)=>r[k]??r[k.toLowerCase()]??r[k.toUpperCase()]??"";
-
 function debounce(fn,wait=300){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),wait);}};
 
 document.addEventListener("DOMContentLoaded",()=>{initUI();loadData(currentView);});
@@ -71,7 +68,7 @@ document.addEventListener("DOMContentLoaded",()=>{initUI();loadData(currentView)
 function initUI(){
   document.getElementById("toggleFiltersBtn").addEventListener("click",toggleFilters);
   document.getElementById("clearBtn").addEventListener("click",()=>safeApplyFilters(clearFilters));
-  document.getElementById("exportBtn").addEventListener("click", exportExcel);
+  document.getElementById("exportBtn").addEventListener("click",exportExcel);
   document.getElementById("toggleViewBtn").addEventListener("click",()=>{
     currentView=currentView==="product"?"sku":"product";
     document.getElementById("toggleViewBtn").textContent=currentView==="product"?"Switch to SKU View":"Switch to Product View";
@@ -185,7 +182,6 @@ function applyFilters(){
         ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
         :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
 
-      /* ✅ Fixed: Cascade + Real Data Filtering */
       let filtered=[...fullData];
       cascade.forEach((f,idx)=>{
         const sel=selected[f]||[];
@@ -234,48 +230,65 @@ function applyFilters(){
           if(!groups[gKey])groups[gKey]=[];
           groups[gKey].push(row);
         });
+
         Object.entries(groups).forEach(([gKey,rows])=>{
           rows.forEach(r=>appendRow(r,colsToShow,selected,tBody));
+
           const subtotal={};
           monthCols.forEach(m=>subtotal[m]=rows.reduce((s,r)=>s+(Number(r[m])||0),0));
-          const subCells=colsToShow.map(c=>{
+
+          const subCells = colsToShow.map(c => {
+            if (c === "COMPARISON" && (selected["COMPARISON"] || []).length === 2) {
+              const [colA, colB] = selected["COMPARISON"];
+              const diff = (subtotal[colB] || 0) - (subtotal[colA] || 0);
+              const cls = diff > 0 ? 'pos' : diff < 0 ? 'neg' : '';
+              return `<td class="numeric ${cls}">${diff}</td>`;
+            }
             if (monthOrder.includes(c)) {
-  const val = subtotal[c] || 0;
-  const cls = val > 0 ? 'pos' : val < 0 ? 'neg' : '';
-  return `<td class="numeric ${cls}">${val}</td>`;
-}
-            if(totalCols.includes(c))return `<td class="subtotal-label">Subtotal</td>`;
+              const val = subtotal[c] || 0;
+              const cls = val > 0 ? 'pos' : val < 0 ? 'neg' : '';
+              return `<td class="numeric ${cls}">${val}</td>`;
+            }
+            if (totalCols.includes(c)) return `<td class="subtotal-label">Subtotal</td>`;
             return `<td></td>`;
           }).join("");
-          tBody.insertAdjacentHTML("beforeend",`<tr class="subtotal-row">${subCells}</tr>`);
+
+          tBody.insertAdjacentHTML("beforeend", `<tr class="subtotal-row">${subCells}</tr>`);
         });
       } else {
         grouped.forEach(r=>appendRow(r,colsToShow,selected,tBody));
       }
 
-      /* ✅ Fade animation after rendering */
       requestAnimationFrame(()=>tBody.classList.add("fade-in"));
 
       tFoot.innerHTML="";
       if(grouped.length){
         const totals={};monthCols.forEach(m=>totals[m]=grouped.reduce((s,r)=>s+(Number(r[m])||0),0));
-        const totalCells=colsToShow.map(c=>{
+        const totalCells = colsToShow.map(c => {
+          if (c === "COMPARISON" && (selected["COMPARISON"] || []).length === 2) {
+            const [colA, colB] = selected["COMPARISON"];
+            const diff = (totals[colB] || 0) - (totals[colA] || 0);
+            const cls = diff > 0 ? 'pos' : diff < 0 ? 'neg' : '';
+            return `<td class="numeric ${cls}">${diff}</td>`;
+          }
           if (monthOrder.includes(c)) {
-  const val = totals[c] || 0;
-  const cls = val > 0 ? 'pos' : val < 0 ? 'neg' : '';
-  return `<td class="numeric ${cls}">${val}</td>`;
-}
-
-          if(showCols.includes(c))return `<td><b>TOTAL</b></td>`;
+            const val = totals[c] || 0;
+            const cls = val > 0 ? 'pos' : val < 0 ? 'neg' : '';
+            return `<td class="numeric ${cls}">${val}</td>`;
+          }
+          if (showCols.includes(c)) return `<td class="subtotal-label"><b>TOTAL</b></td>`;
           return `<td></td>`;
         }).join("");
-        tFoot.innerHTML=`<tr class="grandtotal-row">${totalCells}</tr>`;
+
+        tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
       }
+
       document.getElementById("dataTable").classList.remove("hidden");
-    }finally{overlay.classList.add("hidden");}
+    } finally { overlay.classList.add("hidden"); }
   });
 }
 
+/* ---------------- Render Rows ---------------- */
 function appendRow(r,colsToShow,selected,tBody){
   const cells=colsToShow.map((c,idx)=>{
     if(c==="COMPARISON"){
@@ -300,6 +313,7 @@ function appendRow(r,colsToShow,selected,tBody){
   tBody.insertAdjacentHTML("beforeend",`<tr>${cells.join("")}</tr>`);
 }
 
+/* ---------------- Excel Export ---------------- */
 async function exportExcel() {
   const date = new Date().toISOString().split("T")[0];
   const filename = `${currentView}_export_${date}.xlsx`;
@@ -307,76 +321,40 @@ async function exportExcel() {
   const table = document.getElementById("dataTable");
   const ws_data = [];
   const rows = table.querySelectorAll("tr");
-
-  // Collect rows
   rows.forEach(row => {
     const cells = Array.from(row.querySelectorAll("th, td")).map(td => td.innerText.trim());
     ws_data.push(cells);
   });
 
-  // Create worksheet
   const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  ws["!cols"] = ws_data[0].map(() => ({ wch: 15 }));
 
-  // Auto width
-  const colWidths = ws_data[0].map(() => ({ wch: 15 }));
-  ws["!cols"] = colWidths;
-
-  // ✅ Apply color formatting
   const range = XLSX.utils.decode_range(ws["!ref"]);
   for (let R = range.s.r; R <= range.e.r; ++R) {
     for (let C = range.s.c; C <= range.e.c; ++C) {
-      const cell_ref = XLSX.utils.encode_cell({ r: R, c: C });
-      const cell = ws[cell_ref];
+      const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = ws[cellRef];
       if (!cell) continue;
       const val = cell.v;
 
-      // Header
       if (R === 0) {
-        cell.s = {
-          fill: { fgColor: { rgb: "E0E7FF" } },
-          font: { bold: true, color: { rgb: "1E3A8A" } },
-          alignment: { horizontal: "center", vertical: "center" },
-          border: { top:{style:"thin"}, bottom:{style:"thin"}, left:{style:"thin"}, right:{style:"thin"} }
-        };
-      }
-      // Subtotal
-      else if (val === "Subtotal") {
-        cell.s = {
-          fill: { fgColor: { rgb: "E0F2FE" } },
-          font: { bold: true, color: { rgb: "1E3A8A" } },
-          alignment: { horizontal: "center", vertical: "center" },
-        };
-      }
-      // Total row
-      else if (val === "TOTAL") {
-        cell.s = {
-          fill: { fgColor: { rgb: "F3E8FF" } },
-          font: { bold: true, color: { rgb: "4C1D95" } },
-          alignment: { horizontal: "center", vertical: "center" },
-        };
-      }
-      // Positive / Negative color coding
-      else if (!isNaN(parseFloat(val))) {
+        cell.s = { fill: { fgColor: { rgb: "E0E7FF" } }, font: { bold: true, color: { rgb: "1E3A8A" } }, alignment: { horizontal: "center", vertical: "center" } };
+      } else if (String(val).toUpperCase().includes("SUBTOTAL")) {
+        cell.s = { fill: { fgColor: { rgb: "E0F2FE" } }, font: { bold: true, color: { rgb: "1E3A8A" } }, alignment: { horizontal: "center", vertical: "center" } };
+      } else if (String(val).toUpperCase().includes("TOTAL")) {
+        cell.s = { fill: { fgColor: { rgb: "F3E8FF" } }, font: { bold: true, color: { rgb: "4C1D95" } }, alignment: { horizontal: "center", vertical: "center" } };
+      } else if (!isNaN(parseFloat(val))) {
         const num = parseFloat(val);
         const color = num > 0 ? "16A34A" : num < 0 ? "EF4444" : "000000";
-        cell.s = {
-          font: { color: { rgb: color } },
-          alignment: { horizontal: "center", vertical: "center" },
-        };
+        cell.s = { font: { color: { rgb: color } }, alignment: { horizontal: "center", vertical: "center" } };
       } else {
-        // Text cells
-        cell.s = {
-          alignment: { horizontal: "center", vertical: "center" },
-        };
+        cell.s = { alignment: { horizontal: "center", vertical: "center" } };
       }
     }
   }
 
-  // Create workbook
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Dashboard Data");
-
-  // Save file
+  XLSX.utils.book_append_sheet(wb, ws, "SMC Dashboard Data");
   XLSX.writeFile(wb, filename);
 }
 </script>
