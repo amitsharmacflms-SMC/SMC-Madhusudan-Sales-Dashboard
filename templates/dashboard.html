@@ -10,7 +10,7 @@
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
   <style>
-    /* Compact row height */
+    /* Compact table spacing */
     th, td {
       padding: 4px 6px !important;
       height: 22px !important;
@@ -31,6 +31,14 @@
       opacity: 0;
       max-height: 0;
       overflow: hidden;
+    }
+
+    /* Fix dark mode visibility in filters */
+    .dark-mode .filter-box label {
+      color: #ffffff;
+    }
+    .dark-mode .filter-box strong {
+      color: #93c5fd;
     }
   </style>
 </head>
@@ -338,6 +346,54 @@ function appendRow(r,colsToShow,selected,tBody){
     return `<td>${v}</td>`;
   });
   tBody.insertAdjacentHTML("beforeend",`<tr>${cells.join("")}</tr>`);
+}
+
+/* ---------------- Excel Export ---------------- */
+async function exportExcel() {
+  const date = new Date().toISOString().split("T")[0];
+  const filename = `${currentView}_export_${date}.xlsx`;
+
+  const table = document.getElementById("dataTable");
+  const ws_data = [];
+  table.querySelectorAll("tr").forEach(row => {
+    ws_data.push([...row.querySelectorAll("th,td")].map(td => td.innerText.trim()));
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  ws["!cols"] = ws_data[0].map(() => ({ wch: 15 }));
+
+  // Apply style
+  const range = XLSX.utils.decode_range(ws["!ref"]);
+  for (let R = range.s.r; R <= range.e.r; ++R) {
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const ref = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = ws[ref];
+      if (!cell) continue;
+      const val = cell.v;
+
+      if (R === 0) {
+        cell.s = { fill:{fgColor:{rgb:"E0E7FF"}},font:{bold:true,color:{rgb:"1E3A8A"}},
+                   alignment:{horizontal:"center",vertical:"center"} };
+      } else if (String(val).toUpperCase().includes("SUBTOTAL")) {
+        cell.s = { fill:{fgColor:{rgb:"E0F2FE"}},font:{bold:true,color:{rgb:"1E3A8A"}},
+                   alignment:{horizontal:"center",vertical:"center"} };
+      } else if (String(val).toUpperCase().includes("TOTAL")) {
+        cell.s = { fill:{fgColor:{rgb:"F3E8FF"}},font:{bold:true,color:{rgb:"4C1D95"}},
+                   alignment:{horizontal:"center",vertical:"center"} };
+      } else if (!isNaN(parseFloat(val))) {
+        const num = parseFloat(val);
+        const color = num > 0 ? "16A34A" : num < 0 ? "EF4444" : "000000";
+        cell.s = { font:{color:{rgb:color}},
+                   alignment:{horizontal:"center",vertical:"center"} };
+      } else {
+        cell.s = { alignment:{horizontal:"center",vertical:"center"} };
+      }
+    }
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Dashboard Data");
+  XLSX.writeFile(wb, filename);
 }
 </script>
 </body>
