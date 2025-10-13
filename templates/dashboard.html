@@ -33,12 +33,17 @@
       overflow: hidden;
     }
 
-    /* Fix dark mode visibility in filters */
-    .dark-mode .filter-box label {
-      color: #ffffff;
-    }
-    .dark-mode .filter-box strong {
-      color: #93c5fd;
+    /* Fix dark mode filter visibility */
+    .dark-mode .filter-box label { color: #ffffff; }
+    .dark-mode .filter-box strong { color: #93c5fd; }
+
+    /* Sortable columns */
+    th.sortable { cursor: pointer; position: relative; }
+    th.sortable:hover { background: #dbeafe; }
+    th.sortable span.sort-icon {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-left: 4px;
     }
   </style>
 </head>
@@ -250,7 +255,14 @@ function applyFilters(){
       const totalCols=selected["TOTAL"]||[];
       const colsToShow=[...showCols,...monthCols];
       if((selected["COMPARISON"]||[]).length===2)colsToShow.push("COMPARISON");
-      tHead.innerHTML="<tr>"+colsToShow.map(c=>`<th>${c}</th>`).join("")+"</tr>";
+
+      // 🧩 SORTABLE HEADERS
+      tHead.innerHTML = "<tr>" + colsToShow.map(c => {
+        const sortIcon = monthOrder.includes(c) ? "<span class='sort-icon'>↕️</span>" : "";
+        return `<th class='${monthOrder.includes(c)?'sortable':''}' data-col='${c}'>${c}${sortIcon}</th>`;
+      }).join("") + "</tr>";
+
+      addSorting(colsToShow);
 
       const map=new Map();
       filtered.forEach(r=>{
@@ -323,6 +335,30 @@ function applyFilters(){
   });
 }
 
+/* ---------------- Sorting ---------------- */
+function addSorting(colsToShow){
+  const tHead=document.getElementById("tableHead");
+  tHead.querySelectorAll(".sortable").forEach(th=>{
+    th.addEventListener("click",()=>{
+      const col=th.dataset.col;
+      const asc=th.dataset.asc==="true"?false:true;
+      th.dataset.asc=asc;
+      const rows=Array.from(document.querySelectorAll("#tableBody tr:not(.subtotal-row)"));
+      rows.sort((a,b)=>{
+        const aVal=parseFloat(a.querySelector(`td:nth-child(${colsToShow.indexOf(col)+1})`)?.innerText||0);
+        const bVal=parseFloat(b.querySelector(`td:nth-child(${colsToShow.indexOf(col)+1})`)?.innerText||0);
+        return asc?aVal-bVal:bVal-aVal;
+      });
+      const tbody=document.getElementById("tableBody");
+      tbody.innerHTML="";
+      rows.forEach(r=>tbody.appendChild(r));
+      document.querySelectorAll(".subtotal-row").forEach(r=>tbody.appendChild(r));
+      tHead.querySelectorAll(".sortable").forEach(h=>h.querySelector(".sort-icon").textContent="↕️");
+      th.querySelector(".sort-icon").textContent=asc?"▲":"▼";
+    });
+  });
+}
+
 /* ---------------- Append Row ---------------- */
 function appendRow(r,colsToShow,selected,tBody){
   const cells=colsToShow.map((c,idx)=>{
@@ -337,8 +373,6 @@ function appendRow(r,colsToShow,selected,tBody){
     }
     const v=r[c]??getVal(r,c);
     if(monthOrder.includes(c)){
-      let prevVal=null;
-      for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prevVal=Number(r[colsToShow[j]])||0;break;}}
       const num=Number(v)||0;
       const color=num>0?"color:green":"color:red";
       return `<td class="numeric" style="${color}">${num}</td>`;
@@ -352,48 +386,20 @@ function appendRow(r,colsToShow,selected,tBody){
 async function exportExcel() {
   const date = new Date().toISOString().split("T")[0];
   const filename = `${currentView}_export_${date}.xlsx`;
-
-  const table = document.getElementById("dataTable");
-  const ws_data = [];
-  table.querySelectorAll("tr").forEach(row => {
-    ws_data.push([...row.querySelectorAll("th,td")].map(td => td.innerText.trim()));
-  });
-
-  const ws = XLSX.utils.aoa_to_sheet(ws_data);
-  ws["!cols"] = ws_data[0].map(() => ({ wch: 15 }));
-
-  // Apply style
-  const range = XLSX.utils.decode_range(ws["!ref"]);
-  for (let R = range.s.r; R <= range.e.r; ++R) {
-    for (let C = range.s.c; C <= range.e.c; ++C) {
-      const ref = XLSX.utils.encode_cell({ r: R, c: C });
-      const cell = ws[ref];
-      if (!cell) continue;
-      const val = cell.v;
-
-      if (R === 0) {
-        cell.s = { fill:{fgColor:{rgb:"E0E7FF"}},font:{bold:true,color:{rgb:"1E3A8A"}},
-                   alignment:{horizontal:"center",vertical:"center"} };
-      } else if (String(val).toUpperCase().includes("SUBTOTAL")) {
-        cell.s = { fill:{fgColor:{rgb:"E0F2FE"}},font:{bold:true,color:{rgb:"1E3A8A"}},
-                   alignment:{horizontal:"center",vertical:"center"} };
-      } else if (String(val).toUpperCase().includes("TOTAL")) {
-        cell.s = { fill:{fgColor:{rgb:"F3E8FF"}},font:{bold:true,color:{rgb:"4C1D95"}},
-                   alignment:{horizontal:"center",vertical:"center"} };
-      } else if (!isNaN(parseFloat(val))) {
-        const num = parseFloat(val);
-        const color = num > 0 ? "16A34A" : num < 0 ? "EF4444" : "000000";
-        cell.s = { font:{color:{rgb:color}},
-                   alignment:{horizontal:"center",vertical:"center"} };
-      } else {
-        cell.s = { alignment:{horizontal:"center",vertical:"center"} };
-      }
-    }
-  }
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Dashboard Data");
-  XLSX.writeFile(wb, filename);
+  const table=document.getElementById("dataTable");
+  const ws_data=[];table.querySelectorAll("tr").forEach(r=>ws_data.push([...r.querySelectorAll("th,td")].map(td=>td.innerText.trim())));
+  const ws=XLSX.utils.aoa_to_sheet(ws_data);ws["!cols"]=ws_data[0].map(()=>({wch:15}));
+  const range=XLSX.utils.decode_range(ws["!ref"]);
+  for(let R=range.s.r;R<=range.e.r;++R){for(let C=range.s.c;C<=range.e.c;++C){
+    const ref=XLSX.utils.encode_cell({r:R,c:C});const cell=ws[ref];if(!cell)continue;const val=cell.v;
+    if(R===0)cell.s={fill:{fgColor:{rgb:"E0E7FF"}},font:{bold:true,color:{rgb:"1E3A8A"}},alignment:{horizontal:"center",vertical:"center"}};
+    else if(String(val).toUpperCase().includes("SUBTOTAL"))cell.s={fill:{fgColor:{rgb:"E0F2FE"}},font:{bold:true,color:{rgb:"1E3A8A"}},alignment:{horizontal:"center",vertical:"center"}};
+    else if(String(val).toUpperCase().includes("TOTAL"))cell.s={fill:{fgColor:{rgb:"F3E8FF"}},font:{bold:true,color:{rgb:"4C1D95"}},alignment:{horizontal:"center",vertical:"center"}};
+    else if(!isNaN(parseFloat(val))){const num=parseFloat(val);const color=num>0?"16A34A":num<0?"EF4444":"000000";
+      cell.s={font:{color:{rgb:color}},alignment:{horizontal:"center",vertical:"center"}};}
+    else cell.s={alignment:{horizontal:"center",vertical:"center"}};
+  }}
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");XLSX.writeFile(wb,filename);
 }
 </script>
 </body>
