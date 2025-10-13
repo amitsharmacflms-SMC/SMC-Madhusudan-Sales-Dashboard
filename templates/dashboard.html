@@ -34,7 +34,6 @@
     /* Sticky header */
     th { position: sticky; top: 0; background: #eef2ff; z-index: 10; text-align: center; }
     .dark-mode th { background: #1e293b; color: #93c5fd; }
-
   </style>
 </head>
 
@@ -227,17 +226,6 @@ function applyFilters(){
       cascade.forEach((f,idx)=>{
         const sel=selected[f]||[];
         if(sel.length>0){filtered=filtered.filter(r=>sel.includes(getVal(r,f)));}
-        const next=cascade[idx+1];
-        if(next){
-          const nextBox=[...filters.querySelectorAll(".filter-box")].find(b=>b.querySelector("strong").textContent===next);
-          if(nextBox){
-            const valid=new Set(filtered.map(r=>getVal(r,next)).filter(Boolean));
-            nextBox.querySelectorAll(`input[name='${next}']`).forEach(cb=>{
-              cb.closest("label").style.display=valid.has(cb.value)?"":"none";
-              if(!valid.has(cb.value))cb.checked=false;
-            });
-          }
-        }
       });
 
       const showCols=selected["SHOW COLUMNS"]?.length?selected["SHOW COLUMNS"]:baseTextCols;
@@ -250,6 +238,7 @@ function applyFilters(){
       tHead.innerHTML="<tr>"+colsToShow.map(c=>`<th class='${isNumeric(c)?'sortable':''}' data-col='${c}'>${c}${isNumeric(c)?"<span class='sort-icon'>↕️</span>":""}</th>`).join("")+"</tr>";
       addSorting(colsToShow);
 
+      // Grouping logic
       const map=new Map();
       filtered.forEach(r=>{
         const key=showCols.map(k=>getVal(r,k)).join("|");
@@ -264,10 +253,47 @@ function applyFilters(){
       });
       const grouped=[...map.values()];
 
+      // render grouped + subtotals
       tBody.innerHTML="";
-      grouped.forEach(r=>appendRow(r,colsToShow,selected,tBody));
+      if(totalCols.length){
+        const groups={};
+        grouped.forEach(row=>{
+          const key=totalCols.map(k=>row[k]).join("|");
+          if(!groups[key])groups[key]=[];
+          groups[key].push(row);
+        });
+        Object.entries(groups).forEach(([gKey,rows])=>{
+          rows.forEach(r=>appendRow(r,colsToShow,selected,tBody));
+          // subtotal
+          const subtotal={};
+          monthCols.forEach(m=>subtotal[m]=rows.reduce((s,r)=>s+(Number(r[m])||0),0));
+          const subCells=colsToShow.map((c,idx)=>{
+            if(monthOrder.includes(c)){
+              const val=subtotal[c]||0;
+              let prev=null;
+              for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prev=subtotal[colsToShow[j]];break;}}
+              const color=prev!==null?(val>prev?"color:green":"color:red"):"";
+              return `<td class="numeric" style="${color}">${val}</td>`;
+            }
+            if(c==="COMPARISON"){
+              const compare=selected["COMPARISON"]||[];
+              if(compare.length===2){
+                const[colA,colB]=compare;
+                const diff=(subtotal[colB]||0)-(subtotal[colA]||0);
+                const color=diff>0?"color:green":"color:red";
+                return `<td class="numeric" style="${color}">${diff}</td>`;
+              }
+            }
+            if(totalCols.includes(c))return `<td class="subtotal-label">Subtotal</td>`;
+            return `<td></td>`;
+          }).join("");
+          tBody.insertAdjacentHTML("beforeend",`<tr class="subtotal-row">${subCells}</tr>`);
+        });
+      } else {
+        grouped.forEach(r=>appendRow(r,colsToShow,selected,tBody));
+      }
 
-      // ✅ Subtotal and Total color-coded
+      // Grand Total
       const totals={};monthCols.forEach(m=>totals[m]=grouped.reduce((s,r)=>s+(Number(r[m])||0),0));
       const totalCells=colsToShow.map((c,idx)=>{
         if(monthOrder.includes(c)){
@@ -303,7 +329,7 @@ function addSorting(colsToShow){
       const col=th.dataset.col;
       const asc=th.dataset.asc==="true"?false:true;
       th.dataset.asc=asc;
-      const rows=Array.from(document.querySelectorAll("#tableBody tr"));
+      const rows=Array.from(document.querySelectorAll("#tableBody tr:not(.subtotal-row)"));
       rows.sort((a,b)=>{
         const aVal=parseFloat(a.querySelector(`td:nth-child(${colsToShow.indexOf(col)+1})`)?.innerText||0);
         const bVal=parseFloat(b.querySelector(`td:nth-child(${colsToShow.indexOf(col)+1})`)?.innerText||0);
@@ -330,7 +356,6 @@ function appendRow(r,colsToShow,selected,tBody){
         return `<td class="numeric" style="${color}">${diff}</td>`;
       }return `<td></td>`;
     }
-
     if(monthOrder.includes(c)){
       const num=Number(r[c])||0;
       let prevVal=null;
