@@ -31,8 +31,8 @@
     th.sortable:hover { background: #dbeafe; }
     th.sortable span.sort-icon { font-size: 0.8rem; color: #6b7280; margin-left: 4px; }
 
-    /* Sticky header for all tables */
-    th { position: sticky; top: 0; background: #eef2ff; z-index: 10; }
+    /* Sticky header */
+    th { position: sticky; top: 0; background: #eef2ff; z-index: 10; text-align: center; }
     .dark-mode th { background: #1e293b; color: #93c5fd; }
 
   </style>
@@ -124,7 +124,7 @@ function initUI(){
 
 const safeApplyFilters=(fn)=>{if("requestIdleCallback" in window){requestIdleCallback(fn,{timeout:300});}else{requestAnimationFrame(fn);}};
 
-// ✅ Animated hide/show filters
+// ✅ Hide/Show Filters
 let filtersVisible = true;
 function toggleFilters(){
   const wrapper=document.getElementById("filtersWrapper");
@@ -267,9 +267,31 @@ function applyFilters(){
       tBody.innerHTML="";
       grouped.forEach(r=>appendRow(r,colsToShow,selected,tBody));
 
-      tFoot.innerHTML="";
-      overlay.classList.add("hidden");
-    }catch(e){console.error(e);}finally{overlay.classList.add("hidden");}
+      // ✅ Subtotal and Total color-coded
+      const totals={};monthCols.forEach(m=>totals[m]=grouped.reduce((s,r)=>s+(Number(r[m])||0),0));
+      const totalCells=colsToShow.map((c,idx)=>{
+        if(monthOrder.includes(c)){
+          const val=totals[c]||0;
+          let prev=null;
+          for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prev=totals[colsToShow[j]];break;}}
+          const color=prev!==null?(val>prev?"color:green":"color:red"):"";
+          return `<td class="numeric" style="${color}">${val}</td>`;
+        }
+        if(c==="COMPARISON"){
+          const compare=selected["COMPARISON"]||[];
+          if(compare.length===2){
+            const[colA,colB]=compare;
+            const diff=(totals[colB]||0)-(totals[colA]||0);
+            const color=diff>0?"color:green":"color:red";
+            return `<td class="numeric" style="${color}">${diff}</td>`;
+          }
+        }
+        if(showCols.includes(c))return `<td class="subtotal-label"><b>TOTAL</b></td>`;
+        return `<td></td>`;
+      }).join("");
+      tFoot.innerHTML=`<tr class="grandtotal-row">${totalCells}</tr>`;
+      document.getElementById("dataTable").classList.remove("hidden");
+    }finally{overlay.classList.add("hidden");}
   });
 }
 
