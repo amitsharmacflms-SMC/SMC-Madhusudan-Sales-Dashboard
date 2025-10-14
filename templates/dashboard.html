@@ -52,6 +52,21 @@
       from { opacity:0.3; }
       to { opacity:1; }
     }
+/* Instant feedback overlay */
+.overlay::after {
+  content:"Processing...";
+  font-size:1rem;
+  font-weight:600;
+  color:#fff;
+  background:rgba(0,0,0,0.6);
+  padding:8px 16px;
+  border-radius:8px;
+  animation:fadeIn 0.4s ease;
+}
+
+
+
+
   </style>
 </head>
 
@@ -142,7 +157,15 @@ function toggleFilters(){
   if(filtersVisible){wrapper.classList.add("hidden");btn.textContent="Show Filters";filtersVisible=false;}
   else{wrapper.classList.remove("hidden");btn.textContent="Hide Filters";filtersVisible=true;}
 }
-function clearFilters(){document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb=>cb.checked=false);applyFilters();}
+function clearFilters(){
+  const overlay=document.getElementById("overlayLoader");
+  overlay.classList.remove("hidden");
+  setTimeout(()=>{
+    document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb=>cb.checked=false);
+    safeApplyFilters(applyFilters);
+    overlay.classList.add("hidden");
+  },150);
+}
 
 /* ---------------- Load Data ---------------- */
 async function loadData(view){
@@ -197,8 +220,15 @@ function buildFilters(){
       safeApplyFilters(applyFilters);
     });
   });
-  filters.addEventListener("change",debounce(()=>safeApplyFilters(applyFilters),300));
-}
+  // ⏱ Improved responsive filter updates
+filters.addEventListener(
+  "change",
+  debounce(() => {
+    document.getElementById("overlayLoader").classList.remove("hidden");
+    setTimeout(() => safeApplyFilters(applyFilters), 120); // small async delay keeps UI responsive
+  }, 400)
+);
+
 
 /* ---------------- Apply Filters (Two-way Cascade) ---------------- */
 function applyFilters(){
