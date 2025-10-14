@@ -453,15 +453,87 @@ function addSorting(cols){
   });
 }
 
-/* ---------------- Excel Export ---------------- */
+/* ---------------- Excel Export with Color-Coded Backgrounds ---------------- */
 async function exportExcel(){
-  const date=new Date().toISOString().split("T")[0];
-  const filename=`${currentView}_export_${date}.xlsx`;
-  const table=document.getElementById("dataTable");
-  const ws_data=[];
-  table.querySelectorAll("tr").forEach(r=>ws_data.push([...r.querySelectorAll("th,td")].map(td=>td.innerText.trim())));
-  const ws=XLSX.utils.aoa_to_sheet(ws_data);ws["!cols"]=ws_data[0].map(()=>({wch:15}));
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");XLSX.writeFile(wb,filename);
+  const overlay=document.getElementById("overlayLoader");
+  overlay.classList.remove("hidden");
+
+  setTimeout(()=>{
+    const date=new Date().toISOString().split("T")[0];
+    const filename=`${currentView}_export_${date}.xlsx`;
+
+    const table=document.getElementById("dataTable");
+    const ws_data=[];
+    table.querySelectorAll("tr").forEach(r=>{
+      ws_data.push([...r.querySelectorAll("th,td")].map(td=>td.innerText.trim()));
+    });
+
+    const ws=XLSX.utils.aoa_to_sheet(ws_data);
+    ws["!cols"]=ws_data[0].map(()=>({wch:15}));
+
+    /* --- Styling all cells --- */
+    const range=XLSX.utils.decode_range(ws["!ref"]);
+    for(let R=range.s.r; R<=range.e.r; ++R){
+      for(let C=range.s.c; C<=range.e.c; ++C){
+        const ref=XLSX.utils.encode_cell({r:R,c:C});
+        const cell=ws[ref];
+        if(!cell) continue;
+        const val=cell.v;
+
+        // Default base style
+        cell.s={
+          alignment:{horizontal:"center",vertical:"center"},
+          font:{color:{rgb:"000000"}}
+        };
+
+        // Header
+        if(R===0){
+          cell.s={
+            fill:{fgColor:{rgb:"E0E7FF"}},
+            font:{bold:true,color:{rgb:"1E3A8A"}},
+            alignment:{horizontal:"center",vertical:"center"}
+          };
+        }
+
+        // Subtotal row
+        else if(String(val).toUpperCase().includes("SUBTOTAL")){
+          cell.s={
+            fill:{fgColor:{rgb:"E0F2FE"}},
+            font:{bold:true,color:{rgb:"1E3A8A"}},
+            alignment:{horizontal:"center",vertical:"center"}
+          };
+        }
+
+        // Total row
+        else if(String(val).toUpperCase().includes("TOTAL")){
+          cell.s={
+            fill:{fgColor:{rgb:"F3E8FF"}},
+            font:{bold:true,color:{rgb:"4C1D95"}},
+            alignment:{horizontal:"center",vertical:"center"}
+          };
+        }
+
+        // Numeric with color-coded background
+        else if(!isNaN(parseFloat(val))){
+          const num=parseFloat(val);
+          const isPositive=num>0;
+          const colorBg=isPositive?"D1FAE5":"FEE2E2"; // green or red
+          cell.s={
+            fill:{fgColor:{rgb:colorBg}},
+            font:{color:{rgb:"000000"}},
+            alignment:{horizontal:"center",vertical:"center"}
+          };
+        }
+      }
+    }
+
+    // Create workbook
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");
+    XLSX.writeFile(wb,filename);
+
+    overlay.classList.add("hidden");
+  },150);
 }
 
 /* ---------------- Fix dark-mode numeric visibility ---------------- */
