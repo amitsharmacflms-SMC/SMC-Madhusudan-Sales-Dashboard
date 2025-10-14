@@ -20,36 +20,37 @@
     /* Filter visibility */
     .filter-box label { color:#000; font-weight:500; }
     .filter-box strong { color:#1e3a8a; font-weight:700; }
-    .dark-mode .filter-box label, .dark-mode .filter-box strong { color:#000 !important; background:#f9fafb !important; }
+
+    .dark-mode .filter-box label { color:#000; background:#f9fafb; }
+    .dark-mode .filter-box strong { color:#111; }
 
     /* Sticky Header */
-    th.sortable { cursor:pointer; position:sticky; top:0; background:#eef2ff; z-index:5; }
+    th.sortable { cursor:pointer; position:sticky; top:0; background:#eef2ff; z-index:5; transition:background-color 0.3s ease; }
     th.sortable:hover { background:#dbeafe; }
+    th.sortable span.sort-icon { font-size:0.8rem; color:#6b7280; margin-left:4px; }
     th { position:sticky; top:0; background:#eef2ff; z-index:10; text-align:center; }
+
     .dark-mode th { background:#1e293b; color:#93c5fd; }
 
     /* Attractive Scrollbars */
-    .table-wrapper::-webkit-scrollbar { width:15px; height:15px; }
-    .table-wrapper::-webkit-scrollbar-thumb {
-      background:linear-gradient(180deg,#1e40af,#312e81);
+    ::-webkit-scrollbar { width:12px; height:12px; }
+    ::-webkit-scrollbar-thumb {
+      background:linear-gradient(180deg,#2563eb,#4f46e5);
       border-radius:10px;
-      border:2px solid #e5e7eb;
     }
-    .table-wrapper::-webkit-scrollbar-thumb:hover { background:linear-gradient(180deg,#1d4ed8,#3730a3); }
-    .table-wrapper::-webkit-scrollbar-track { background:#f3f4f6; border-radius:10px; }
+    ::-webkit-scrollbar-thumb:hover {
+      background:linear-gradient(180deg,#1d4ed8,#3730a3);
+    }
+    ::-webkit-scrollbar-track { background:#e5e7eb; border-radius:10px; }
 
     /* Background color coding */
-    td.bg-pos { background-color:#d1fae5 !important; animation:fadeIn 0.5s ease; color:#000 !important; }
-    td.bg-neg { background-color:#fee2e2 !important; animation:fadeIn 0.5s ease; color:#000 !important; }
+    td.bg-pos { background-color:#d1fae5 !important; animation:fadeIn 0.5s ease; } /* light green */
+    td.bg-neg { background-color:#fee2e2 !important; animation:fadeIn 0.5s ease; } /* light red */
 
-    @keyframes fadeIn { from{opacity:0.3;} to{opacity:1;} }
-
-    .overlay::after {
-      content:"Processing...";
-      font-size:1rem; font-weight:600; color:#fff;
-      background:rgba(0,0,0,0.6);
-      padding:8px 16px; border-radius:8px;
-      animation:fadeIn 0.4s ease;
+    /* Animation for smoother feel */
+    @keyframes fadeIn {
+      from { opacity:0.3; }
+      to { opacity:1; }
     }
   </style>
 </head>
@@ -104,15 +105,14 @@ const monthOrder=[
 
 const norm=s=>String(s||"").toUpperCase().trim();
 const getVal=(r,k)=>r[k]??r[k.toLowerCase()]??r[k.toUpperCase()]??"";
-function debounce(fn,wait=350){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),wait);}};
+function debounce(fn,wait=300){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),wait);}};
 
 document.addEventListener("DOMContentLoaded",()=>{initUI();loadData(currentView);});
 
 function initUI(){
-  const exportBtn=document.getElementById("exportBtn");
-  if(exportBtn){exportBtn.addEventListener("click",()=>{if(typeof exportExcel==="function")exportExcel();else alert("Export not ready yet.");});}
   document.getElementById("toggleFiltersBtn").addEventListener("click",toggleFilters);
   document.getElementById("clearBtn").addEventListener("click",()=>safeApplyFilters(clearFilters));
+  document.getElementById("exportBtn").addEventListener("click",exportExcel);
   document.getElementById("toggleViewBtn").addEventListener("click",()=>{
     currentView=currentView==="product"?"sku":"product";
     document.getElementById("toggleViewBtn").textContent=currentView==="product"?"Switch to SKU View":"Switch to Product View";
@@ -122,11 +122,17 @@ function initUI(){
   if(localStorage.getItem("theme")==="dark"){document.documentElement.classList.add("dark-mode");themeBtn.textContent="☀️ Light Mode";}
   themeBtn.addEventListener("click",()=>{
     const html=document.documentElement;
-    if(html.classList.contains("dark-mode")){html.classList.remove("dark-mode");localStorage.setItem("theme","light");themeBtn.textContent="🌙 Dark Mode";}
-    else{html.classList.add("dark-mode");localStorage.setItem("theme","dark");themeBtn.textContent="☀️ Light Mode";}
+    if(html.classList.contains("dark-mode")){
+      html.classList.remove("dark-mode");
+      localStorage.setItem("theme","light");
+      themeBtn.textContent="🌙 Dark Mode";
+    } else {
+      html.classList.add("dark-mode");
+      localStorage.setItem("theme","dark");
+      themeBtn.textContent="☀️ Light Mode";
+    }
   });
 }
-
 const safeApplyFilters=(fn)=>{if("requestIdleCallback" in window){requestIdleCallback(fn,{timeout:300});}else{requestAnimationFrame(fn);}};
 
 let filtersVisible=true;
@@ -136,15 +142,7 @@ function toggleFilters(){
   if(filtersVisible){wrapper.classList.add("hidden");btn.textContent="Show Filters";filtersVisible=false;}
   else{wrapper.classList.remove("hidden");btn.textContent="Hide Filters";filtersVisible=true;}
 }
-function clearFilters(){
-  const overlay=document.getElementById("overlayLoader");
-  overlay.classList.remove("hidden");
-  setTimeout(()=>{
-    document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb=>cb.checked=false);
-    safeApplyFilters(applyFilters);
-    overlay.classList.add("hidden");
-  },150);
-}
+function clearFilters(){document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb=>cb.checked=false);applyFilters();}
 
 /* ---------------- Load Data ---------------- */
 async function loadData(view){
@@ -169,6 +167,7 @@ function buildFilters(){
   const order=currentView==="product"
     ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"]
     :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"];
+
   const colors=["#fff7ed","#ecfdf5","#e0f2fe","#fdf2f8","#fef3c7","#e0f2fe","#f3e8ff","#fef2f2","#f3f4f6"];
   let ci=0;
   function makeBox(title,vals=[],checkedAll=false){
@@ -179,17 +178,29 @@ function buildFilters(){
       <div class="options">${vals.map(v=>`<label><input type="checkbox" name="${title}" value="${v}" ${checkedAll?"checked":""}>${v}</label>`).join("")}</div>`;
     filters.appendChild(box);
   }
+
   order.forEach(f=>{
     if(f==="SHOW COLUMNS")makeBox(f,textCols,true);
     else if(f==="MONTH / YEAR"||f==="COMPARISON")makeBox(f,monthOrder,true);
     else if(f==="TOTAL")makeBox(f,textCols,false);
-    else if(textCols.includes(f)){const vals=[...new Set(fullData.map(r=>getVal(r,f)))].filter(Boolean).sort();makeBox(f,vals,false);}
+    else if(textCols.includes(f)){
+      const vals=[...new Set(fullData.map(r=>getVal(r,f)))].filter(Boolean).sort();
+      makeBox(f,vals,false);
+    }
   });
-  filters.querySelectorAll("input[data-all]").forEach(cb=>cb.addEventListener("change",e=>{const g=e.target.dataset.all;const state=e.target.checked;filters.querySelectorAll(`input[name='${g}']`).forEach(x=>x.checked=state);safeApplyFilters(applyFilters);}));
-  filters.addEventListener("change",debounce(()=>safeApplyFilters(applyFilters),400));
+
+  filters.querySelectorAll("input[data-all]").forEach(cb=>{
+    cb.addEventListener("change",e=>{
+      const g=e.target.dataset.all;
+      const state=e.target.checked;
+      filters.querySelectorAll(`input[name='${g}']`).forEach(x=>x.checked=state);
+      safeApplyFilters(applyFilters);
+    });
+  });
+  filters.addEventListener("change",debounce(()=>safeApplyFilters(applyFilters),300));
 }
 
-/* ---------------- Apply Filters ---------------- */
+/* ---------------- Apply Filters (Two-way Cascade) ---------------- */
 function applyFilters(){
   const overlay=document.getElementById("overlayLoader");
   overlay.classList.remove("hidden");
@@ -201,15 +212,29 @@ function applyFilters(){
         const t=f.textContent.trim();
         selected[t]=[...filters.querySelectorAll(`input[name='${t}']:checked`)].map(i=>i.value);
       });
+
       const cascade=currentView==="product"
         ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
         :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
+
       let filtered=[...fullData];
-      Object.keys(selected).forEach(f=>{const sel=selected[f]||[];if(sel.length>0)filtered=filtered.filter(r=>sel.includes(getVal(r,f)));});
-      Object.keys(selected).forEach(f=>{
-        const box=[...filters.querySelectorAll(".filter-box")].find(b=>b.querySelector("strong")?.textContent.trim()===f);
-        if(box){const valid=new Set(filtered.map(r=>getVal(r,f)).filter(Boolean));box.querySelectorAll(`input[name='${f}']`).forEach(cb=>{const visible=valid.has(cb.value);cb.closest("label").style.display=visible?"":"none";});}
+      cascade.forEach(f=>{
+        const sel=selected[f]||[];
+        if(sel.length>0) filtered=filtered.filter(r=>sel.includes(getVal(r,f)));
       });
+
+      // Bi-directional cascade update
+      cascade.forEach(f=>{
+        const box=[...filters.querySelectorAll(".filter-box")].find(b=>b.querySelector("strong")?.textContent.trim()===f);
+        if(box){
+          const valid=new Set(filtered.map(r=>getVal(r,f)).filter(Boolean));
+          box.querySelectorAll(`input[name='${f}']`).forEach(cb=>{
+            const visible=valid.has(cb.value);
+            cb.closest("label").style.display=visible?"":"none";
+          });
+        }
+      });
+
       renderTable(filtered,selected);
     }finally{overlay.classList.add("hidden");}
   });
@@ -241,104 +266,82 @@ function renderTable(filtered, selected) {
     "</tr>";
   addSorting(colsToShow);
 
-  const map = new Map();
-  filtered.forEach(r => {
-    const key = showCols.map(k => getVal(r, k)).join("|");
-    if (!map.has(key)) {
-      const obj = {};
-      showCols.forEach(k => (obj[k] = getVal(r, k)));
-      monthCols.forEach(m => (obj[m] = Number(getVal(r, m)) || 0));
-      map.set(key, obj);
-    } else {
-      const obj = map.get(key);
-      monthCols.forEach(m => (obj[m] += Number(getVal(r, m)) || 0));
+  const map=new Map();
+  filtered.forEach(r=>{
+    const key=showCols.map(k=>getVal(r,k)).join("|");
+    if(!map.has(key)){
+      const obj={};showCols.forEach(k=>obj[k]=getVal(r,k));
+      monthCols.forEach(m=>obj[m]=Number(getVal(r,m))||0);
+      map.set(key,obj);
+    }else{
+      const obj=map.get(key);
+      monthCols.forEach(m=>obj[m]+=Number(getVal(r,m))||0);
     }
   });
-  const grouped = [...map.values()];
+  const grouped=[...map.values()];
 
-  tBody.innerHTML = "";
-  if (totalCols.length) {
-    const groups = {};
-    grouped.forEach(row => {
-      const key = totalCols.map(k => row[k]).join("|");
-      if (!groups[key]) groups[key] = [];
+  tBody.innerHTML="";
+  if(totalCols.length){
+    const groups={};
+    grouped.forEach(row=>{
+      const key=totalCols.map(k=>row[k]).join("|");
+      if(!groups[key])groups[key]=[];
       groups[key].push(row);
     });
+    Object.entries(groups).forEach(([key, rows])=>{
+      rows.forEach(r=>appendRow(r,colsToShow,selected,tBody));
 
-    Object.entries(groups).forEach(([key, rows]) => {
-      rows.forEach(r => appendRow(r, colsToShow, selected, tBody));
-
-      // subtotal row
-      const subtotal = {};
-      monthCols.forEach(m => (subtotal[m] = rows.reduce((s, r) => s + (Number(r[m]) || 0), 0)));
-      const subCells = colsToShow
-        .map((c, idx) => {
-          if (monthOrder.includes(c)) {
-            const val = subtotal[c] || 0;
-            let prev = null;
-            for (let j = idx - 1; j >= 0; j--) {
-              if (monthOrder.includes(colsToShow[j])) {
-                prev = subtotal[colsToShow[j]];
-                break;
-              }
-            }
-            const cls = prev !== null ? (val > prev ? "bg-pos" : "bg-neg") : "";
-            return `<td class="numeric ${cls}">${val}</td>`;
+      // subtotal
+      const subtotal={};
+      monthCols.forEach(m=>subtotal[m]=rows.reduce((s,r)=>s+(Number(r[m])||0),0));
+      const subCells=colsToShow.map((c,idx)=>{
+        if(monthOrder.includes(c)){
+          const val=subtotal[c]||0;
+          let prev=null;for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prev=subtotal[colsToShow[j]];break;}}
+          const cls=prev!==null?(val>prev?'bg-pos':'bg-neg'):'';
+          return `<td class="numeric ${cls}">${val}</td>`;
+        }
+        if(c==="COMPARISON"){
+          const compare=selected["COMPARISON"]||[];
+          if(compare.length===2){
+            const[colA,colB]=compare;
+            const diff=(subtotal[colB]||0)-(subtotal[colA]||0);
+            const cls=diff>0?'bg-pos':'bg-neg';
+            return `<td class="numeric ${cls}">${diff}</td>`;
           }
-          if (c === "COMPARISON") {
-            const compare = selected["COMPARISON"] || [];
-            if (compare.length === 2) {
-              const [colA, colB] = compare;
-              const diff = (subtotal[colB] || 0) - (subtotal[colA] || 0);
-              const cls = diff > 0 ? "bg-pos" : "bg-neg";
-              return `<td class="numeric ${cls}">${diff}</td>`;
-            }
-          }
-          if (totalCols.includes(c)) return `<td class="subtotal-label">Subtotal</td>`;
-          return `<td></td>`;
-        })
-        .join("");
-      tBody.insertAdjacentHTML("beforeend", `<tr class="subtotal-row">${subCells}</tr>`);
+        }
+        if(totalCols.includes(c))return `<td class="subtotal-label">Subtotal</td>`;
+        return `<td></td>`;
+      }).join("");
+      tBody.insertAdjacentHTML("beforeend",`<tr class="subtotal-row">${subCells}</tr>`);
     });
-  } else {
-    grouped.forEach(r => appendRow(r, colsToShow, selected, tBody));
-  }
+  } else grouped.forEach(r=>appendRow(r,colsToShow,selected,tBody));
 
-  // Grand total
-  const totals = {};
-  monthCols.forEach(m => (totals[m] = grouped.reduce((s, r) => s + (Number(r[m]) || 0), 0)));
-  const totalCells = colsToShow
-    .map((c, idx) => {
-      if (monthOrder.includes(c)) {
-        const val = totals[c] || 0;
-        let prev = null;
-        for (let j = idx - 1; j >= 0; j--) {
-          if (monthOrder.includes(colsToShow[j])) {
-            prev = totals[colsToShow[j]];
-            break;
-          }
-        }
-        const cls = prev !== null ? (val > prev ? "bg-pos" : "bg-neg") : "";
-        return `<td class="numeric ${cls}">${val}</td>`;
+  const totals={};monthCols.forEach(m=>totals[m]=grouped.reduce((s,r)=>s+(Number(r[m])||0),0));
+  const totalCells=colsToShow.map((c,idx)=>{
+    if(monthOrder.includes(c)){
+      const val=totals[c]||0;
+      let prev=null;for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prev=totals[colsToShow[j]];break;}}
+      const cls=prev!==null?(val>prev?'bg-pos':'bg-neg'):'';
+      return `<td class="numeric ${cls}">${val}</td>`;
+    }
+    if(c==="COMPARISON"){
+      const compare=selected["COMPARISON"]||[];
+      if(compare.length===2){
+        const[colA,colB]=compare;
+        const diff=(totals[colB]||0)-(totals[colA]||0);
+        const cls=diff>0?'bg-pos':'bg-neg';
+        return `<td class="numeric ${cls}">${diff}</td>`;
       }
-      if (c === "COMPARISON") {
-        const compare = selected["COMPARISON"] || [];
-        if (compare.length === 2) {
-          const [colA, colB] = compare;
-          const diff = (totals[colB] || 0) - (totals[colA] || 0);
-          const cls = diff > 0 ? "bg-pos" : "bg-neg";
-          return `<td class="numeric ${cls}">${diff}</td>`;
-        }
-      }
-      if (showCols.includes(c)) return `<td class="subtotal-label"><b>TOTAL</b></td>`;
-      return `<td></td>`;
-    })
-    .join("");
-  tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
+    }
+    if(showCols.includes(c))return `<td class="subtotal-label"><b>TOTAL</b></td>`;
+    return `<td></td>`;
+  }).join("");
+  tFoot.innerHTML=`<tr class="grandtotal-row">${totalCells}</tr>`;
   document.getElementById("dataTable").classList.remove("hidden");
 }
 
-/* ---------------- Append Row ---------------- */
+/* ---------------- Append Row (with background color logic) ---------------- */
 function appendRow(r,colsToShow,selected,tBody){
   const cells=colsToShow.map((c,idx)=>{
     if(c==="COMPARISON"){
@@ -347,16 +350,15 @@ function appendRow(r,colsToShow,selected,tBody){
         const[colA,colB]=compareCols;
         const diff=(Number(r[colB])||0)-(Number(r[colA])||0);
         const cls=diff>0?'bg-pos':'bg-neg';
-        return `<td class="numeric ${cls}" style="color:black;">${diff}</td>`;
+        return `<td class="numeric ${cls}">${diff}</td>`;
       }
       return `<td></td>`;
     }
     if(monthOrder.includes(c)){
       const num=Number(r[c])||0;
-      let prevVal=null;
-      for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prevVal=Number(r[colsToShow[j]])||0;break;}}
+      let prevVal=null;for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prevVal=Number(r[colsToShow[j]])||0;break;}}
       const cls=prevVal!==null?(num>prevVal?'bg-pos':'bg-neg'):'';
-      return `<td class="numeric ${cls}" style="color:black;">${num}</td>`;
+      return `<td class="numeric ${cls}">${num}</td>`;
     }
     return `<td>${r[c]??""}</td>`;
   });
@@ -384,31 +386,13 @@ function addSorting(cols){
 
 /* ---------------- Excel Export ---------------- */
 async function exportExcel(){
-  const overlay=document.getElementById("overlayLoader");
-  overlay.classList.remove("hidden");
-  setTimeout(()=>{
-    const date=new Date().toISOString().split("T")[0];
-    const filename=`${currentView}_export_${date}.xlsx`;
-    const table=document.getElementById("dataTable");
-    const ws_data=[];
-    table.querySelectorAll("tr").forEach(r=>ws_data.push([...r.querySelectorAll("th,td")].map(td=>td.innerText.trim())));
-    const ws=XLSX.utils.aoa_to_sheet(ws_data);
-    ws["!cols"]=ws_data[0].map(()=>({wch:15}));
-    const range=XLSX.utils.decode_range(ws["!ref"]);
-    for(let R=range.s.r;R<=range.e.r;++R){
-      for(let C=range.s.c;C<=range.e.c;++C){
-        const ref=XLSX.utils.encode_cell({r:R,c:C});
-        const cell=ws[ref];if(!cell)continue;const val=cell.v;
-        cell.s={alignment:{horizontal:"center",vertical:"center"},font:{color:{rgb:"000000"}}};
-        if(R===0){cell.s={fill:{fgColor:{rgb:"E0E7FF"}},font:{bold:true,color:{rgb:"1E3A8A"}},alignment:{horizontal:"center",vertical:"center"}};}
-        else if(String(val).toUpperCase().includes("SUBTOTAL")){cell.s={fill:{fgColor:{rgb:"E0F2FE"}},font:{bold:true,color:{rgb:"1E3A8A"}},alignment:{horizontal:"center",vertical:"center"}};}
-        else if(String(val).toUpperCase().includes("TOTAL")){cell.s={fill:{fgColor:{rgb:"F3E8FF"}},font:{bold:true,color:{rgb:"4C1D95"}},alignment:{horizontal:"center",vertical:"center"}};}
-        else if(!isNaN(parseFloat(val))){const num=parseFloat(val);const colorBg=num>0?"D1FAE5":"FEE2E2";cell.s={fill:{fgColor:{rgb:colorBg}},font:{color:{rgb:"000000"}},alignment:{horizontal:"center",vertical:"center"}};}
-      }
-    }
-    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");XLSX.writeFile(wb,filename);
-    overlay.classList.add("hidden");
-  },150);
+  const date=new Date().toISOString().split("T")[0];
+  const filename=`${currentView}_export_${date}.xlsx`;
+  const table=document.getElementById("dataTable");
+  const ws_data=[];
+  table.querySelectorAll("tr").forEach(r=>ws_data.push([...r.querySelectorAll("th,td")].map(td=>td.innerText.trim())));
+  const ws=XLSX.utils.aoa_to_sheet(ws_data);ws["!cols"]=ws_data[0].map(()=>({wch:15}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");XLSX.writeFile(wb,filename);
 }
 </script>
 </body>
