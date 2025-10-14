@@ -10,20 +10,25 @@
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
   <style>
+    /* ---------- TABLE + FILTERS ---------- */
     th, td { padding:4px 6px!important; height:22px!important; font-size:0.85rem; transition:background-color 0.6s ease; }
     .subtotal-row td, .grandtotal-row td { height:26px!important; font-weight:700; transition:background-color 0.6s ease; }
+
     #filtersWrapper { transition:all 0.4s ease; opacity:1; max-height:600px; overflow:hidden; }
     #filtersWrapper.hidden { opacity:0; max-height:0; overflow:hidden; }
 
+    /* Filter visibility */
     .filter-box label { color:#000; font-weight:500; }
     .filter-box strong { color:#1e3a8a; font-weight:700; }
     .dark-mode .filter-box label, .dark-mode .filter-box strong { color:#000 !important; background:#f9fafb !important; }
 
+    /* Sticky Header */
     th.sortable { cursor:pointer; position:sticky; top:0; background:#eef2ff; z-index:5; }
     th.sortable:hover { background:#dbeafe; }
     th { position:sticky; top:0; background:#eef2ff; z-index:10; text-align:center; }
     .dark-mode th { background:#1e293b; color:#93c5fd; }
 
+    /* Attractive Scrollbars */
     .table-wrapper::-webkit-scrollbar { width:15px; height:15px; }
     .table-wrapper::-webkit-scrollbar-thumb {
       background:linear-gradient(180deg,#1e40af,#312e81);
@@ -33,6 +38,7 @@
     .table-wrapper::-webkit-scrollbar-thumb:hover { background:linear-gradient(180deg,#1d4ed8,#3730a3); }
     .table-wrapper::-webkit-scrollbar-track { background:#f3f4f6; border-radius:10px; }
 
+    /* Background color coding */
     td.bg-pos { background-color:#d1fae5 !important; animation:fadeIn 0.5s ease; color:#000 !important; }
     td.bg-neg { background-color:#fee2e2 !important; animation:fadeIn 0.5s ease; color:#000 !important; }
 
@@ -104,8 +110,7 @@ document.addEventListener("DOMContentLoaded",()=>{initUI();loadData(currentView)
 
 function initUI(){
   const exportBtn=document.getElementById("exportBtn");
-  if(exportBtn){ exportBtn.addEventListener("click",()=>{ if(typeof exportExcel==="function") exportExcel(); else alert("Export not ready yet."); }); }
-
+  if(exportBtn){exportBtn.addEventListener("click",()=>{if(typeof exportExcel==="function")exportExcel();else alert("Export not ready yet.");});}
   document.getElementById("toggleFiltersBtn").addEventListener("click",toggleFilters);
   document.getElementById("clearBtn").addEventListener("click",()=>safeApplyFilters(clearFilters));
   document.getElementById("toggleViewBtn").addEventListener("click",()=>{
@@ -113,7 +118,6 @@ function initUI(){
     document.getElementById("toggleViewBtn").textContent=currentView==="product"?"Switch to SKU View":"Switch to Product View";
     loadData(currentView);
   });
-
   const themeBtn=document.getElementById("themeToggle");
   if(localStorage.getItem("theme")==="dark"){document.documentElement.classList.add("dark-mode");themeBtn.textContent="☀️ Light Mode";}
   themeBtn.addEventListener("click",()=>{
@@ -332,57 +336,53 @@ function renderTable(filtered, selected) {
     .join("");
   tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
   document.getElementById("dataTable").classList.remove("hidden");
-} // ✅ properly close renderTable here
+}
+
+/* ---------------- Append Row ---------------- */
+function appendRow(r,colsToShow,selected,tBody){
+  const cells=colsToShow.map((c,idx)=>{
+    if(c==="COMPARISON"){
+      const compareCols=selected["COMPARISON"]||[];
+      if(compareCols.length===2){
+        const[colA,colB]=compareCols;
+        const diff=(Number(r[colB])||0)-(Number(r[colA])||0);
+        const cls=diff>0?'bg-pos':'bg-neg';
+        return `<td class="numeric ${cls}" style="color:black;">${diff}</td>`;
+      }
+      return `<td></td>`;
+    }
+    if(monthOrder.includes(c)){
+      const num=Number(r[c])||0;
+      let prevVal=null;
+      for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prevVal=Number(r[colsToShow[j]])||0;break;}}
+      const cls=prevVal!==null?(num>prevVal?'bg-pos':'bg-neg'):'';
+      return `<td class="numeric ${cls}" style="color:black;">${num}</td>`;
+    }
+    return `<td>${r[c]??""}</td>`;
+  });
+  tBody.insertAdjacentHTML("beforeend",`<tr>${cells.join("")}</tr>`);
+}
 
 /* ---------------- Sorting ---------------- */
-function addSorting(colsToShow) {
-  const table = document.getElementById("dataTable");
-  if (!table) return;
-
-  const headers = table.querySelectorAll("th.sortable");
-
-  headers.forEach((header, index) => {
-    const icon = header.querySelector(".sort-icon");
-    header.style.cursor = "pointer";
-
-    header.addEventListener("click", () => {
-      const tbody = table.querySelector("tbody");
-      const rows = Array.from(tbody.querySelectorAll("tr"));
-      const asc = !header.classList.contains("asc");
-
-      // Reset all headers before sorting
-      headers.forEach(h => {
-        h.classList.remove("asc", "desc");
-        const i = h.querySelector(".sort-icon");
-        if (i) i.textContent = "↕️";
+function addSorting(cols){
+  const table=document.getElementById("dataTable");
+  const ths=table.querySelectorAll("th.sortable");
+  ths.forEach(th=>{
+    th.onclick=()=>{
+      const col=th.dataset.col;
+      const rows=[...table.querySelector("tbody").rows];
+      const asc=th.classList.toggle("asc");
+      rows.sort((a,b)=>{
+        const A=parseFloat(a.cells[th.cellIndex].innerText)||0;
+        const B=parseFloat(b.cells[th.cellIndex].innerText)||0;
+        return asc?A-B:B-A;
       });
-
-      // Apply new sort state
-      header.classList.toggle("asc", asc);
-      header.classList.toggle("desc", !asc);
-      if (icon) icon.textContent = asc ? "▲" : "▼";
-
-      // Sort logic
-      rows.sort((a, b) => {
-        const aText = a.children[index]?.textContent.trim() || "";
-        const bText = b.children[index]?.textContent.trim() || "";
-        const aNum = parseFloat(aText);
-        const bNum = parseFloat(bText);
-
-        if (!isNaN(aNum) && !isNaN(bNum)) {
-          return asc ? aNum - bNum : bNum - aNum;
-        }
-        return asc
-          ? aText.localeCompare(bText, undefined, { numeric: true })
-          : bText.localeCompare(aText, undefined, { numeric: true });
-      });
-
-      rows.forEach(row => tbody.appendChild(row));
-    });
+      rows.forEach(r=>table.querySelector("tbody").appendChild(r));
+    };
   });
 }
 
-/* ---------------- Excel Export with Color-Coded Backgrounds ---------------- */
+/* ---------------- Excel Export ---------------- */
 async function exportExcel(){
   const overlay=document.getElementById("overlayLoader");
   overlay.classList.remove("hidden");
