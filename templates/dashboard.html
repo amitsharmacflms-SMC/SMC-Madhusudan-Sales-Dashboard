@@ -332,9 +332,9 @@ function renderTable(filtered, selected) {
     .join("");
   tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
   document.getElementById("dataTable").classList.remove("hidden");
+} // ✅ properly close renderTable here
 
-
-
+/* ---------------- Sorting ---------------- */
 function addSorting(colsToShow) {
   const table = document.getElementById("dataTable");
   if (!table) return;
@@ -381,9 +381,6 @@ function addSorting(colsToShow) {
     });
   });
 }
-
-
-
 
 /* ---------------- Excel Export with Color-Coded Backgrounds ---------------- */
 async function exportExcel(){
