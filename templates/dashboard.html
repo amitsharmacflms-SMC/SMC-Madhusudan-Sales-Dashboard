@@ -53,7 +53,7 @@
       to { opacity:1; }
     }
 /* Instant feedback overlay */
-.overlay::after {
+  .overlay::after {
   content:"Processing...";
   font-size:1rem;
   font-weight:600;
@@ -61,8 +61,8 @@
   background:rgba(0,0,0,0.6);
   padding:8px 16px;
   border-radius:8px;
-  animation:fadeIn 0.4s ease;
-}
+  animation:fadeIn 0.4s ease;}
+
 
 
 
@@ -372,6 +372,7 @@ function renderTable(filtered, selected) {
 }
 
 /* ---------------- Append Row (with background color logic) ---------------- */
+/* ---------------- Append Row (with background color logic) ---------------- */
 function appendRow(r,colsToShow,selected,tBody){
   const cells=colsToShow.map((c,idx)=>{
     if(c==="COMPARISON"){
@@ -380,15 +381,19 @@ function appendRow(r,colsToShow,selected,tBody){
         const[colA,colB]=compareCols;
         const diff=(Number(r[colB])||0)-(Number(r[colA])||0);
         const cls=diff>0?'bg-pos':'bg-neg';
-        return `<td class="numeric ${cls}">${diff}</td>`;
+        return `<td class="numeric ${cls}" style="color:black;">${diff}</td>`;
       }
       return `<td></td>`;
     }
+
     if(monthOrder.includes(c)){
       const num=Number(r[c])||0;
-      let prevVal=null;for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prevVal=Number(r[colsToShow[j]])||0;break;}}
+      let prevVal=null;
+      for(let j=idx-1;j>=0;j--){
+        if(monthOrder.includes(colsToShow[j])){prevVal=Number(r[colsToShow[j]])||0;break;}
+      }
       const cls=prevVal!==null?(num>prevVal?'bg-pos':'bg-neg'):'';
-      return `<td class="numeric ${cls}">${num}</td>`;
+      return `<td class="numeric ${cls}" style="color:black;">${num}</td>`;
     }
     return `<td>${r[c]??""}</td>`;
   });
@@ -414,16 +419,32 @@ function addSorting(cols){
   });
 }
 
-/* ---------------- Excel Export ---------------- */
+/* ---------------- Excel Export (Async for performance) ---------------- */
 async function exportExcel(){
-  const date=new Date().toISOString().split("T")[0];
-  const filename=`${currentView}_export_${date}.xlsx`;
-  const table=document.getElementById("dataTable");
-  const ws_data=[];
-  table.querySelectorAll("tr").forEach(r=>ws_data.push([...r.querySelectorAll("th,td")].map(td=>td.innerText.trim())));
-  const ws=XLSX.utils.aoa_to_sheet(ws_data);ws["!cols"]=ws_data[0].map(()=>({wch:15}));
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");XLSX.writeFile(wb,filename);
+  const overlay=document.getElementById("overlayLoader");
+  overlay.classList.remove("hidden");
+  setTimeout(()=>{
+    const date=new Date().toISOString().split("T")[0];
+    const filename=`${currentView}_export_${date}.xlsx`;
+    const table=document.getElementById("dataTable");
+    const ws_data=[];
+    table.querySelectorAll("tr").forEach(r=>ws_data.push([...r.querySelectorAll("th,td")].map(td=>td.innerText.trim())));
+    const ws=XLSX.utils.aoa_to_sheet(ws_data);
+    ws["!cols"]=ws_data[0].map(()=>({wch:15}));
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");
+    XLSX.writeFile(wb,filename);
+    overlay.classList.add("hidden");
+  },100);
 }
+
+/* ---------------- Fix dark-mode numeric visibility ---------------- */
+const style = document.createElement("style");
+style.textContent = `
+  td.bg-pos, td.bg-neg { color: #000 !important; }
+  .dark-mode td.bg-pos, .dark-mode td.bg-neg { color: #000 !important; }
+`;
+document.head.appendChild(style);
 </script>
 </body>
 </html>
