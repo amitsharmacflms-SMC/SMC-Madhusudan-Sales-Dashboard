@@ -10,59 +10,60 @@
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
   <style>
-    th, td { padding: 4px 6px !important; height: 22px !important; font-size: 0.85rem; }
-    .subtotal-row td, .grandtotal-row td { height: 26px !important; }
+    th, td { padding:4px 6px!important; height:22px!important; font-size:0.85rem; }
+    .subtotal-row td, .grandtotal-row td { height:26px!important; }
 
-    #filtersWrapper { transition: all 0.4s ease; opacity: 1; max-height: 600px; overflow: hidden; }
-    #filtersWrapper.hidden { opacity: 0; max-height: 0; overflow: hidden; }
+    #filtersWrapper { transition:all 0.4s ease; opacity:1; max-height:600px; overflow:hidden; }
+    #filtersWrapper.hidden { opacity:0; max-height:0; overflow:hidden; }
 
-    .dark-mode .filter-box label { color: #ffffff; }
-    .dark-mode .filter-box strong { color: #93c5fd; }
+    .dark-mode .filter-box label { color:#fff; }
+    .dark-mode .filter-box strong { color:#93c5fd; }
 
-    th.sortable { cursor: pointer; position: sticky; top: 0; background: #eef2ff; z-index: 5; }
-    th.sortable:hover { background: #dbeafe; }
-    th.sortable span.sort-icon { font-size: 0.8rem; color: #6b7280; margin-left: 4px; }
+    th.sortable { cursor:pointer; position:sticky; top:0; background:#eef2ff; z-index:5; }
+    th.sortable:hover { background:#dbeafe; }
+    th.sortable span.sort-icon { font-size:0.8rem; color:#6b7280; margin-left:4px; }
 
-    th { position: sticky; top: 0; background: #eef2ff; z-index: 10; text-align: center; }
-    .dark-mode th { background: #1e293b; color: #93c5fd; }
+    th { position:sticky; top:0; background:#eef2ff; z-index:10; text-align:center; }
+    .dark-mode th { background:#1e293b; color:#93c5fd; }
   </style>
 </head>
 
 <body>
-  <header>
-    <div class="container header-row">
-      <div class="brand">
-        <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="logo">
-        <h1>SMC Madhusudan Sales Dashboard</h1>
-      </div>
-      <div class="toolbar">
-        <button id="exportBtn" class="btn btn-blue">⬇ Export</button>
-        <button id="clearBtn" class="btn btn-gray">🧹 Clear All Filters</button>
-        <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
-        <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
-        <button id="themeToggle" class="btn btn-gray">🌙 Dark Mode</button>
-      </div>
+<header>
+  <div class="container header-row">
+    <div class="brand">
+      <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="logo">
+      <h1>SMC Madhusudan Sales Dashboard</h1>
     </div>
-  </header>
+    <div class="toolbar">
+      <button id="exportBtn" class="btn btn-blue">⬇ Export</button>
+      <button id="clearBtn" class="btn btn-gray">🧹 Clear All Filters</button>
+      <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
+      <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
+      <button id="themeToggle" class="btn btn-gray">🌙 Dark Mode</button>
+    </div>
+  </div>
+</header>
 
-  <main class="container">
-    <section>
-      <div id="filtersWrapper"><div id="filtersContainer" class="filter-bar"></div></div>
-      <div id="loader" class="loader">Loading data...</div>
-      <div id="overlayLoader" class="overlay hidden">Updating filters…</div>
-      <div class="table-wrapper" style="overflow:auto; max-height: 80vh;">
-        <table id="dataTable" class="hidden">
-          <thead id="tableHead"></thead>
-          <tbody id="tableBody"></tbody>
-          <tfoot id="tableFoot"></tfoot>
-        </table>
-      </div>
-    </section>
-  </main>
+<main class="container">
+<section>
+  <div id="filtersWrapper"><div id="filtersContainer" class="filter-bar"></div></div>
+  <div id="loader" class="loader">Loading data...</div>
+  <div id="overlayLoader" class="overlay hidden">Updating filters…</div>
 
-  <footer>
-    <p>© {{ current_year }} Created & Hosted by <strong>Amit Sharma</strong></p>
-  </footer>
+  <div class="table-wrapper" style="overflow:auto; max-height:80vh;">
+    <table id="dataTable" class="hidden">
+      <thead id="tableHead"></thead>
+      <tbody id="tableBody"></tbody>
+      <tfoot id="tableFoot"></tfoot>
+    </table>
+  </div>
+</section>
+</main>
+
+<footer>
+  <p>© {{ current_year }} Created & Hosted by <strong>Amit Sharma</strong></p>
+</footer>
 
 <script>
 let currentView="product";
@@ -71,9 +72,11 @@ const baseTextCols=["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAM
 const monthOrder=[
 "APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
 "OCT-23","NOV-23","DEC-23","AVG_Q3_2023-24","JAN-24","FEB-24","MAR-24","AVG_Q4_2023-24","AVG_YEAR_2023-24",
-"APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25","OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25",
-"JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25","APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
+"APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25",
+"OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25","JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25",
+"APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
 ];
+
 const norm=s=>String(s||"").toUpperCase().trim();
 const getVal=(r,k)=>r[k]??r[k.toLowerCase()]??r[k.toUpperCase()]??"";
 function debounce(fn,wait=300){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),wait);}};
@@ -104,7 +107,6 @@ function initUI(){
     }
   });
 }
-
 const safeApplyFilters=(fn)=>{if("requestIdleCallback" in window){requestIdleCallback(fn,{timeout:300});}else{requestAnimationFrame(fn);}};
 
 let filtersVisible=true;
@@ -114,11 +116,7 @@ function toggleFilters(){
   if(filtersVisible){wrapper.classList.add("hidden");btn.textContent="Show Filters";filtersVisible=false;}
   else{wrapper.classList.remove("hidden");btn.textContent="Hide Filters";filtersVisible=true;}
 }
-
-function clearFilters(){
-  document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb=>cb.checked=false);
-  applyFilters();
-}
+function clearFilters(){document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb=>cb.checked=false);applyFilters();}
 
 /* ---------------- Load Data ---------------- */
 async function loadData(view){
@@ -176,21 +174,16 @@ function buildFilters(){
   filters.addEventListener("change",debounce(()=>safeApplyFilters(applyFilters),300));
 }
 
-/* ---------------- Apply Filters (with cascade fix) ---------------- */
+/* ---------------- Apply Filters (Cascade Fixed) ---------------- */
 function applyFilters(){
   const overlay=document.getElementById("overlayLoader");
   overlay.classList.remove("hidden");
   requestAnimationFrame(()=>{
     try{
-      const tHead=document.getElementById("tableHead"),
-            tBody=document.getElementById("tableBody"),
-            tFoot=document.getElementById("tableFoot");
-      if(!fullData.length){tBody.innerHTML="";tHead.innerHTML="";overlay.classList.add("hidden");return;}
-
       const filters=document.getElementById("filtersContainer");
       const selected={};
       [...filters.querySelectorAll(".filter-box strong")].forEach(f=>{
-        const t=f.textContent;
+        const t=f.textContent.trim();
         selected[t]=[...filters.querySelectorAll(`input[name='${t}']:checked`)].map(i=>i.value);
       });
 
@@ -198,55 +191,43 @@ function applyFilters(){
         ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
         :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
 
-      // cascade filtering
       let filtered=[...fullData];
       cascade.forEach((f,idx)=>{
         const sel=selected[f]||[];
         if(sel.length>0){filtered=filtered.filter(r=>sel.includes(getVal(r,f)));}
-        // update dependent filters
-        for(let j=idx+1;j<cascade.length;j++){
-          const next=cascade[j];
-          const nextBox=document.querySelector(`.filter-box strong:text-is('${next}')`);
-        }
-      });
 
-      // update dependent filter visibility
-      cascade.forEach((f,idx)=>{
         const next=cascade[idx+1];
-        if(!next)return;
-        const nextBox=[...filters.querySelectorAll(".filter-box")].find(b=>b.querySelector("strong").textContent===next);
-        if(nextBox){
-          const valid=new Set(filtered.map(r=>getVal(r,next)).filter(Boolean));
-          nextBox.querySelectorAll(`input[name='${next}']`).forEach(cb=>{
-            cb.closest("label").style.display=valid.has(cb.value)?"":"none";
-            if(!valid.has(cb.value))cb.checked=false;
-          });
+        if(next){
+          const nextBox=[...filters.querySelectorAll(".filter-box")].find(b=>b.querySelector("strong")?.textContent.trim()===next);
+          if(nextBox){
+            const valid=new Set(filtered.map(r=>getVal(r,next)).filter(Boolean));
+            nextBox.querySelectorAll(`input[name='${next}']`).forEach(cb=>{
+              const visible=valid.has(cb.value);
+              cb.closest("label").style.display=visible?"":"none";
+              if(!visible) cb.checked=false;
+            });
+          }
         }
       });
-
-      // render table (same as before)
       renderTable(filtered,selected);
     }finally{overlay.classList.add("hidden");}
   });
 }
 
-/* ---------------- Table Rendering ---------------- */
+/* ---------------- Table Rendering + Subtotals ---------------- */
 function renderTable(filtered,selected){
   const tHead=document.getElementById("tableHead"),
         tBody=document.getElementById("tableBody"),
         tFoot=document.getElementById("tableFoot");
-
   const showCols=selected["SHOW COLUMNS"]?.length?selected["SHOW COLUMNS"]:baseTextCols;
   const monthCols=selected["MONTH / YEAR"]?.length?selected["MONTH / YEAR"]:monthOrder;
   const totalCols=selected["TOTAL"]||[];
   const colsToShow=[...showCols,...monthCols];
   if((selected["COMPARISON"]||[]).length===2)colsToShow.push("COMPARISON");
-
-  const isNumeric=(c)=>monthOrder.includes(c)||c==="COMPARISON";
+  const isNumeric=c=>monthOrder.includes(c)||c==="COMPARISON";
   tHead.innerHTML="<tr>"+colsToShow.map(c=>`<th class='${isNumeric(c)?'sortable':''}' data-col='${c}'>${c}${isNumeric(c)?"<span class='sort-icon'>↕️</span>":""}</th>`).join("")+"</tr>";
   addSorting(colsToShow);
 
-  // group aggregation
   const map=new Map();
   filtered.forEach(r=>{
     const key=showCols.map(k=>getVal(r,k)).join("|");
@@ -260,8 +241,6 @@ function renderTable(filtered,selected){
     }
   });
   const grouped=[...map.values()];
-
-  // render rows + subtotal
   tBody.innerHTML="";
   if(totalCols.length){
     const groups={};
@@ -272,14 +251,12 @@ function renderTable(filtered,selected){
     });
     Object.entries(groups).forEach(([gKey,rows])=>{
       rows.forEach(r=>appendRow(r,colsToShow,selected,tBody));
-      // subtotal color-coded
       const subtotal={};
       monthCols.forEach(m=>subtotal[m]=rows.reduce((s,r)=>s+(Number(r[m])||0),0));
       const subCells=colsToShow.map((c,idx)=>{
         if(monthOrder.includes(c)){
           const val=subtotal[c]||0;
-          let prev=null;
-          for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prev=subtotal[colsToShow[j]];break;}}
+          let prev=null;for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prev=subtotal[colsToShow[j]];break;}}
           const color=prev!==null?(val>prev?"color:green":"color:red"):"";
           return `<td class="numeric" style="${color}">${val}</td>`;
         }
@@ -297,15 +274,13 @@ function renderTable(filtered,selected){
       }).join("");
       tBody.insertAdjacentHTML("beforeend",`<tr class="subtotal-row">${subCells}</tr>`);
     });
-  }else grouped.forEach(r=>appendRow(r,colsToShow,selected,tBody));
+  } else grouped.forEach(r=>appendRow(r,colsToShow,selected,tBody));
 
-  // total
   const totals={};monthCols.forEach(m=>totals[m]=grouped.reduce((s,r)=>s+(Number(r[m])||0),0));
   const totalCells=colsToShow.map((c,idx)=>{
     if(monthOrder.includes(c)){
       const val=totals[c]||0;
-      let prev=null;
-      for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prev=totals[colsToShow[j]];break;}}
+      let prev=null;for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prev=totals[colsToShow[j]];break;}}
       const color=prev!==null?(val>prev?"color:green":"color:red"):"";
       return `<td class="numeric" style="${color}">${val}</td>`;
     }
