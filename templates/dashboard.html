@@ -211,6 +211,132 @@ function applyFilters(){
   });
 }
 
+/* ---------------- Table Rendering (Animated Backgrounds + Subtotals) ---------------- */
+function renderTable(filtered, selected) {
+  const tHead = document.getElementById("tableHead"),
+        tBody = document.getElementById("tableBody"),
+        tFoot = document.getElementById("tableFoot");
+
+  const showCols = selected["SHOW COLUMNS"]?.length ? selected["SHOW COLUMNS"] : baseTextCols;
+  const monthCols = selected["MONTH / YEAR"]?.length ? selected["MONTH / YEAR"] : monthOrder;
+  const totalCols = selected["TOTAL"] || [];
+  const colsToShow = [...showCols, ...monthCols];
+  if ((selected["COMPARISON"] || []).length === 2) colsToShow.push("COMPARISON");
+
+  const isNumeric = c => monthOrder.includes(c) || c === "COMPARISON";
+  tHead.innerHTML =
+    "<tr>" +
+    colsToShow
+      .map(
+        c =>
+          `<th class='${isNumeric(c) ? "sortable" : ""}' data-col='${c}'>${c}${
+            isNumeric(c) ? "<span class='sort-icon'>↕️</span>" : ""
+          }</th>`
+      )
+      .join("") +
+    "</tr>";
+  addSorting(colsToShow);
+
+  const map = new Map();
+  filtered.forEach(r => {
+    const key = showCols.map(k => getVal(r, k)).join("|");
+    if (!map.has(key)) {
+      const obj = {};
+      showCols.forEach(k => (obj[k] = getVal(r, k)));
+      monthCols.forEach(m => (obj[m] = Number(getVal(r, m)) || 0));
+      map.set(key, obj);
+    } else {
+      const obj = map.get(key);
+      monthCols.forEach(m => (obj[m] += Number(getVal(r, m)) || 0));
+    }
+  });
+  const grouped = [...map.values()];
+
+  tBody.innerHTML = "";
+  if (totalCols.length) {
+    const groups = {};
+    grouped.forEach(row => {
+      const key = totalCols.map(k => row[k]).join("|");
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(row);
+    });
+
+    Object.entries(groups).forEach(([key, rows]) => {
+      rows.forEach(r => appendRow(r, colsToShow, selected, tBody));
+
+      // subtotal row
+      const subtotal = {};
+      monthCols.forEach(m => (subtotal[m] = rows.reduce((s, r) => s + (Number(r[m]) || 0), 0)));
+      const subCells = colsToShow
+        .map((c, idx) => {
+          if (monthOrder.includes(c)) {
+            const val = subtotal[c] || 0;
+            let prev = null;
+            for (let j = idx - 1; j >= 0; j--) {
+              if (monthOrder.includes(colsToShow[j])) {
+                prev = subtotal[colsToShow[j]];
+                break;
+              }
+            }
+            const cls = prev !== null ? (val > prev ? "bg-pos" : "bg-neg") : "";
+            return `<td class="numeric ${cls}">${val}</td>`;
+          }
+          if (c === "COMPARISON") {
+            const compare = selected["COMPARISON"] || [];
+            if (compare.length === 2) {
+              const [colA, colB] = compare;
+              const diff = (subtotal[colB] || 0) - (subtotal[colA] || 0);
+              const cls = diff > 0 ? "bg-pos" : "bg-neg";
+              return `<td class="numeric ${cls}">${diff}</td>`;
+            }
+          }
+          if (totalCols.includes(c)) return `<td class="subtotal-label">Subtotal</td>`;
+          return `<td></td>`;
+        })
+        .join("");
+      tBody.insertAdjacentHTML("beforeend", `<tr class="subtotal-row">${subCells}</tr>`);
+    });
+  } else {
+    grouped.forEach(r => appendRow(r, colsToShow, selected, tBody));
+  }
+
+  // Grand total
+  const totals = {};
+  monthCols.forEach(m => (totals[m] = grouped.reduce((s, r) => s + (Number(r[m]) || 0), 0)));
+  const totalCells = colsToShow
+    .map((c, idx) => {
+      if (monthOrder.includes(c)) {
+        const val = totals[c] || 0;
+        let prev = null;
+        for (let j = idx - 1; j >= 0; j--) {
+          if (monthOrder.includes(colsToShow[j])) {
+            prev = totals[colsToShow[j]];
+            break;
+          }
+        }
+        const cls = prev !== null ? (val > prev ? "bg-pos" : "bg-neg") : "";
+        return `<td class="numeric ${cls}">${val}</td>`;
+      }
+      if (c === "COMPARISON") {
+        const compare = selected["COMPARISON"] || [];
+        if (compare.length === 2) {
+          const [colA, colB] = compare;
+          const diff = (totals[colB] || 0) - (totals[colA] || 0);
+          const cls = diff > 0 ? "bg-pos" : "bg-neg";
+          return `<td class="numeric ${cls}">${diff}</td>`;
+        }
+      }
+      if (showCols.includes(c)) return `<td class="subtotal-label"><b>TOTAL</b></td>`;
+      return `<td></td>`;
+    })
+    .join("");
+  tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
+  document.getElementById("dataTable").classList.remove("hidden");
+}
+
+
+
+
 /* ---------------- Excel Export with Color-Coded Backgrounds ---------------- */
 async function exportExcel(){
   const overlay=document.getElementById("overlayLoader");
