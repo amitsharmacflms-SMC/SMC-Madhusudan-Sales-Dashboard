@@ -335,6 +335,50 @@ function renderTable(filtered, selected) {
 }
 
 
+<script>
+function addSorting(colsToShow) {
+  const table = document.getElementById("dataTable");
+  if (!table) return;
+
+  const headers = table.querySelectorAll("th.sortable");
+  headers.forEach((header, index) => {
+    header.style.cursor = "pointer";
+    header.addEventListener("click", () => {
+      const tbody = table.querySelector("tbody");
+      const rows = Array.from(tbody.querySelectorAll("tr"));
+      const asc = !header.classList.contains("asc");
+
+      // Clear all sort classes/icons first
+      headers.forEach(h => h.classList.remove("asc", "desc"));
+      header.classList.toggle("asc", asc);
+      header.classList.toggle("desc", !asc);
+
+      // Sort logic
+      rows.sort((a, b) => {
+        const aText = a.children[index]?.textContent.trim() || "";
+        const bText = b.children[index]?.textContent.trim() || "";
+        const aNum = parseFloat(aText);
+        const bNum = parseFloat(bText);
+
+        // Numeric sort when applicable
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return asc ? aNum - bNum : bNum - aNum;
+        }
+
+        // Text fallback
+        return asc
+          ? aText.localeCompare(bText, undefined, { numeric: true })
+          : bText.localeCompare(aText, undefined, { numeric: true });
+      });
+
+      // Reinsert sorted rows
+      rows.forEach(row => tbody.appendChild(row));
+    });
+  });
+}
+</script>
+
+
 
 
 /* ---------------- Excel Export with Color-Coded Backgrounds ---------------- */
