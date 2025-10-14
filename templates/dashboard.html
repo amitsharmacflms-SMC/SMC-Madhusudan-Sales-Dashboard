@@ -52,22 +52,24 @@
       from { opacity:0.3; }
       to { opacity:1; }
     }
+
+
+
+
+/* Instant feedback overlay */
+    .overlay::after {
+      content:"Processing...";
+      font-size:1rem; font-weight:600; color:#fff;
+      background:rgba(0,0,0,0.6);
+      padding:8px 16px; border-radius:8px;
+      animation:fadeIn 0.4s ease;
+    }
+
   </style>
 </head>
 
 
 
-/* Instant feedback overlay */
-.overlay::after {
-  content:"Processing...";
-  font-size:1rem;
-  font-weight:600;
-  color:#fff;
-  background:rgba(0,0,0,0.6);
-  padding:8px 16px;
-  border-radius:8px;
-  animation:fadeIn 0.4s ease;
-}
 
 
 
@@ -461,6 +463,15 @@ async function exportExcel(){
   const ws=XLSX.utils.aoa_to_sheet(ws_data);ws["!cols"]=ws_data[0].map(()=>({wch:15}));
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");XLSX.writeFile(wb,filename);
 }
+
+/* ---------------- Fix dark-mode numeric visibility ---------------- */
+const style = document.createElement("style");
+style.textContent = `
+  td.bg-pos, td.bg-neg { color: #000 !important; }
+  .dark-mode td.bg-pos, .dark-mode td.bg-neg { color: #000 !important; }
+`;
+document.head.appendChild(style);
+
 </script>
 </body>
 </html>
