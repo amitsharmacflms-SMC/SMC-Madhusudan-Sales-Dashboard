@@ -330,3 +330,14 @@ table, th, td {
 .dark-mode .filter-box input[type=checkbox] {
   accent-color: #1e3a8a;
 }
+th.sortable .sort-icon {
+  font-size: 0.8rem;
+  margin-left: 4px;
+  color: #475569;
+}
+th.sortable.asc .sort-icon {
+  color: #1e40af;
+}
+th.sortable.desc .sort-icon {
+  color: #b91c1c;
+}

@@ -332,7 +332,7 @@ function renderTable(filtered, selected) {
     .join("");
   tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
   document.getElementById("dataTable").classList.remove("hidden");
-}
+
 
 
 <script>
@@ -341,17 +341,27 @@ function addSorting(colsToShow) {
   if (!table) return;
 
   const headers = table.querySelectorAll("th.sortable");
+
   headers.forEach((header, index) => {
+    const icon = header.querySelector(".sort-icon");
     header.style.cursor = "pointer";
+
     header.addEventListener("click", () => {
       const tbody = table.querySelector("tbody");
       const rows = Array.from(tbody.querySelectorAll("tr"));
       const asc = !header.classList.contains("asc");
 
-      // Clear all sort classes/icons first
-      headers.forEach(h => h.classList.remove("asc", "desc"));
+      // Reset all headers before sorting
+      headers.forEach(h => {
+        h.classList.remove("asc", "desc");
+        const i = h.querySelector(".sort-icon");
+        if (i) i.textContent = "↕️";
+      });
+
+      // Apply new sort state
       header.classList.toggle("asc", asc);
       header.classList.toggle("desc", !asc);
+      if (icon) icon.textContent = asc ? "▲" : "▼";
 
       // Sort logic
       rows.sort((a, b) => {
@@ -360,18 +370,17 @@ function addSorting(colsToShow) {
         const aNum = parseFloat(aText);
         const bNum = parseFloat(bText);
 
-        // Numeric sort when applicable
+        // Numeric sort if both values are numbers
         if (!isNaN(aNum) && !isNaN(bNum)) {
           return asc ? aNum - bNum : bNum - aNum;
         }
-
         // Text fallback
         return asc
           ? aText.localeCompare(bText, undefined, { numeric: true })
           : bText.localeCompare(aText, undefined, { numeric: true });
       });
 
-      // Reinsert sorted rows
+      // Append sorted rows back to tbody
       rows.forEach(row => tbody.appendChild(row));
     });
   });
