@@ -7,9 +7,8 @@
 
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 
 
   <style>
@@ -458,77 +457,87 @@ function addSorting(cols){
 
 
 
-async function exportExcel(){
-  const overlay=document.getElementById("overlayLoader");
+</script>
+<script>
+/* ---------------- Excel Export with Color-Coded Backgrounds ---------------- */
+async function exportExcel() {
+  const overlay = document.getElementById("overlayLoader");
   overlay.classList.remove("hidden");
 
-  setTimeout(async ()=>{
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Dashboard Data");
+  setTimeout(async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Dashboard Data");
 
-    const table=document.getElementById("dataTable");
-    const rows=[...table.querySelectorAll("tr")].map(r=>[...r.querySelectorAll("th,td")].map(td=>td.innerText.trim()));
+      const table = document.getElementById("dataTable");
+      const rows = [...table.querySelectorAll("tr")].map(r =>
+        [...r.querySelectorAll("th,td")].map(td => td.innerText.trim())
+      );
 
-    // Write all rows
-    rows.forEach((row,i)=>{
-      const excelRow = worksheet.addRow(row);
+      // Add rows to worksheet
+      rows.forEach((row, i) => {
+        const excelRow = worksheet.addRow(row);
 
-      // Apply header styling
-      if(i === 0){
-        excelRow.eachCell(cell=>{
-          cell.font = { bold: true, color: { argb: "1E3A8A" } };
-          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E0E7FF" } };
-          cell.alignment = { horizontal: "center", vertical: "middle" };
-        });
-      } else {
-        excelRow.eachCell(cell=>{
+        excelRow.eachCell(cell => {
           const val = cell.value;
+          cell.alignment = { horizontal: "center", vertical: "middle" };
 
-          // Subtotal
-          if (String(val).toUpperCase().includes("SUBTOTAL")){
+          // Header styling
+          if (i === 0) {
+            cell.font = { bold: true, color: { argb: "1E3A8A" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E0E7FF" } };
+            cell.border = {
+              top: { style: "thin" }, left: { style: "thin" },
+              bottom: { style: "thin" }, right: { style: "thin" }
+            };
+          }
+
+          // Subtotal rows
+          else if (String(val).toUpperCase().includes("SUBTOTAL")) {
             cell.font = { bold: true, color: { argb: "1E3A8A" } };
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E0F2FE" } };
           }
 
-          // Total
-          else if (String(val).toUpperCase().includes("TOTAL")){
+          // Total rows
+          else if (String(val).toUpperCase().includes("TOTAL")) {
             cell.font = { bold: true, color: { argb: "4C1D95" } };
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F3E8FF" } };
           }
 
-          // Numeric with background color coding
-          else if (!isNaN(parseFloat(val))){
+          // Numeric cells: background color by value
+          else if (!isNaN(parseFloat(val))) {
             const num = parseFloat(val);
-            const bg = num > 0 ? "D1FAE5" : "FEE2E2"; // light green / light red
+            const bg = num > 0 ? "D1FAE5" : "FEE2E2"; // green or red
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
-            cell.alignment = { horizontal: "center", vertical: "middle" };
-          } else {
-            cell.alignment = { horizontal: "center", vertical: "middle" };
           }
         });
-    
+      });
 
-    worksheet.columns.forEach(col => col.width = 15);
-    worksheet.views = [{ state: 'frozen', ySplit: 1 }]; // Freeze top row
+      // Auto column widths
+      worksheet.columns.forEach(col => {
+        col.width = 15;
+      });
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-           `${currentView}_export_${new Date().toISOString().split("T")[0]}.xlsx`);
+      // Freeze header row
+      worksheet.views = [{ state: "frozen", ySplit: 1 }];
 
-    overlay.classList.add("hidden");
+      // Save file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      });
+      saveAs(blob, `${currentView}_export_${new Date().toISOString().split("T")[0]}.xlsx`);
+
+    } catch (err) {
+      console.error("Excel export failed:", err);
+    } finally {
+      overlay.classList.add("hidden");
+    }
   }, 100);
 }
+</script>
 
-
-    // Create workbook
-    const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");
-    XLSX.writeFile(wb,filename);
-
-    overlay.classList.add("hidden");
-  },150);
-}
-
+<script>
 /* ---------------- Fix dark-mode numeric visibility ---------------- */
 const style = document.createElement("style");
 style.textContent = `
@@ -536,7 +545,7 @@ style.textContent = `
   .dark-mode td.bg-pos, .dark-mode td.bg-neg { color: #000 !important; }
 `;
 document.head.appendChild(style);
-
 </script>
+
 </body>
 </html>
