@@ -520,14 +520,7 @@ async function exportExcel(){
 </script>
 
 
-    // Create workbook
-    const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");
-    XLSX.writeFile(wb,filename);
-
-    overlay.classList.add("hidden");
-  },150);
-}
+     
 
 /* ---------------- Fix dark-mode numeric visibility ---------------- */
 const style = document.createElement("style");
