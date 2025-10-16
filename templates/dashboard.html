@@ -95,8 +95,8 @@
       <h1>SMC Madhusudan Sales Dashboard</h1>
     </div>
     <div class="toolbar">
-      <button id="exportBtn" class="btn btn-blue">⬇ Export</button>
-      <button id="clearBtn" class="btn btn-gray">🧹 Clear All Filters</button>
+      <button id="exportBtn" class="btn btn-blue">Export</button>
+      <button id="clearBtn" class="btn btn-gray">Clear All Filters</button>
       <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
       <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
       <button id="themeToggle" class="btn btn-gray">Dark Mode</button>
@@ -151,17 +151,17 @@ function initUI(){
     loadData(currentView);
   });
   const themeBtn=document.getElementById("themeToggle");
-  if(localStorage.getItem("theme")==="dark"){document.documentElement.classList.add("dark-mode");themeBtn.textContent="☀️ Light Mode";}
+  if(localStorage.getItem("theme")==="dark"){document.documentElement.classList.add("dark-mode");themeBtn.textContent="Light Mode";}
   themeBtn.addEventListener("click",()=>{
     const html=document.documentElement;
     if(html.classList.contains("dark-mode")){
       html.classList.remove("dark-mode");
       localStorage.setItem("theme","light");
-      themeBtn.textContent="🌙 Dark Mode";
+      themeBtn.textContent="Dark Mode";
     } else {
       html.classList.add("dark-mode");
       localStorage.setItem("theme","dark");
-      themeBtn.textContent="☀️ Light Mode";
+      themeBtn.textContent="Light Mode";
     }
   });
 }
@@ -453,79 +453,73 @@ function addSorting(cols){
   });
 }
 
-/* ---------------- Excel Export with Color-Coded Backgrounds ---------------- */
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+<script>
 async function exportExcel(){
   const overlay=document.getElementById("overlayLoader");
   overlay.classList.remove("hidden");
 
-  setTimeout(()=>{
-    const date=new Date().toISOString().split("T")[0];
-    const filename=`${currentView}_export_${date}.xlsx`;
+  setTimeout(async ()=>{
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Dashboard Data");
 
     const table=document.getElementById("dataTable");
-    const ws_data=[];
-    table.querySelectorAll("tr").forEach(r=>{
-      ws_data.push([...r.querySelectorAll("th,td")].map(td=>td.innerText.trim()));
+    const rows=[...table.querySelectorAll("tr")].map(r=>[...r.querySelectorAll("th,td")].map(td=>td.innerText.trim()));
+
+    // Write all rows
+    rows.forEach((row,i)=>{
+      const excelRow = worksheet.addRow(row);
+
+      // Apply header styling
+      if(i === 0){
+        excelRow.eachCell(cell=>{
+          cell.font = { bold: true, color: { argb: "1E3A8A" } };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E0E7FF" } };
+          cell.alignment = { horizontal: "center", vertical: "middle" };
+        });
+      } else {
+        excelRow.eachCell(cell=>{
+          const val = cell.value;
+
+          // Subtotal
+          if (String(val).toUpperCase().includes("SUBTOTAL")){
+            cell.font = { bold: true, color: { argb: "1E3A8A" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E0F2FE" } };
+          }
+
+          // Total
+          else if (String(val).toUpperCase().includes("TOTAL")){
+            cell.font = { bold: true, color: { argb: "4C1D95" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F3E8FF" } };
+          }
+
+          // Numeric with background color coding
+          else if (!isNaN(parseFloat(val))){
+            const num = parseFloat(val);
+            const bg = num > 0 ? "D1FAE5" : "FEE2E2"; // light green / light red
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+            cell.alignment = { horizontal: "center", vertical: "middle" };
+          } else {
+            cell.alignment = { horizontal: "center", vertical: "middle" };
+          }
+        });
+      }
     });
 
-    const ws=XLSX.utils.aoa_to_sheet(ws_data);
-    ws["!cols"]=ws_data[0].map(()=>({wch:15}));
+    worksheet.columns.forEach(col => col.width = 15);
+    worksheet.views = [{ state: 'frozen', ySplit: 1 }]; // Freeze top row
 
-    /* --- Styling all cells --- */
-    const range=XLSX.utils.decode_range(ws["!ref"]);
-    for(let R=range.s.r; R<=range.e.r; ++R){
-      for(let C=range.s.c; C<=range.e.c; ++C){
-        const ref=XLSX.utils.encode_cell({r:R,c:C});
-        const cell=ws[ref];
-        if(!cell) continue;
-        const val=cell.v;
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+           `${currentView}_export_${new Date().toISOString().split("T")[0]}.xlsx`);
 
-        // Default base style
-        cell.s={
-          alignment:{horizontal:"center",vertical:"center"},
-          font:{color:{rgb:"000000"}}
-        };
+    overlay.classList.add("hidden");
+  }, 100);
+}
+</script>
 
-        // Header
-        if(R===0){
-          cell.s={
-            fill:{fgColor:{rgb:"E0E7FF"}},
-            font:{bold:true,color:{rgb:"1E3A8A"}},
-            alignment:{horizontal:"center",vertical:"center"}
-          };
-        }
-
-        // Subtotal row
-        else if(String(val).toUpperCase().includes("SUBTOTAL")){
-          cell.s={
-            fill:{fgColor:{rgb:"E0F2FE"}},
-            font:{bold:true,color:{rgb:"1E3A8A"}},
-            alignment:{horizontal:"center",vertical:"center"}
-          };
-        }
-
-        // Total row
-        else if(String(val).toUpperCase().includes("TOTAL")){
-          cell.s={
-            fill:{fgColor:{rgb:"F3E8FF"}},
-            font:{bold:true,color:{rgb:"4C1D95"}},
-            alignment:{horizontal:"center",vertical:"center"}
-          };
-        }
-
-        // Numeric with color-coded background
-        else if(!isNaN(parseFloat(val))){
-          const num=parseFloat(val);
-          const isPositive=num>0;
-          const colorBg=isPositive?"D1FAE5":"FEE2E2"; // green or red
-          cell.s={
-            fill:{fgColor:{rgb:colorBg}},
-            font:{color:{rgb:"000000"}},
-            alignment:{horizontal:"center",vertical:"center"}
-          };
-        }
-      }
-    }
 
     // Create workbook
     const wb=XLSX.utils.book_new();
