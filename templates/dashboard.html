@@ -60,8 +60,51 @@
     /* ensure numeric cells center */
     td.numeric { text-align:center; vertical-align:middle; font-weight:700; color:#000; }
 
-    /* dark-mode fix for bg cells */
-    .dark-mode td.bg-pos, .dark-mode td.bg-neg { color: #000 !important; }
+   
+
+
+
+
+/* ---------- DARK MODE VISIBILITY IMPROVEMENTS ---------- */
+
+/* Keep numeric background-coded cells readable */
+.dark-mode td.bg-pos, 
+.dark-mode td.bg-neg {
+  color: #000 !important;
+}
+
+/* Make text (non-numeric) cells have black background + white font */
+.dark-mode td:not(.numeric):not(.bg-pos):not(.bg-neg) {
+  background-color: #000 !important;
+  color: #fff !important;
+}
+
+/* Improve header contrast */
+.dark-mode th {
+  background-color: #111827 !important; /* dark navy */
+  color: #f9fafb !important;            /* white text */
+  border-bottom: 1px solid #1f2937;
+}
+
+/* Ensure subtotal & total rows remain visible */
+.dark-mode .subtotal-row td,
+.dark-mode .grandtotal-row td {
+  background-color: #0f172a !important; 
+  color: #e2e8f0 !important;
+}
+.dark-mode td {
+  border-bottom: 1px solid #1e293b;
+}
+
+
+
+
+
+
+
+
+
+
 
     /* small responsive tweaks */
     @media(max-width:900px){ th, td { font-size:.78rem; padding:6px 8px; } }
@@ -77,11 +120,11 @@
       </div>
 
       <div class="toolbar" style="display:flex;gap:8px;align-items:center">
-        <button id="exportBtn" class="btn btn-blue">⬇ Export</button>
-        <button id="clearBtn" class="btn btn-gray">🧹 Clear All Filters</button>
+        <button id="exportBtn" class="btn btn-blue">Export</button>
+        <button id="clearBtn" class="btn btn-gray">Clear All Filters</button>
         <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
         <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
-        <button id="themeToggle" class="btn btn-gray">🌙 Dark Mode</button>
+        <button id="themeToggle" class="btn btn-gray">Dark Mode</button>
       </div>
     </div>
   </header>
@@ -156,13 +199,13 @@ function initUI(){
   });
 
   const themeBtn = document.getElementById("themeToggle");
-  if(localStorage.getItem("theme")==="dark"){ document.documentElement.classList.add("dark-mode"); themeBtn.textContent = "☀️ Light Mode"; }
+  if(localStorage.getItem("theme")==="dark"){ document.documentElement.classList.add("dark-mode"); themeBtn.textContent = "Light Mode"; }
   themeBtn.addEventListener("click", ()=>{
     const html = document.documentElement;
     if(html.classList.contains("dark-mode")){
-      html.classList.remove("dark-mode"); localStorage.setItem("theme","light"); themeBtn.textContent="🌙 Dark Mode";
+      html.classList.remove("dark-mode"); localStorage.setItem("theme","light"); themeBtn.textContent="Dark Mode";
     } else {
-      html.classList.add("dark-mode"); localStorage.setItem("theme","dark"); themeBtn.textContent="☀️ Light Mode";
+      html.classList.add("dark-mode"); localStorage.setItem("theme","dark"); themeBtn.textContent="Light Mode";
     }
   });
 }
