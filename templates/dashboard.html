@@ -8,6 +8,9 @@
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
 
   <style>
     /* ---------- TABLE + FILTERS ---------- */
@@ -453,10 +456,8 @@ function addSorting(cols){
   });
 }
 
-<script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 
-<script>
+
 async function exportExcel(){
   const overlay=document.getElementById("overlayLoader");
   overlay.classList.remove("hidden");
@@ -517,10 +518,16 @@ async function exportExcel(){
     overlay.classList.add("hidden");
   }, 100);
 }
-</script>
 
 
-     
+    // Create workbook
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");
+    XLSX.writeFile(wb,filename);
+
+    overlay.classList.add("hidden");
+  },150);
+}
 
 /* ---------------- Fix dark-mode numeric visibility ---------------- */
 const style = document.createElement("style");
