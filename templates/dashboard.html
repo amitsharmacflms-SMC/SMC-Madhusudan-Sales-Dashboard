@@ -451,7 +451,7 @@ function addSorting(cols){
       rows.forEach(r=>table.querySelector("tbody").appendChild(r));
     };
   });
-
+}
 
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
@@ -505,8 +505,7 @@ async function exportExcel(){
             cell.alignment = { horizontal: "center", vertical: "middle" };
           }
         });
-      }
-    });
+    
 
     worksheet.columns.forEach(col => col.width = 15);
     worksheet.views = [{ state: 'frozen', ySplit: 1 }]; // Freeze top row
