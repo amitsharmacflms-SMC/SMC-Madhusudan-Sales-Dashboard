@@ -1,55 +1,165 @@
 {% extends "base.html" %}
 {% block title %}User Management{% endblock %}
+
 {% block content %}
-<div class="bg-white p-6 rounded shadow">
-  <h2 class="text-2xl font-semibold mb-4">👤 User Management</h2>
-
-  <form action="{{ url_for('admin_create_user') }}" method="post" class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
-    <input name="user_id" placeholder="User ID" class="px-3 py-2 border rounded" required>
-    <input name="password" type="password" placeholder="Password" class="px-3 py-2 border rounded" required>
-    <select name="role" class="px-3 py-2 border rounded">
-      <option>User</option>
-      <option>Admin</option>
-    </select>
-    <input name="state" placeholder="State" class="px-3 py-2 border rounded">
-    <input name="manager_name" placeholder="Manager Name" class="px-3 py-2 border rounded">
-    <input name="district" placeholder="District" class="px-3 py-2 border rounded">
-    <div class="col-span-full flex justify-end">
-      <button class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Create User</button>
+<div class="container mx-auto py-6">
+  <div class="bg-white dark:bg-gray-900 rounded-xl shadow p-6">
+    <div class="flex flex-col md:flex-row justify-between items-center mb-4">
+      <h2 class="text-2xl font-semibold text-indigo-700 dark:text-indigo-300 mb-3 md:mb-0">
+        👤 User Management
+      </h2>
+      <button id="addUserBtn"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition">
+        ➕ Add User
+      </button>
     </div>
-  </form>
 
-  <table class="min-w-full divide-y">
-    <thead class="bg-slate-50">
-      <tr>
-        <th class="px-3 py-2 text-left">User ID</th>
-        <th class="px-3 py-2 text-left">Role</th>
-        <th class="px-3 py-2 text-left">State</th>
-        <th class="px-3 py-2 text-left">Manager</th>
-        <th class="px-3 py-2 text-left">District</th>
-        <th class="px-3 py-2 text-center">Actions</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y">
-      {% for u in users %}
-      <tr>
-        <td class="px-3 py-2">{{ u.user_id }}</td>
-        <td class="px-3 py-2">{{ u.role }}</td>
-        <td class="px-3 py-2">{{ u.state }}</td>
-        <td class="px-3 py-2">{{ u.manager_name }}</td>
-        <td class="px-3 py-2">{{ u.district }}</td>
-        <td class="px-3 py-2 text-center">
-          {% if u.user_id != "admin" %}
-          <form action="{{ url_for('admin_delete_user', user_id=u.id) }}" method="post" onsubmit="return confirm('Delete {{u.user_id}}?')">
-            <button class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Delete</button>
-          </form>
-          {% else %}
-          <span class="text-slate-400 text-sm">Protected</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+    <!-- Search box -->
+    <div class="mb-4">
+      <input id="searchBox" type="text" placeholder="Search user..."
+        class="w-full md:w-1/3 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+    </div>
+
+    <!-- Users Table -->
+    <div class="overflow-x-auto rounded-lg border">
+      <table id="userTable" class="min-w-full divide-y divide-gray-200 text-sm text-gray-700 dark:text-gray-100">
+        <thead class="bg-indigo-50 dark:bg-gray-800 sticky top-0">
+          <tr>
+            <th class="px-3 py-2 text-left cursor-pointer">User ID</th>
+            <th class="px-3 py-2 text-left cursor-pointer">Role</th>
+            <th class="px-3 py-2 text-left cursor-pointer">State</th>
+            <th class="px-3 py-2 text-left cursor-pointer">Manager</th>
+            <th class="px-3 py-2 text-left cursor-pointer">District</th>
+            <th class="px-3 py-2 text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="userBody" class="divide-y divide-gray-100 bg-white dark:bg-gray-900">
+          {% for u in users %}
+          <tr>
+            <td class="px-3 py-2 font-medium">{{ u.user_id }}</td>
+            <td class="px-3 py-2">{{ u.role }}</td>
+            <td class="px-3 py-2">{{ u.state or '-' }}</td>
+            <td class="px-3 py-2">{{ u.manager_name or '-' }}</td>
+            <td class="px-3 py-2">{{ u.district or '-' }}</td>
+            <td class="px-3 py-2 text-center">
+              {% if u.user_id != "admin" %}
+              <button class="editBtn text-blue-600 hover:underline" 
+                      data-id="{{ u.id }}" 
+                      data-uid="{{ u.user_id }}" 
+                      data-role="{{ u.role }}" 
+                      data-state="{{ u.state }}" 
+                      data-manager="{{ u.manager_name }}" 
+                      data-district="{{ u.district }}">
+                ✏️ Edit
+              </button>
+              <form action="{{ url_for('admin_delete_user', user_id=u.id) }}" method="post" class="inline">
+                <button type="submit" class="text-red-600 hover:underline"
+                  onclick="return confirm('Delete {{u.user_id}}?')">🗑️ Delete</button>
+              </form>
+              {% else %}
+              <span class="text-gray-400 text-sm">Protected</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
+
+<!-- Add/Edit Modal -->
+<div id="userModal"
+  class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 transition">
+  <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-11/12 md:w-1/2">
+    <h3 id="modalTitle" class="text-lg font-semibold mb-4 text-indigo-700 dark:text-indigo-300">Add User</h3>
+    <form id="userForm" action="{{ url_for('admin_create_user') }}" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <input name="user_id" id="user_id" placeholder="User ID" required
+        class="px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-400">
+      <input type="password" name="password" id="password" placeholder="Password" required
+        class="px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-400">
+      <select name="role" id="role" class="px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-400">
+        <option>User</option>
+        <option>Admin</option>
+      </select>
+      <input name="state" id="state" placeholder="State"
+        class="px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-400">
+      <input name="manager_name" id="manager_name" placeholder="Manager Name"
+        class="px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-400">
+      <input name="district" id="district" placeholder="District"
+        class="px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-400">
+      <div class="col-span-full flex justify-end mt-4">
+        <button type="button" id="closeModal"
+          class="bg-gray-300 hover:bg-gray-400 text-black px-4 py-2 rounded mr-2">Cancel</button>
+        <button type="submit"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div id="toast" class="hidden fixed bottom-5 right-5 bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-lg"></div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const addUserBtn = document.getElementById("addUserBtn");
+  const modal = document.getElementById("userModal");
+  const closeModal = document.getElementById("closeModal");
+  const toast = document.getElementById("toast");
+  const form = document.getElementById("userForm");
+  const modalTitle = document.getElementById("modalTitle");
+  const searchBox = document.getElementById("searchBox");
+
+  // 🟢 Toast utility
+  function showToast(msg, color = "bg-indigo-600") {
+    toast.textContent = msg;
+    toast.className = `${color} fixed bottom-5 right-5 text-white px-4 py-2 rounded-lg shadow-lg`;
+    toast.classList.remove("hidden");
+    setTimeout(() => toast.classList.add("hidden"), 3000);
+  }
+
+  // 🟢 Modal controls
+  addUserBtn.onclick = () => {
+    form.reset();
+    modalTitle.textContent = "Add User";
+    modal.classList.remove("hidden");
+  };
+  closeModal.onclick = () => modal.classList.add("hidden");
+
+  // 🟢 Inline Edit
+  document.querySelectorAll(".editBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      form.reset();
+      modalTitle.textContent = "Edit User";
+      document.getElementById("user_id").value = btn.dataset.uid;
+      document.getElementById("role").value = btn.dataset.role;
+      document.getElementById("state").value = btn.dataset.state;
+      document.getElementById("manager_name").value = btn.dataset.manager;
+      document.getElementById("district").value = btn.dataset.district;
+      document.getElementById("password").required = false;
+      modal.classList.remove("hidden");
+    });
+  });
+
+  // 🟢 Search filter
+  searchBox.addEventListener("keyup", () => {
+    const term = searchBox.value.toLowerCase();
+    document.querySelectorAll("#userBody tr").forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(term) ? "" : "none";
+    });
+  });
+
+  // 🟢 Auto toast on flash messages
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        showToast("{{ msg }}",
+          "{{ 'bg-green-600' if category=='success' else 'bg-red-600' }}"
+        );
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+});
+</script>
 {% endblock %}

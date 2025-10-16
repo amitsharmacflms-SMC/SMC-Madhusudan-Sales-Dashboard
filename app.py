@@ -6,63 +6,186 @@ from flask import (
     redirect, url_for, session, flash, jsonify
 )
 from sqlalchemy import text
+from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_engine
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"  # keep secure later
 
+# -------------------------------
+# Ensure users table exists
+# -------------------------------
+def ensure_users_table():
+    engine = get_engine()
+    query = """
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'User',
+        state TEXT,
+        manager_name TEXT,
+        district TEXT
+    );
+    """
+    with engine.begin() as conn:
+        conn.execute(text(query))
+
+ensure_users_table()
 
 # -------------------------------
-# LOGIN PAGE
+# Helper functions
+# -------------------------------
+def get_user(user_id):
+    engine = get_engine()
+    with engine.connect() as conn:
+        q = text("SELECT * FROM users WHERE user_id = :uid")
+        res = conn.execute(q, {"uid": user_id}).fetchone()
+        return dict(res._mapping) if res else None
+
+def require_admin():
+    if "user" not in session or session.get("role") != "Admin":
+        flash("Admin access required.", "danger")
+        return redirect(url_for("dashboard"))
+
+# -------------------------------
+# LOGIN
 # -------------------------------
 @app.route("/", methods=["GET", "POST"])
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    """Enhanced login with fade transition + message feedback"""
-    message = None
+    """Login using users table or fallback admin."""
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
 
-        if username == "admin" and password == "smc123":
-            session["user"] = username
-            flash("Login successful! Redirecting...", "success")
-            return redirect(url_for("dashboard", status="success"))
+        user = get_user(username)
+        if user and check_password_hash(user["password_hash"], password):
+            session["user"] = user["user_id"]
+            session["role"] = user["role"]
+            session["state"] = user.get("state")
+            session["manager_name"] = user.get("manager_name")
+            session["district"] = user.get("district")
+            flash("Login successful.", "success")
+            return redirect(url_for("dashboard"))
+        elif username == "admin" and password == "smc123":
+            session["user"] = "admin"
+            session["role"] = "Admin"
+            flash("Login successful (fallback admin).", "success")
+            return redirect(url_for("dashboard"))
         else:
             flash("Invalid Username or Password.", "danger")
 
-    # Retrieve last flashed message
-    messages = list(session.get('_flashes', []))
-    message = messages[-1][1] if messages else None
-    session.pop('_flashes', None)
-
-    return render_template("login.html", message=message, current_year=datetime.utcnow().year)
-
+    return render_template("login.html", current_year=datetime.utcnow().year)
 
 # -------------------------------
 # LOGOUT
 # -------------------------------
-@app.route("/logout", methods=["GET", "POST"])
+@app.route("/logout")
 def logout():
-    """Logout and clear session"""
     session.clear()
-    flash("You have been logged out successfully.", "success")
+    flash("Logged out successfully.", "success")
     return redirect(url_for("login"))
-
 
 # -------------------------------
 # DASHBOARD
 # -------------------------------
 @app.route("/dashboard")
 def dashboard():
-    """Main dashboard page"""
     if "user" not in session:
         return redirect(url_for("login"))
     return render_template("dashboard.html", current_year=datetime.utcnow().year)
 
+# -------------------------------
+# USER MANAGEMENT (ADMIN)
+# -------------------------------
+@app.route("/users")
+def users_page():
+    if "user" not in session or session.get("role") != "Admin":
+        return redirect(url_for("dashboard"))
+    engine = get_engine()
+    with engine.connect() as conn:
+        users = conn.execute(text("SELECT * FROM users ORDER BY id")).fetchall()
+        users = [dict(u._mapping) for u in users]
+    return render_template("admin.html", users=users, current_year=datetime.utcnow().year)
+
+@app.route("/admin_create_user", methods=["POST"])
+def admin_create_user():
+    if "user" not in session or session.get("role") != "Admin":
+        return redirect(url_for("dashboard"))
+
+    user_id = request.form["user_id"]
+    password = request.form["password"]
+    role = request.form.get("role", "User")
+    state = request.form.get("state")
+    manager = request.form.get("manager_name")
+    district = request.form.get("district")
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
+            VALUES (:u, :p, :r, :s, :m, :d)
+            ON CONFLICT (user_id) DO UPDATE
+            SET password_hash = EXCLUDED.password_hash,
+                role = EXCLUDED.role,
+                state = EXCLUDED.state,
+                manager_name = EXCLUDED.manager_name,
+                district = EXCLUDED.district
+        """), {
+            "u": user_id,
+            "p": generate_password_hash(password),
+            "r": role,
+            "s": state,
+            "m": manager,
+            "d": district
+        })
+    flash(f"User '{user_id}' created/updated.", "success")
+    return redirect(url_for("users_page"))
+
+@app.route("/admin_delete_user/<int:user_id>", methods=["POST"])
+def admin_delete_user(user_id):
+    if "user" not in session or session.get("role") != "Admin":
+        return redirect(url_for("dashboard"))
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
+    flash("User deleted.", "success")
+    return redirect(url_for("users_page"))
 
 # -------------------------------
-# GET DATA API (PRODUCT / SKU)
+# REGISTER PAGE
+# -------------------------------
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        user_id = request.form["user_id"]
+        password = request.form["password"]
+        role = request.form.get("role", "User")
+        state = request.form.get("state")
+        manager = request.form.get("manager_name")
+        district = request.form.get("district")
+
+        engine = get_engine()
+        with engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
+                VALUES (:u, :p, :r, :s, :m, :d)
+                ON CONFLICT (user_id) DO NOTHING
+            """), {
+                "u": user_id,
+                "p": generate_password_hash(password),
+                "r": role,
+                "s": state,
+                "m": manager,
+                "d": district
+            })
+        flash("User registered successfully.", "success")
+        return redirect(url_for("login"))
+    return render_template("register.html", current_year=datetime.utcnow().year)
+
+# -------------------------------
+# GET DATA (with user restriction)
 # -------------------------------
 @app.route("/get_data/<view_type>")
 def get_data(view_type):
@@ -72,17 +195,30 @@ def get_data(view_type):
 
     try:
         engine = get_engine()
-
         if view_type not in ["product", "sku"]:
             return jsonify({"error": "Invalid table name"}), 400
 
-        query = text(f"SELECT * FROM {view_type}")
-        df = pd.read_sql(query, con=engine).fillna(0)
+        base_query = f"SELECT * FROM {view_type}"
+        params = {}
 
-        # Normalize column names
+        # Role-based access filtering
+        if session.get("role") != "Admin":
+            conditions = []
+            if session.get("manager_name"):
+                conditions.append("manager_name = :m")
+                params["m"] = session["manager_name"]
+            if session.get("state"):
+                conditions.append("state = :s")
+                params["s"] = session["state"]
+            if session.get("district"):
+                conditions.append("district = :d")
+                params["d"] = session["district"]
+            if conditions:
+                base_query += " WHERE " + " AND ".join(conditions)
+
+        df = pd.read_sql(text(base_query), con=engine, params=params).fillna(0)
         df.columns = [c.strip().lower() for c in df.columns]
 
-        # Round numeric columns
         for col in df.columns:
             if pd.api.types.is_numeric_dtype(df[col]):
                 df[col] = df[col].astype(float).round(0).astype(int)
@@ -93,15 +229,12 @@ def get_data(view_type):
         print("❌ Error loading data:", e)
         return jsonify({"error": str(e)}), 500
 
-
 # -------------------------------
 # HEALTH CHECK
 # -------------------------------
 @app.route("/health")
 def health():
-    """Simple uptime check"""
     return {"status": "ok", "time": datetime.utcnow().isoformat()}
-
 
 # -------------------------------
 # MAIN
