@@ -134,13 +134,15 @@ def dashboard():
     return render_template("dashboard.html", current_year=datetime.utcnow().year)
 
 # -------------------------------
+# USER MANAGEMENT (ADMIN)
 # -------------------------------
-# USER MANAGEMENT (ADMIN) — AJAX VERSION
-# -------------------------------
+# ======================================================
+# 🧑‍💼 USER MANAGEMENT (ADMIN) — AJAX ENABLED
+# ======================================================
 
 @app.route("/users")
 def users_page():
-    """Render Admin User Management Dashboard"""
+    """Render Admin Management Page (HTML only for Admin)"""
     if "user" not in session or session.get("role") != "Admin":
         flash("Admin access required.", "danger")
         return redirect(url_for("dashboard"))
@@ -148,8 +150,9 @@ def users_page():
     return render_template("admin.html", current_year=datetime.utcnow().year)
 
 
-# ====== AJAX APIs ======
-
+# -------------------------------
+# API — GET ALL USERS
+# -------------------------------
 @app.route("/admin_api/list_users")
 def api_list_users():
     """Return JSON list of all users"""
@@ -163,13 +166,16 @@ def api_list_users():
     return jsonify(users)
 
 
+# -------------------------------
+# API — CREATE or UPDATE USER
+# -------------------------------
 @app.route("/admin_api/create_or_update", methods=["POST"])
 def api_create_or_update_user():
-    """Create or update a user from admin panel"""
+    """Create or Update a user record via AJAX"""
     if "user" not in session or session.get("role") != "Admin":
         return jsonify({"error": "Unauthorized"}), 403
 
-    data = request.get_json(force=True)
+    data = request.get_json() or {}
     user_id = data.get("user_id", "").strip()
     password = data.get("password", "")
     role = data.get("role", "User")
@@ -178,62 +184,135 @@ def api_create_or_update_user():
     district = data.get("district")
 
     if not user_id:
-        return jsonify({"error": "User ID required"}), 400
+        return jsonify({"error": "User ID is required"}), 400
 
-    engine = get_engine()
-    # Check if user exists
-    with engine.connect() as conn:
-        exists = conn.execute(
-            text("SELECT 1 FROM users WHERE user_id = :u"), {"u": user_id}
-        ).fetchone() is not None
-
-    # If new user and no password provided
-    if not exists and not password:
-        return jsonify({"error": "Password is required for new user"}), 400
-
+    # Hash only if password provided
     password_hash = generate_password_hash(password) if password else None
 
-    # Create / update user record
+    engine = get_engine()
     with engine.begin() as conn:
-        conn.execute(
-            text("""
-                INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
-                VALUES (:u, :p, :r, :s, :m, :d)
-                ON CONFLICT (user_id) DO UPDATE
-                SET
-                    password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
-                    role = EXCLUDED.role,
-                    state = EXCLUDED.state,
-                    manager_name = EXCLUDED.manager_name,
-                    district = EXCLUDED.district
-            """),
-            {
-                "u": user_id,
-                "p": password_hash,
-                "r": role,
-                "s": state,
-                "m": manager,
-                "d": district,
-            },
-        )
+        conn.execute(text("""
+            INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
+            VALUES (:u, COALESCE(:p, password_hash), :r, :s, :m, :d)
+            ON CONFLICT (user_id) DO UPDATE
+            SET
+                password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+                role = EXCLUDED.role,
+                state = EXCLUDED.state,
+                manager_name = EXCLUDED.manager_name,
+                district = EXCLUDED.district
+        """), {
+            "u": user_id,
+            "p": password_hash,
+            "r": role,
+            "s": state,
+            "m": manager,
+            "d": district
+        })
 
     return jsonify({"success": True, "message": f"User '{user_id}' saved successfully."})
 
 
+# -------------------------------
+# API — DELETE USER
+# -------------------------------
 @app.route("/admin_api/delete/<int:user_id>", methods=["DELETE"])
 def api_delete_user(user_id):
-    """Delete user record"""
+    """Delete user via AJAX"""
     if "user" not in session or session.get("role") != "Admin":
         return jsonify({"error": "Unauthorized"}), 403
 
     engine = get_engine()
     with engine.begin() as conn:
-        conn.execute(
-            text("DELETE FROM users WHERE id = :id AND user_id != 'admin'"),
-            {"id": user_id},
-        )
+        conn.execute(text("DELETE FROM users WHERE id = :id AND user_id != 'admin'"), {"id": user_id})
 
     return jsonify({"success": True, "message": "User deleted successfully."})
+
+
+# -------------------------------
+# REGISTER PAGE
+# -------------------------------
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        user_id = request.form.get("user_id", "").strip()
+        password = request.form.get("password", "")
+        role = request.form.get("role", "User")
+        state = request.form.get("state")
+        manager = request.form.get("manager_name")
+        district = request.form.get("district")
+
+        if not user_id or not password:
+            flash("User ID and password are required.", "danger")
+            return redirect(url_for("register"))
+
+        engine = get_engine()
+        with engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
+                VALUES (:u, :p, :r, :s, :m, :d)
+                ON CONFLICT (user_id) DO NOTHING
+            """), {
+                "u": user_id,
+                "p": generate_password_hash(password),
+                "r": role,
+                "s": state,
+                "m": manager,
+                "d": district
+            })
+        flash("User registered successfully.", "success")
+        return redirect(url_for("login"))
+        return render_template("register.html", current_year=datetime.utcnow().year)
+
+# -------------------------------
+# GET DATA (with user restriction)
+# -------------------------------
+@app.route("/get_data/<view_type>")
+def get_data(view_type):
+    """Return product or SKU data with normalized lowercase column names"""
+    if "user" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        engine = get_engine()
+        # Only allow these two safe table names (prevents injection via table name)
+        if view_type not in ["product", "sku"]:
+            return jsonify({"error": "Invalid table name"}), 400
+
+        base_query = f"SELECT * FROM {view_type}"
+        params = {}
+
+        # Role-based access filtering (only non-admin users get filtered)
+        if session.get("role") != "Admin":
+            conditions = []
+            if session.get("manager_name"):
+                conditions.append("manager_name = :m")
+                params["m"] = session["manager_name"]
+            if session.get("state"):
+                conditions.append("state = :s")
+                params["s"] = session["state"]
+            if session.get("district"):
+                conditions.append("district = :d")
+                params["d"] = session["district"]
+            if conditions:
+                base_query += " WHERE " + " AND ".join(conditions)
+
+        # Use pandas read_sql with SQLAlchemy text + params
+        df = pd.read_sql(text(base_query), con=engine, params=params).fillna(0)
+
+        # Normalize column names to lowercase for client JS expectations
+        df.columns = [c.strip().lower() for c in df.columns]
+
+        # Round / format numeric columns (0 decimals)
+        for col in df.columns:
+            if pd.api.types.is_numeric_dtype(df[col]):
+                df[col] = df[col].astype(float).round(0).astype(int)
+
+        return jsonify(df.to_dict(orient="records"))
+
+    except Exception as e:
+        app.logger.exception("Error loading data")
+        return jsonify({"error": str(e)}), 500
 
 # -------------------------------
 # HEALTH CHECK
