@@ -204,7 +204,8 @@ def admin_create_user():
         })
 
     flash(f"User '{user_id}' created or updated successfully.", "success")
-    return redirect(url_for("users_page"))
+return redirect(url_for("users_page"), code=303)
+
 
 
 @app.route("/admin_delete_user/<int:user_id>", methods=["POST"])
@@ -220,7 +221,8 @@ def admin_delete_user(user_id):
         conn.execute(text("DELETE FROM users WHERE id = :id AND user_id != 'admin'"), {"id": user_id})
 
     flash("User deleted successfully.", "success")
-    return redirect(url_for("users_page"))
+return redirect(url_for("users_page"), code=303)
+
 
 # -------------------------------
 # REGISTER PAGE

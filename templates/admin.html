@@ -162,4 +162,24 @@ document.addEventListener("DOMContentLoaded", () => {
   {% endwith %}
 });
 </script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const flashMessage = document.querySelector(".flash-message");
+  if (flashMessage) {
+    // Auto refresh after short success message delay
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  }
+});
+</script>
+
+
+
+
+
+
+
 {% endblock %}
