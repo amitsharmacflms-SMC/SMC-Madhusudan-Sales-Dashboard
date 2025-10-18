@@ -13,12 +13,14 @@ from database import get_engine
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")  # set securely in prod
 
-# -------------------------------
-# Ensure users table exists
+
+
+# Ensure users table and admin exist
 # -------------------------------
 def ensure_users_table():
     engine = get_engine()
-    query = """
+
+    create_table_query = """
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         user_id TEXT UNIQUE NOT NULL,
@@ -29,10 +31,38 @@ def ensure_users_table():
         district TEXT
     );
     """
-    with engine.begin() as conn:
-        conn.execute(text(query))
 
-ensure_users_table()
+    with engine.begin() as conn:
+        # 1️⃣ Create table if missing
+        conn.execute(text(create_table_query))
+
+        # 2️⃣ Ensure UNIQUE constraint on user_id
+        conn.execute(text("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'users_user_id_unique'
+                ) THEN
+                    ALTER TABLE users
+                    ADD CONSTRAINT users_user_id_unique UNIQUE (user_id);
+                END IF;
+            END$$;
+        """))
+
+        # 3️⃣ Ensure default admin user exists
+        admin_user = conn.execute(text("SELECT * FROM users WHERE user_id = 'admin'")).fetchone()
+        if not admin_user:
+            from werkzeug.security import generate_password_hash
+            conn.execute(text("""
+                INSERT INTO users (user_id, password_hash, role)
+                VALUES ('admin', :pw, 'Admin')
+            """), {"pw": generate_password_hash("smc123")})
+            print("✅ Default admin user created (admin / smc123)")
+
+
+
+
 
 # -------------------------------
 # Helper functions
