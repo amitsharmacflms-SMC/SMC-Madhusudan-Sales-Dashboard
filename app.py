@@ -134,180 +134,106 @@ def dashboard():
     return render_template("dashboard.html", current_year=datetime.utcnow().year)
 
 # -------------------------------
-# USER MANAGEMENT (ADMIN)
 # -------------------------------
+# USER MANAGEMENT (ADMIN) — AJAX VERSION
+# -------------------------------
+
 @app.route("/users")
 def users_page():
-    # require admin
-    r = require_admin()
-    if r:
-        return r
+    """Render Admin User Management Dashboard"""
+    if "user" not in session or session.get("role") != "Admin":
+        flash("Admin access required.", "danger")
+        return redirect(url_for("dashboard"))
+
+    return render_template("admin.html", current_year=datetime.utcnow().year)
+
+
+# ====== AJAX APIs ======
+
+@app.route("/admin_api/list_users")
+def api_list_users():
+    """Return JSON list of all users"""
+    if "user" not in session or session.get("role") != "Admin":
+        return jsonify({"error": "Unauthorized"}), 403
 
     engine = get_engine()
     with engine.connect() as conn:
-        users = conn.execute(text("SELECT * FROM users ORDER BY id")).fetchall()
-        users = [dict(u._mapping) for u in users]
+        rows = conn.execute(text("SELECT * FROM users ORDER BY id")).fetchall()
+        users = [dict(r._mapping) for r in rows]
+    return jsonify(users)
 
-    return render_template("admin.html", users=users, current_year=datetime.utcnow().year)
 
+@app.route("/admin_api/create_or_update", methods=["POST"])
+def api_create_or_update_user():
+    """Create or update a user from admin panel"""
+    if "user" not in session or session.get("role") != "Admin":
+        return jsonify({"error": "Unauthorized"}), 403
 
-@app.route("/admin_create_user", methods=["POST"])
-def admin_create_user():
-    # require admin
-    r = require_admin()
-    if r:
-        return r
-
-    user_id = request.form.get("user_id", "").strip()
-    password = request.form.get("password", "")
-    role = request.form.get("role", "User")
-    state = request.form.get("state")
-    manager = request.form.get("manager_name")
-    district = request.form.get("district")
+    data = request.get_json(force=True)
+    user_id = data.get("user_id", "").strip()
+    password = data.get("password", "")
+    role = data.get("role", "User")
+    state = data.get("state")
+    manager = data.get("manager_name")
+    district = data.get("district")
 
     if not user_id:
-        flash("User ID is required.", "danger")
-        return redirect(url_for("users_page"))
+        return jsonify({"error": "User ID required"}), 400
 
     engine = get_engine()
     # Check if user exists
     with engine.connect() as conn:
-        exists = conn.execute(text("SELECT 1 FROM users WHERE user_id = :u"), {"u": user_id}).fetchone() is not None
+        exists = conn.execute(
+            text("SELECT 1 FROM users WHERE user_id = :u"), {"u": user_id}
+        ).fetchone() is not None
 
-    # If creating a new user, password is required
+    # If new user and no password provided
     if not exists and not password:
-        flash("Password is required when creating a new user.", "danger")
-        return redirect(url_for("users_page"))
+        return jsonify({"error": "Password is required for new user"}), 400
 
     password_hash = generate_password_hash(password) if password else None
 
-    # Use COALESCE for password_hash so that when password not provided for an update
-    # we keep the existing password_hash. For new insert, password_hash must be non-null.
+    # Create / update user record
     with engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
-            VALUES (:u, :p, :r, :s, :m, :d)
-            ON CONFLICT (user_id) DO UPDATE
-            SET
-                password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
-                role = EXCLUDED.role,
-                state = EXCLUDED.state,
-                manager_name = EXCLUDED.manager_name,
-                district = EXCLUDED.district
-        """), {
-            "u": user_id,
-            "p": password_hash,
-            "r": role,
-            "s": state,
-            "m": manager,
-            "d": district
-        })
-
-    flash(f"User '{user_id}' created or updated successfully.", "success")
-return redirect(url_for("users_page"), code=303)
-
-
-
-@app.route("/admin_delete_user/<int:user_id>", methods=["POST"])
-def admin_delete_user(user_id):
-    # require admin
-    r = require_admin()
-    if r:
-        return r
-
-    engine = get_engine()
-    with engine.begin() as conn:
-        # protect the 'admin' user from accidental deletion
-        conn.execute(text("DELETE FROM users WHERE id = :id AND user_id != 'admin'"), {"id": user_id})
-
-    flash("User deleted successfully.", "success")
-return redirect(url_for("users_page"), code=303)
-
-
-# -------------------------------
-# REGISTER PAGE
-# -------------------------------
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    if request.method == "POST":
-        user_id = request.form.get("user_id", "").strip()
-        password = request.form.get("password", "")
-        role = request.form.get("role", "User")
-        state = request.form.get("state")
-        manager = request.form.get("manager_name")
-        district = request.form.get("district")
-
-        if not user_id or not password:
-            flash("User ID and password are required.", "danger")
-            return redirect(url_for("register"))
-
-        engine = get_engine()
-        with engine.begin() as conn:
-            conn.execute(text("""
+        conn.execute(
+            text("""
                 INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
                 VALUES (:u, :p, :r, :s, :m, :d)
-                ON CONFLICT (user_id) DO NOTHING
-            """), {
+                ON CONFLICT (user_id) DO UPDATE
+                SET
+                    password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+                    role = EXCLUDED.role,
+                    state = EXCLUDED.state,
+                    manager_name = EXCLUDED.manager_name,
+                    district = EXCLUDED.district
+            """),
+            {
                 "u": user_id,
-                "p": generate_password_hash(password),
+                "p": password_hash,
                 "r": role,
                 "s": state,
                 "m": manager,
-                "d": district
-            })
-        flash("User registered successfully.", "success")
-        return redirect(url_for("login"))
-    return render_template("register.html", current_year=datetime.utcnow().year)
+                "d": district,
+            },
+        )
 
-# -------------------------------
-# GET DATA (with user restriction)
-# -------------------------------
-@app.route("/get_data/<view_type>")
-def get_data(view_type):
-    """Return product or SKU data with normalized lowercase column names"""
-    if "user" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
+    return jsonify({"success": True, "message": f"User '{user_id}' saved successfully."})
 
-    try:
-        engine = get_engine()
-        # Only allow these two safe table names (prevents injection via table name)
-        if view_type not in ["product", "sku"]:
-            return jsonify({"error": "Invalid table name"}), 400
 
-        base_query = f"SELECT * FROM {view_type}"
-        params = {}
+@app.route("/admin_api/delete/<int:user_id>", methods=["DELETE"])
+def api_delete_user(user_id):
+    """Delete user record"""
+    if "user" not in session or session.get("role") != "Admin":
+        return jsonify({"error": "Unauthorized"}), 403
 
-        # Role-based access filtering (only non-admin users get filtered)
-        if session.get("role") != "Admin":
-            conditions = []
-            if session.get("manager_name"):
-                conditions.append("manager_name = :m")
-                params["m"] = session["manager_name"]
-            if session.get("state"):
-                conditions.append("state = :s")
-                params["s"] = session["state"]
-            if session.get("district"):
-                conditions.append("district = :d")
-                params["d"] = session["district"]
-            if conditions:
-                base_query += " WHERE " + " AND ".join(conditions)
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM users WHERE id = :id AND user_id != 'admin'"),
+            {"id": user_id},
+        )
 
-        # Use pandas read_sql with SQLAlchemy text + params
-        df = pd.read_sql(text(base_query), con=engine, params=params).fillna(0)
-
-        # Normalize column names to lowercase for client JS expectations
-        df.columns = [c.strip().lower() for c in df.columns]
-
-        # Round / format numeric columns (0 decimals)
-        for col in df.columns:
-            if pd.api.types.is_numeric_dtype(df[col]):
-                df[col] = df[col].astype(float).round(0).astype(int)
-
-        return jsonify(df.to_dict(orient="records"))
-
-    except Exception as e:
-        app.logger.exception("Error loading data")
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"success": True, "message": "User deleted successfully."})
 
 # -------------------------------
 # HEALTH CHECK
