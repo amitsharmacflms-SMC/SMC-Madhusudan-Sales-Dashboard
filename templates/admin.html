@@ -1,70 +1,118 @@
 {% extends "base.html" %}
 {% block title %}User Management{% endblock %}
 {% block content %}
-<div class="bg-white p-6 rounded shadow">
-  <h2 class="text-2xl font-semibold mb-4">👤 User Management (Live)</h2>
+<div class="bg-white p-6 rounded shadow relative">
 
-  <!-- ✅ Flash box -->
-  <div id="flashBox" class="hidden mb-3 p-2 rounded text-white font-medium"></div>
+  <h2 class="text-2xl font-semibold mb-3">👤 User Management</h2>
 
-  <!-- Add/Edit User Form -->
-  <form id="userForm" class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
-    <input id="user_id" placeholder="User ID" class="px-3 py-2 border rounded" required>
-    <input id="password" type="password" placeholder="Password" class="px-3 py-2 border rounded">
-    <select id="role" class="px-3 py-2 border rounded">
-      <option>User</option>
-      <option>Admin</option>
-    </select>
-    <input id="state" placeholder="State" class="px-3 py-2 border rounded">
-    <input id="manager_name" placeholder="Manager Name" class="px-3 py-2 border rounded">
-    <input id="district" placeholder="District" class="px-3 py-2 border rounded">
-    <div class="col-span-full flex justify-end">
-      <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">💾 Save User</button>
-    </div>
-  </form>
+  <div id="flashBox" class="hidden mb-3 p-2 rounded"></div>
+
+  <!-- Action buttons -->
+  <div class="flex justify-between mb-4">
+    <button onclick="openUserModal()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">➕ Add User</button>
+    <button onclick="fetchUsers()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300">🔄 Refresh</button>
+  </div>
 
   <!-- Table -->
-  <table class="min-w-full divide-y" id="usersTable">
-    <thead class="bg-slate-50">
-      <tr>
-        <th class="px-3 py-2 text-left">User ID</th>
-        <th class="px-3 py-2 text-left">Role</th>
-        <th class="px-3 py-2 text-left">State</th>
-        <th class="px-3 py-2 text-left">Manager</th>
-        <th class="px-3 py-2 text-left">District</th>
-        <th class="px-3 py-2 text-center">Actions</th>
-      </tr>
-    </thead>
-    <tbody id="usersBody" class="divide-y"></tbody>
-  </table>
+  <div class="overflow-x-auto rounded border">
+    <table class="min-w-full text-sm border-collapse">
+      <thead class="bg-slate-50">
+        <tr class="border-b">
+          <th class="px-3 py-2 text-left">User ID</th>
+          <th class="px-3 py-2 text-left">Role</th>
+          <th class="px-3 py-2 text-left">State</th>
+          <th class="px-3 py-2 text-left">Manager</th>
+          <th class="px-3 py-2 text-left">District</th>
+          <th class="px-3 py-2 text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="usersBody" class="divide-y"></tbody>
+    </table>
+  </div>
 </div>
 
+<!-- Modal (hidden by default) -->
+<div id="userModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white p-6 rounded shadow-lg w-96 relative animate-[fadeIn_.2s_ease]">
+    <h3 id="modalTitle" class="text-lg font-semibold mb-3">Add User</h3>
+    <form id="userForm" class="space-y-3">
+      <input id="user_id" name="user_id" placeholder="User ID" class="px-3 py-2 border rounded w-full" required>
+      <input id="password" name="password" type="password" placeholder="Password (leave blank to keep current)" class="px-3 py-2 border rounded w-full">
+      <select id="role" name="role" class="px-3 py-2 border rounded w-full">
+        <option>User</option>
+        <option>Admin</option>
+      </select>
+      <input id="state" name="state" placeholder="State" class="px-3 py-2 border rounded w-full">
+      <input id="manager_name" name="manager_name" placeholder="Manager Name" class="px-3 py-2 border rounded w-full">
+      <input id="district" name="district" placeholder="District" class="px-3 py-2 border rounded w-full">
+      <input type="hidden" id="editingUserId">
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeModal()" class="px-3 py-1 bg-gray-300 rounded">Cancel</button>
+        <button type="submit" class="px-3 py-1 bg-indigo-600 text-white rounded">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+@keyframes fadeIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+</style>
+
 <script>
+/* -------------------------
+   Fetch and Render Users
+--------------------------*/
 async function fetchUsers() {
   const res = await fetch("/admin_api/list_users");
-  const data = await res.json();
+  const users = await res.json();
   const body = document.getElementById("usersBody");
   body.innerHTML = "";
-  data.forEach(u => {
+
+  users.forEach(u => {
     const row = document.createElement("tr");
     row.innerHTML = `
       <td class="px-3 py-2">${u.user_id}</td>
       <td class="px-3 py-2">${u.role}</td>
-      <td class="px-3 py-2">${u.state || ""}</td>
-      <td class="px-3 py-2">${u.manager_name || ""}</td>
-      <td class="px-3 py-2">${u.district || ""}</td>
-      <td class="px-3 py-2 text-center">
-        ${u.user_id !== "admin" ? `
-          <button onclick="deleteUser(${u.id})" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">🗑 Delete</button>
-        ` : `<span class='text-gray-400 text-sm'>Protected</span>`}
+      <td class="px-3 py-2">${u.state ?? ""}</td>
+      <td class="px-3 py-2">${u.manager_name ?? ""}</td>
+      <td class="px-3 py-2">${u.district ?? ""}</td>
+      <td class="px-3 py-2 text-center flex gap-2 justify-center">
+        ${u.user_id !== "admin"
+          ? `
+            <button onclick="openUserModal(${u.id}, '${u.user_id}', '${u.role}', '${u.state||''}', '${u.manager_name||''}', '${u.district||''}')" class="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600">✏ Edit</button>
+            <button onclick="openResetModal(${u.id}, '${u.user_id}')" class="bg-yellow-500 text-white px-2 py-1 rounded text-xs hover:bg-yellow-600">🔑 Reset</button>
+            <button onclick="deleteUser(${u.id})" class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600">🗑 Delete</button>
+          `
+          : `<span class='text-gray-400 text-xs'>Protected</span>`}
       </td>`;
     body.appendChild(row);
   });
 }
 
-async function saveUser(e) {
+/* -------------------------
+   Open/Close Modal
+--------------------------*/
+function openUserModal(id=null, user="", role="User", state="", manager="", district="") {
+  const modal = document.getElementById("userModal");
+  modal.classList.remove("hidden");
+  document.getElementById("modalTitle").textContent = id ? "Edit User" : "Add User";
+
+  user_id.value = user || "";
+  password.value = "";
+  document.getElementById("role").value = role;
+  state.value = state || "";
+  manager_name.value = manager || "";
+  district.value = district || "";
+  document.getElementById("editingUserId").value = id || "";
+}
+function closeModal() { document.getElementById("userModal").classList.add("hidden"); }
+
+/* -------------------------
+   Save User (Add/Edit)
+--------------------------*/
+document.getElementById("userForm").addEventListener("submit", async e => {
   e.preventDefault();
-  const user = {
+  const payload = {
     user_id: user_id.value,
     password: password.value,
     role: role.value,
@@ -75,22 +123,59 @@ async function saveUser(e) {
   const res = await fetch("/admin_api/create_or_update", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(user)
+    body: JSON.stringify(payload)
   });
   const data = await res.json();
-  showFlash(data.message || "User updated.", data.success);
-  document.getElementById("userForm").reset();
+  showFlash(data.message, data.success);
+  closeModal();
   fetchUsers();
+});
+
+/* -------------------------
+   Reset Password
+--------------------------*/
+function openResetModal(id, user) {
+  const modal = document.createElement("div");
+  modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
+  modal.innerHTML = `
+    <div class="bg-white p-5 rounded shadow-lg w-80">
+      <h3 class="text-lg font-semibold mb-2">Reset Password</h3>
+      <p class="text-sm mb-4">for <b>${user}</b></p>
+      <input type="password" id="newPass" placeholder="New Password" class="border px-3 py-2 w-full mb-3 rounded" />
+      <div class="flex justify-end gap-2">
+        <button class="px-3 py-1 bg-gray-300 rounded" onclick="this.closest('.fixed').remove()">Cancel</button>
+        <button class="px-3 py-1 bg-indigo-600 text-white rounded" onclick="resetPassword(${id}, this)">Save</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+async function resetPassword(id, btn) {
+  const newPass = btn.closest(".fixed").querySelector("#newPass").value.trim();
+  if (!newPass) return alert("Please enter a new password.");
+  const res = await fetch(`/admin_api/reset_password/${id}`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({password: newPass})
+  });
+  const data = await res.json();
+  showFlash(data.message, data.success);
+  btn.closest(".fixed").remove();
 }
 
+/* -------------------------
+   Delete User
+--------------------------*/
 async function deleteUser(id) {
-  if (!confirm("Delete this user?")) return;
+  if (!confirm("Are you sure to delete this user?")) return;
   const res = await fetch(`/admin_api/delete/${id}`, { method: "DELETE" });
   const data = await res.json();
   showFlash(data.message, data.success);
   fetchUsers();
 }
 
+/* -------------------------
+   Flash Message
+--------------------------*/
 function showFlash(msg, success=true) {
   const box = document.getElementById("flashBox");
   box.textContent = msg;
@@ -101,7 +186,6 @@ function showFlash(msg, success=true) {
   setTimeout(() => box.classList.add("hidden"), 2000);
 }
 
-document.getElementById("userForm").addEventListener("submit", saveUser);
 fetchUsers();
 </script>
 {% endblock %}
