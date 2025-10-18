@@ -140,77 +140,58 @@ def dashboard():
 # 🧑‍💼 USER MANAGEMENT (ADMIN) — AJAX ENABLED
 # ======================================================
 
-@app.route("/users")
-def users_page():
-    """Render Admin Management Page (HTML only for Admin)"""
-    if "user" not in session or session.get("role") != "Admin":
-        flash("Admin access required.", "danger")
-        return redirect(url_for("dashboard"))
-
-    return render_template("admin.html", current_year=datetime.utcnow().year)
-
-
-# -------------------------------
-# API — GET ALL USERS
-# -------------------------------
-@app.route("/admin_api/list_users")
-def api_list_users():
-    """Return JSON list of all users"""
-    if "user" not in session or session.get("role") != "Admin":
-        return jsonify({"error": "Unauthorized"}), 403
-
-    engine = get_engine()
-    with engine.connect() as conn:
-        rows = conn.execute(text("SELECT * FROM users ORDER BY id")).fetchall()
-        users = [dict(r._mapping) for r in rows]
-    return jsonify(users)
-
-
-# -------------------------------
-# API — CREATE or UPDATE USER
-# -------------------------------
 @app.route("/admin_api/create_or_update", methods=["POST"])
 def api_create_or_update_user():
-    """Create or Update a user record via AJAX"""
+    """Create or update user (Postgres-safe version)"""
     if "user" not in session or session.get("role") != "Admin":
         return jsonify({"error": "Unauthorized"}), 403
 
-    data = request.get_json() or {}
-    user_id = data.get("user_id", "").strip()
-    password = data.get("password", "")
-    role = data.get("role", "User")
-    state = data.get("state")
-    manager = data.get("manager_name")
-    district = data.get("district")
+    try:
+        data = request.get_json() or {}
+        user_id = data.get("user_id", "").strip()
+        password = data.get("password", "")
+        role = data.get("role", "User")
+        state = data.get("state")
+        manager = data.get("manager_name")
+        district = data.get("district")
 
-    if not user_id:
-        return jsonify({"error": "User ID is required"}), 400
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
 
-    # Hash only if password provided
-    password_hash = generate_password_hash(password) if password else None
+        password_hash = generate_password_hash(password) if password else None
 
-    engine = get_engine()
-    with engine.begin() as conn:
-        conn.execute(text("""
-            INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
-            VALUES (:u, COALESCE(:p, password_hash), :r, :s, :m, :d)
-            ON CONFLICT (user_id) DO UPDATE
-            SET
-                password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
-                role = EXCLUDED.role,
-                state = EXCLUDED.state,
-                manager_name = EXCLUDED.manager_name,
-                district = EXCLUDED.district
-        """), {
-            "u": user_id,
-            "p": password_hash,
-            "r": role,
-            "s": state,
-            "m": manager,
-            "d": district
-        })
+        engine = get_engine()
+        with engine.begin() as conn:
+            if password_hash:
+                # 🟢 Case 1: New password provided
+                conn.execute(text("""
+                    INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
+                    VALUES (:u, :p, :r, :s, :m, :d)
+                    ON CONFLICT (user_id) DO UPDATE
+                    SET password_hash = EXCLUDED.password_hash,
+                        role = EXCLUDED.role,
+                        state = EXCLUDED.state,
+                        manager_name = EXCLUDED.manager_name,
+                        district = EXCLUDED.district
+                """), {"u": user_id, "p": password_hash, "r": role, "s": state, "m": manager, "d": district})
+            else:
+                # 🟡 Case 2: Update existing user, no password change
+                conn.execute(text("""
+                    INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
+                    VALUES (:u, (SELECT password_hash FROM users WHERE user_id = :u), :r, :s, :m, :d)
+                    ON CONFLICT (user_id) DO UPDATE
+                    SET role = EXCLUDED.role,
+                        state = EXCLUDED.state,
+                        manager_name = EXCLUDED.manager_name,
+                        district = EXCLUDED.district
+                """), {"u": user_id, "r": role, "s": state, "m": manager, "d": district})
 
-    return jsonify({"success": True, "message": f"User '{user_id}' saved successfully."})
+        return jsonify({"success": True, "message": f"User '{user_id}' saved successfully."})
+
+    except Exception as e:
+        app.logger.exception("❌ Error in create_or_update_user:")
+        return jsonify({"error": str(e)}), 500
+
 
 
 # -------------------------------
