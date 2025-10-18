@@ -97,29 +97,37 @@ def dashboard():
     return render_template("dashboard.html", current_year=datetime.utcnow().year)
 
 # -------------------------------
+# -------------------------------
 # USER MANAGEMENT (ADMIN)
 # -------------------------------
 @app.route("/users")
 def users_page():
     if "user" not in session or session.get("role") != "Admin":
+        flash("Admin access required.", "danger")
         return redirect(url_for("dashboard"))
+
     engine = get_engine()
     with engine.connect() as conn:
         users = conn.execute(text("SELECT * FROM users ORDER BY id")).fetchall()
         users = [dict(u._mapping) for u in users]
+
     return render_template("admin.html", users=users, current_year=datetime.utcnow().year)
+
 
 @app.route("/admin_create_user", methods=["POST"])
 def admin_create_user():
     if "user" not in session or session.get("role") != "Admin":
+        flash("Admin access required.", "danger")
         return redirect(url_for("dashboard"))
 
     user_id = request.form["user_id"]
-    password = request.form["password"]
+    password = request.form.get("password")
     role = request.form.get("role", "User")
     state = request.form.get("state")
     manager = request.form.get("manager_name")
     district = request.form.get("district")
+
+    password_hash = generate_password_hash(password) if password else None
 
     engine = get_engine()
     with engine.begin() as conn:
@@ -127,30 +135,36 @@ def admin_create_user():
             INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
             VALUES (:u, :p, :r, :s, :m, :d)
             ON CONFLICT (user_id) DO UPDATE
-            SET password_hash = EXCLUDED.password_hash,
+            SET
+                password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
                 role = EXCLUDED.role,
                 state = EXCLUDED.state,
                 manager_name = EXCLUDED.manager_name,
                 district = EXCLUDED.district
         """), {
             "u": user_id,
-            "p": generate_password_hash(password),
+            "p": password_hash,
             "r": role,
             "s": state,
             "m": manager,
             "d": district
         })
-    flash(f"User '{user_id}' created/updated.", "success")
+
+    flash(f"User '{user_id}' created or updated successfully.", "success")
     return redirect(url_for("users_page"))
+
 
 @app.route("/admin_delete_user/<int:user_id>", methods=["POST"])
 def admin_delete_user(user_id):
     if "user" not in session or session.get("role") != "Admin":
+        flash("Admin access required.", "danger")
         return redirect(url_for("dashboard"))
+
     engine = get_engine()
     with engine.begin() as conn:
-        conn.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
-    flash("User deleted.", "success")
+        conn.execute(text("DELETE FROM users WHERE id = :id AND user_id != 'admin'"), {"id": user_id})
+
+    flash("User deleted successfully.", "success")
     return redirect(url_for("users_page"))
 
 # -------------------------------
