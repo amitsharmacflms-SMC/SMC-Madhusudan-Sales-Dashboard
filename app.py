@@ -1,3 +1,4 @@
+# app.py (patched)
 import os
 from datetime import datetime
 import pandas as pd
@@ -10,7 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_engine
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey"  # keep secure later
+app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")  # set securely in prod
 
 # -------------------------------
 # Ensure users table exists
@@ -44,9 +45,14 @@ def get_user(user_id):
         return dict(res._mapping) if res else None
 
 def require_admin():
+    """
+    Helper to be used in route handlers. If not admin, returns a redirect response.
+    If OK, returns None.
+    """
     if "user" not in session or session.get("role") != "Admin":
         flash("Admin access required.", "danger")
         return redirect(url_for("dashboard"))
+    return None
 
 # -------------------------------
 # LOGIN
@@ -56,18 +62,19 @@ def require_admin():
 def login():
     """Login using users table or fallback admin."""
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
 
         user = get_user(username)
         if user and check_password_hash(user["password_hash"], password):
             session["user"] = user["user_id"]
-            session["role"] = user["role"]
+            session["role"] = user.get("role", "User")
             session["state"] = user.get("state")
             session["manager_name"] = user.get("manager_name")
             session["district"] = user.get("district")
             flash("Login successful.", "success")
             return redirect(url_for("dashboard"))
+        # fallback admin (keeps your original quick-login)
         elif username == "admin" and password == "smc123":
             session["user"] = "admin"
             session["role"] = "Admin"
@@ -97,14 +104,14 @@ def dashboard():
     return render_template("dashboard.html", current_year=datetime.utcnow().year)
 
 # -------------------------------
-# -------------------------------
 # USER MANAGEMENT (ADMIN)
 # -------------------------------
 @app.route("/users")
 def users_page():
-    if "user" not in session or session.get("role") != "Admin":
-        flash("Admin access required.", "danger")
-        return redirect(url_for("dashboard"))
+    # require admin
+    r = require_admin()
+    if r:
+        return r
 
     engine = get_engine()
     with engine.connect() as conn:
@@ -116,20 +123,36 @@ def users_page():
 
 @app.route("/admin_create_user", methods=["POST"])
 def admin_create_user():
-    if "user" not in session or session.get("role") != "Admin":
-        flash("Admin access required.", "danger")
-        return redirect(url_for("dashboard"))
+    # require admin
+    r = require_admin()
+    if r:
+        return r
 
-    user_id = request.form["user_id"]
-    password = request.form.get("password")
+    user_id = request.form.get("user_id", "").strip()
+    password = request.form.get("password", "")
     role = request.form.get("role", "User")
     state = request.form.get("state")
     manager = request.form.get("manager_name")
     district = request.form.get("district")
 
-    password_hash = generate_password_hash(password) if password else None
+    if not user_id:
+        flash("User ID is required.", "danger")
+        return redirect(url_for("users_page"))
 
     engine = get_engine()
+    # Check if user exists
+    with engine.connect() as conn:
+        exists = conn.execute(text("SELECT 1 FROM users WHERE user_id = :u"), {"u": user_id}).fetchone() is not None
+
+    # If creating a new user, password is required
+    if not exists and not password:
+        flash("Password is required when creating a new user.", "danger")
+        return redirect(url_for("users_page"))
+
+    password_hash = generate_password_hash(password) if password else None
+
+    # Use COALESCE for password_hash so that when password not provided for an update
+    # we keep the existing password_hash. For new insert, password_hash must be non-null.
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
@@ -156,12 +179,14 @@ def admin_create_user():
 
 @app.route("/admin_delete_user/<int:user_id>", methods=["POST"])
 def admin_delete_user(user_id):
-    if "user" not in session or session.get("role") != "Admin":
-        flash("Admin access required.", "danger")
-        return redirect(url_for("dashboard"))
+    # require admin
+    r = require_admin()
+    if r:
+        return r
 
     engine = get_engine()
     with engine.begin() as conn:
+        # protect the 'admin' user from accidental deletion
         conn.execute(text("DELETE FROM users WHERE id = :id AND user_id != 'admin'"), {"id": user_id})
 
     flash("User deleted successfully.", "success")
@@ -173,12 +198,16 @@ def admin_delete_user(user_id):
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        user_id = request.form["user_id"]
-        password = request.form["password"]
+        user_id = request.form.get("user_id", "").strip()
+        password = request.form.get("password", "")
         role = request.form.get("role", "User")
         state = request.form.get("state")
         manager = request.form.get("manager_name")
         district = request.form.get("district")
+
+        if not user_id or not password:
+            flash("User ID and password are required.", "danger")
+            return redirect(url_for("register"))
 
         engine = get_engine()
         with engine.begin() as conn:
@@ -209,13 +238,14 @@ def get_data(view_type):
 
     try:
         engine = get_engine()
+        # Only allow these two safe table names (prevents injection via table name)
         if view_type not in ["product", "sku"]:
             return jsonify({"error": "Invalid table name"}), 400
 
         base_query = f"SELECT * FROM {view_type}"
         params = {}
 
-        # Role-based access filtering
+        # Role-based access filtering (only non-admin users get filtered)
         if session.get("role") != "Admin":
             conditions = []
             if session.get("manager_name"):
@@ -230,9 +260,13 @@ def get_data(view_type):
             if conditions:
                 base_query += " WHERE " + " AND ".join(conditions)
 
+        # Use pandas read_sql with SQLAlchemy text + params
         df = pd.read_sql(text(base_query), con=engine, params=params).fillna(0)
+
+        # Normalize column names to lowercase for client JS expectations
         df.columns = [c.strip().lower() for c in df.columns]
 
+        # Round / format numeric columns (0 decimals)
         for col in df.columns:
             if pd.api.types.is_numeric_dtype(df[col]):
                 df[col] = df[col].astype(float).round(0).astype(int)
@@ -240,7 +274,7 @@ def get_data(view_type):
         return jsonify(df.to_dict(orient="records"))
 
     except Exception as e:
-        print("❌ Error loading data:", e)
+        app.logger.exception("Error loading data")
         return jsonify({"error": str(e)}), 500
 
 # -------------------------------
