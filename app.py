@@ -13,9 +13,6 @@ from database import get_engine
 
 
 
-mail = Mail(app)
-s = URLSafeTimedSerializer(app.secret_key)
-
 
 
 
