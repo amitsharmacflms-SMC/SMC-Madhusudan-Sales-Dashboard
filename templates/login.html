@@ -6,6 +6,14 @@
   <title>Login | SMC Madhusudan Sales Dashboard</title>
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
+
+
+
+
+
+
+
+
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -141,11 +149,25 @@
       <button type="submit">Login</button>
     </form>
 
+
+
+
+
+
+
+
+
     <div id="message" class="message">
       {% if message %}
         {{ message }}
       {% endif %}
     </div>
+
+
+
+
+
+
 
     <footer>
       © {{ current_year }} <strong>SMC Madhusudan</strong> | All Rights Reserved
@@ -173,6 +195,9 @@
     msgElem.textContent = "❌ Invalid Username or Password.";
     msgElem.style.color = "red";
   }
+
+
+
 
   // Optional: Fade-in animation on page load handled by CSS
 </script>

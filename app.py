@@ -10,6 +10,15 @@ from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_engine
 
+
+
+
+mail = Mail(app)
+s = URLSafeTimedSerializer(app.secret_key)
+
+
+
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")  # set securely in prod
 
@@ -114,6 +123,23 @@ def login():
             flash("Invalid Username or Password.", "danger")
 
     return render_template("login.html", current_year=datetime.utcnow().year)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # -------------------------------
 # LOGOUT
