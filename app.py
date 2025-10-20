@@ -164,33 +164,9 @@ def dashboard():
 # -------------------------------
 # ======================================================
 # -------------------------------
+# -------------------------------
 # ADMIN API ENDPOINTS (AJAX)
 # -------------------------------
-
-
-@app.route("/users")
-def users_page():
-    # Only allow Admins to access
-    if "user" not in session or session.get("role") != "Admin":
-        flash("Admin access required.", "danger")
-        return redirect(url_for("dashboard"))
-
-    engine = get_engine()
-    with engine.connect() as conn:
-        users = conn.execute(text("SELECT * FROM users ORDER BY id")).fetchall()
-        users = [dict(u._mapping) for u in users]
-
-    return render_template("admin.html", users=users, current_year=datetime.utcnow().year)
-
-
-
-
-
-
-
-
-
-
 @app.route("/admin_api/list_users")
 def api_list_users():
     if "user" not in session or session.get("role") != "Admin":
@@ -280,6 +256,21 @@ def api_delete_user(user_id):
         conn.execute(text("DELETE FROM users WHERE id = :id AND user_id != 'admin'"), {"id": user_id})
     return jsonify({"success": True, "message": "User deleted."})
 
+
+
+@app.route("/users")
+def users_page():
+    # Only allow Admins to access
+    if "user" not in session or session.get("role") != "Admin":
+        flash("Admin access required.", "danger")
+        return redirect(url_for("dashboard"))
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        users = conn.execute(text("SELECT * FROM users ORDER BY id")).fetchall()
+        users = [dict(u._mapping) for u in users]
+
+    return render_template("admin.html", users=users, current_year=datetime.utcnow().year)
 
 
 
