@@ -137,8 +137,19 @@ def dashboard():
 # USER MANAGEMENT (ADMIN)
 # -------------------------------
 # ======================================================
-# 🧑‍💼 USER MANAGEMENT (ADMIN) — AJAX ENABLED
-# ======================================================
+# -------------------------------
+# ADMIN API ENDPOINTS (AJAX)
+# -------------------------------
+@app.route("/admin_api/list_users")
+def api_list_users():
+    if "user" not in session or session.get("role") != "Admin":
+        return jsonify({"error": "Unauthorized"}), 403
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(text("SELECT id, user_id, role, state, manager_name, district FROM users ORDER BY id")).fetchall()
+        users = [dict(r._mapping) for r in rows]
+    return jsonify(users)
+
 
 @app.route("/admin_api/create_or_update", methods=["POST"])
 def api_create_or_update_user():
@@ -156,14 +167,13 @@ def api_create_or_update_user():
         district = data.get("district")
 
         if not user_id:
-            return jsonify({"error": "User ID is required"}), 400
+            return jsonify({"success": False, "message": "User ID is required."})
 
         password_hash = generate_password_hash(password) if password else None
 
         engine = get_engine()
         with engine.begin() as conn:
             if password_hash:
-                # 🟢 Case 1: New password provided
                 conn.execute(text("""
                     INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
                     VALUES (:u, :p, :r, :s, :m, :d)
@@ -175,7 +185,6 @@ def api_create_or_update_user():
                         district = EXCLUDED.district
                 """), {"u": user_id, "p": password_hash, "r": role, "s": state, "m": manager, "d": district})
             else:
-                # 🟡 Case 2: Update existing user, no password change
                 conn.execute(text("""
                     INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
                     VALUES (:u, (SELECT password_hash FROM users WHERE user_id = :u), :r, :s, :m, :d)
@@ -187,27 +196,38 @@ def api_create_or_update_user():
                 """), {"u": user_id, "r": role, "s": state, "m": manager, "d": district})
 
         return jsonify({"success": True, "message": f"User '{user_id}' saved successfully."})
-
     except Exception as e:
         app.logger.exception("❌ Error in create_or_update_user:")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
-
-# -------------------------------
-# API — DELETE USER
-# -------------------------------
-@app.route("/admin_api/delete/<int:user_id>", methods=["DELETE"])
-def api_delete_user(user_id):
-    """Delete user via AJAX"""
+@app.route("/admin_api/reset_password/<int:user_id>", methods=["POST"])
+def api_reset_password(user_id):
     if "user" not in session or session.get("role") != "Admin":
         return jsonify({"error": "Unauthorized"}), 403
 
+    data = request.get_json() or {}
+    new_pass = data.get("password")
+    if not new_pass:
+        return jsonify({"success": False, "message": "Password required."})
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(text("""
+            UPDATE users SET password_hash = :p WHERE id = :id
+        """), {"p": generate_password_hash(new_pass), "id": user_id})
+
+    return jsonify({"success": True, "message": "Password updated successfully."})
+
+
+@app.route("/admin_api/delete/<int:user_id>", methods=["DELETE"])
+def api_delete_user(user_id):
+    if "user" not in session or session.get("role") != "Admin":
+        return jsonify({"error": "Unauthorized"}), 403
     engine = get_engine()
     with engine.begin() as conn:
         conn.execute(text("DELETE FROM users WHERE id = :id AND user_id != 'admin'"), {"id": user_id})
-
-    return jsonify({"success": True, "message": "User deleted successfully."})
+    return jsonify({"success": True, "message": "User deleted."})
 
 
 # -------------------------------
