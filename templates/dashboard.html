@@ -20,11 +20,63 @@
     #filtersWrapper { transition:all .35s ease; opacity:1; max-height:600px; overflow:hidden; }
     #filtersWrapper.hidden { opacity:0; max-height:0; overflow:hidden; }
 
-    .filter-box label { color:#000; font-weight:500; display:block; padding:3px 0; }
-    .filter-box strong { color:#1e3a8a; font-weight:700; display:block; margin-bottom:6px; text-transform:uppercase; text-align:center; }
+    /* ---------- FILTER BOX VISUALS (Enhanced) ---------- */
 
-    .dark-mode .filter-box label { color:#000; }
-    .dark-mode .filter-box strong { color:#93c5fd; }
+/* Base box design */
+.filter-box {
+  border: 2px solid #1e3a8a;            /* bold navy outline */
+  border-radius: 10px;
+  padding: 8px 10px;
+  min-width: 180px;
+  background: #fff;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.05);
+  transition: all 0.25s ease-in-out;
+}
+
+/* Hover highlight */
+.filter-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 10px rgba(0,0,0,0.08);
+  border-color: #1d4ed8;                /* brighter blue */
+}
+
+/* Label + title colors */
+.filter-box label {
+  color: #000;
+  font-weight: 600;
+  display: block;
+  padding: 3px 0;
+}
+.filter-box strong {
+  color: #1e3a8a;
+  font-weight: 800;
+  display: block;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  text-align: center;
+  border-bottom: 2px solid #e2e8f0;     /* subtle divider */
+  padding-bottom: 4px;
+}
+
+/* ---------- DARK MODE IMPROVEMENTS ---------- */
+
+/* In dark mode, filter boxes have darker background with same outlines */
+.dark-mode .filter-box {
+  background: #f9fafb;                 /* light gray background */
+  border-color: #1e3a8a;
+  box-shadow: 0 2px 5px rgba(255,255,255,0.1);
+}
+
+/* Ensure all filter text stays visible in dark mode */
+.dark-mode .filter-box label {
+  color: #000 !important;              /* always black text in dark mode */
+  font-weight: 600;
+}
+.dark-mode .filter-box strong {
+  color: #000 !important;              /* strong title black */
+  border-color: #e5e7eb;
+}
+
 
     /* Sticky Header - ensure visible while scrolling */
     table { border-collapse:collapse; width:100%; }
@@ -300,7 +352,7 @@ function buildFilters(){
 
 
 
-/* -------------------- LOAD DATA (with filter persistence) -------------------- */
+/* -------------------- LOAD DATA (final: persist filters + default last 4 AVG columns) -------------------- */
 async function loadData(view) {
   const loader = document.getElementById("loader");
   loader.classList.remove("hidden");
@@ -318,45 +370,54 @@ async function loadData(view) {
     originalKeys = Object.keys(data[0] || {});
     console.log("originalKeys:", originalKeys);
 
-    /* ✅ detect last 4 AVG columns */
+    /* ✅ Step 1: Detect all available AVG_ columns */
     const lowerKeys = originalKeys.map(k => k.toUpperCase());
     const avgColsInData = lowerKeys
       .map((k, i) => ({ key: originalKeys[i], upper: k }))
       .filter(o => o.upper.startsWith("AVG_"))
       .map(o => o.key);
+
+    /* ✅ Step 2: Sort them as per monthOrder, pick last 4 */
     const avgColsSorted = monthOrder.filter(m =>
       avgColsInData.some(k => k.toUpperCase() === m.toUpperCase())
     );
     const last4AvgCols = avgColsSorted.slice(-4);
     localStorage.setItem("default_avg_cols", JSON.stringify(last4AvgCols));
 
+    /* ✅ Step 3: Build filters */
     buildFilters();
 
-    // ✅ Restore previously selected filters, if any
-    const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
+    /* ✅ Step 4: Restore saved filters if any, otherwise apply last 4 AVG columns */
     setTimeout(() => {
+      const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
+      const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
+
+      // Helper: checkboxes under a specific filter title
+      const getInputs = title =>
+        Array.from(
+          document.querySelectorAll(`#filtersContainer input[name='${title}']`)
+        );
+
       if (saved && Object.keys(saved).length) {
-        document
-          .querySelectorAll("#filtersContainer .filter-box")
-          .forEach(box => {
-            const title = box.querySelector("strong")?.textContent?.trim();
-            if (saved[title]) {
-              box.querySelectorAll(`input[name='${title}']`).forEach(cb => {
-                cb.checked = saved[title].includes(cb.value);
-              });
-            }
-          });
-        console.log("✅ Restored filters from localStorage:", saved);
+        console.log("Restoring saved filters:", saved);
+        Object.entries(saved).forEach(([title, values]) => {
+          const inputs = getInputs(title);
+          if (inputs.length) {
+            inputs.forEach(cb => {
+              cb.checked = values.some(v => v.toUpperCase() === cb.value.toUpperCase());
+            });
+          }
+        });
       } else {
-        // default: select last 4 AVG columns only
-        const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
-        document.querySelectorAll("input[name='MONTH / YEAR']").forEach(cb => {
+        console.log("Applying default last 4 AVG columns:", defaults);
+        const inputs = getInputs("MONTH / YEAR");
+        inputs.forEach(cb => {
           cb.checked = defaults.some(v => v.toUpperCase() === cb.value.toUpperCase());
         });
-        console.log("✅ Applied last 4 default AVG columns:", defaults);
       }
-      applyFilters(false); // don’t overwrite saved filters yet
-    }, 100);
+
+      applyFilters(false); // Render without overwriting savedFilters immediately
+    }, 120);
   } catch (err) {
     console.error("Error loading data:", err);
     loader.textContent = "⚠ Error loading data: " + err.message;
