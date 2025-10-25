@@ -210,6 +210,50 @@ function initUI(){
   });
 }
 
+
+// ---------- FILTER PERSISTENCE ----------
+function saveFiltersState() {
+  const state = {};
+  document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb => {
+    const name = cb.name;
+    if (!state[name]) state[name] = [];
+    if (cb.checked) state[name].push(cb.value);
+  });
+  localStorage.setItem("dashboard_filters", JSON.stringify(state));
+}
+
+function loadFiltersState() {
+  const state = JSON.parse(localStorage.getItem("dashboard_filters") || "{}");
+  Object.entries(state).forEach(([name, values]) => {
+    document.querySelectorAll(`input[name='${name}']`).forEach(cb => {
+      cb.checked = values.includes(cb.value);
+    });
+  });
+}
+
+// Save filters automatically
+document.addEventListener("change", (e) => {
+  if (e.target && e.target.closest("#filtersContainer")) saveFiltersState();
+});
+
+// Load saved filters on new view
+document.addEventListener("DOMContentLoaded", () => {
+  loadFiltersState();
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* toggle filters (completely hide or show) */
 let filtersVisible = true;
 function toggleFilters(){
@@ -235,16 +279,25 @@ async function loadData(view){
     const data = await res.json();
     if(!Array.isArray(data) || data.length===0){ loader.textContent = "No data found"; return; }
     fullData = data;
-    originalKeys = Object.keys(data[0]);
-    buildFilters();
-    applyFilters();
-  }catch(err){
-    console.error(err);
-    loader.textContent = "⚠ Error loading data: " + err.message;
-  } finally {
-    setTimeout(()=>loader.classList.add("hidden"), 200);
-  }
-}
+originalKeys = Object.keys(data[0]);
+
+// ✅ Auto-select last 4 quarterly columns only
+const quarterlyCols = originalKeys.filter(c => c.startsWith("AVG_Q"));
+const last4 = quarterlyCols.slice(-6); // pick last 4 quarters
+localStorage.setItem("default_quarters", JSON.stringify(last4));
+
+buildFilters();
+
+// Preselect only last 4 quarters in the MONTH / YEAR filter
+setTimeout(() => {
+  const qCols = JSON.parse(localStorage.getItem("default_quarters") || "[]");
+  document.querySelectorAll("input[name='MONTH / YEAR']").forEach(cb => {
+    cb.checked = qCols.includes(cb.value);
+  });
+}, 300);
+
+applyFilters();
+
 
 /* -------------------- Build filter UI -------------------- */
 function buildFilters(){
