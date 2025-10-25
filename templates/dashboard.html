@@ -317,7 +317,7 @@ async function loadData(view) {
     const lowerKeys = originalKeys.map(k => k.toUpperCase());
     const avgColsInData = lowerKeys
       .map((k, i) => ({ key: originalKeys[i], upper: k }))
-      .filter(o => o.upper.startsWith("AVG_"))
+      .filter(o => o.upper.startsWith("AVG_Q"))
       .map(o => o.key);
 
     console.log("Detected AVG columns in data:", avgColsInData);
@@ -328,7 +328,7 @@ async function loadData(view) {
     );
 
     /* ✅ Step 3: Pick the latest 4 AVG columns */
-    const last4AvgCols = avgColsSorted.slice(-4);
+    const last4AvgCols = avgColsSorted.slice(-5);
     console.log("Auto-selecting last 4 AVG columns:", last4AvgCols);
 
     /* ✅ Step 4: Save to localStorage so buildFilters pre-checks */
