@@ -295,7 +295,12 @@ function buildFilters(){
   }, 300));
 }
 
-/* -------------------- LOAD DATA (final fix for last 4 AVG columns) -------------------- */
+
+
+
+
+
+/* -------------------- LOAD DATA (with filter persistence) -------------------- */
 async function loadData(view) {
   const loader = document.getElementById("loader");
   loader.classList.remove("hidden");
@@ -313,42 +318,44 @@ async function loadData(view) {
     originalKeys = Object.keys(data[0] || {});
     console.log("originalKeys:", originalKeys);
 
-    /* ✅ Step 1: Get all available columns (case-insensitive) that start with AVG_ */
+    /* ✅ detect last 4 AVG columns */
     const lowerKeys = originalKeys.map(k => k.toUpperCase());
     const avgColsInData = lowerKeys
       .map((k, i) => ({ key: originalKeys[i], upper: k }))
-      .filter(o => o.upper.startsWith("AVG_Q"))
+      .filter(o => o.upper.startsWith("AVG_"))
       .map(o => o.key);
-
-    console.log("Detected AVG columns in data:", avgColsInData);
-
-    /* ✅ Step 2: Sort using monthOrder (case-insensitive matching) */
     const avgColsSorted = monthOrder.filter(m =>
       avgColsInData.some(k => k.toUpperCase() === m.toUpperCase())
     );
-
-    /* ✅ Step 3: Pick the latest 4 AVG columns */
-    const last4AvgCols = avgColsSorted.slice(-5);
-    console.log("Auto-selecting last 4 AVG columns:", last4AvgCols);
-
-    /* ✅ Step 4: Save to localStorage so buildFilters pre-checks */
+    const last4AvgCols = avgColsSorted.slice(-4);
     localStorage.setItem("default_avg_cols", JSON.stringify(last4AvgCols));
 
-    /* ✅ Step 5: Build filters */
     buildFilters();
 
-    /* ✅ Step 6: Mark only those 4 columns checked in “MONTH / YEAR” */
+    // ✅ Restore previously selected filters, if any
+    const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
     setTimeout(() => {
-      const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
-      let count = 0;
-      document.querySelectorAll("input[name='MONTH / YEAR']").forEach(cb => {
-        if (defaults.some(v => v.toUpperCase() === cb.value.toUpperCase())) {
-          cb.checked = true;
-          count++;
-        } else cb.checked = false;
-      });
-      console.log(`Applied ${count} default AVG columns`);
-      applyFilters();
+      if (saved && Object.keys(saved).length) {
+        document
+          .querySelectorAll("#filtersContainer .filter-box")
+          .forEach(box => {
+            const title = box.querySelector("strong")?.textContent?.trim();
+            if (saved[title]) {
+              box.querySelectorAll(`input[name='${title}']`).forEach(cb => {
+                cb.checked = saved[title].includes(cb.value);
+              });
+            }
+          });
+        console.log("✅ Restored filters from localStorage:", saved);
+      } else {
+        // default: select last 4 AVG columns only
+        const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
+        document.querySelectorAll("input[name='MONTH / YEAR']").forEach(cb => {
+          cb.checked = defaults.some(v => v.toUpperCase() === cb.value.toUpperCase());
+        });
+        console.log("✅ Applied last 4 default AVG columns:", defaults);
+      }
+      applyFilters(false); // don’t overwrite saved filters yet
     }, 100);
   } catch (err) {
     console.error("Error loading data:", err);
@@ -358,38 +365,49 @@ async function loadData(view) {
   }
 }
 
-/* -------------------- Apply filters + cascade -------------------- */
-function applyFilters(){
+/* -------------------- Apply filters + cascade (with save) -------------------- */
+function applyFilters(save = true) {
   showOverlay(120);
-  requestAnimationFrame(()=>{
-    try{
+  requestAnimationFrame(() => {
+    try {
       const filters = document.getElementById("filtersContainer");
       const selected = {};
-      [...filters.querySelectorAll(".filter-box strong")].forEach(h=>{
+      [...filters.querySelectorAll(".filter-box strong")].forEach(h => {
         const title = h.textContent.trim();
-        selected[title] = [...filters.querySelectorAll(`input[name='${title}']:checked`)].map(i=>i.value);
+        selected[title] = [...filters.querySelectorAll(`input[name='${title}']:checked`)].map(
+          i => i.value
+        );
       });
 
-      const cascade = currentView === "product"
-        ? ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
-        : ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
+      // ✅ Save selected filters (for syncing Product ↔ SKU)
+      if (save) localStorage.setItem("savedFilters", JSON.stringify(selected));
+
+      const cascade =
+        currentView === "product"
+          ? ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT", "PARTY_NAME"]
+          : ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT", "SKU", "PARTY_NAME"];
 
       // initial filter
       let filtered = [...fullData];
-      cascade.forEach(f=>{
+      cascade.forEach(f => {
         const sel = selected[f] || [];
-        if(sel.length) filtered = filtered.filter(r => sel.includes(getVal(r,f)));
+        if (sel.length) filtered = filtered.filter(r => sel.includes(getVal(r, f)));
       });
 
-      // two-way cascade: update visibility of options in each cascade box
-      cascade.forEach(f=>{
-        const box = [...filters.querySelectorAll(".filter-box")]
-                      .find(b => b.querySelector("strong")?.textContent.trim() === f);
-        if(!box) return;
-        const valid = new Set(filtered.map(r => getVal(r,f)).filter(Boolean));
-        box.querySelectorAll(`input[name='${f}']`).forEach(cb=>{
+      // two-way cascade
+      cascade.forEach(f => {
+        const box = [...filters.querySelectorAll(".filter-box")].find(
+          b => b.querySelector("strong")?.textContent.trim() === f
+        );
+        if (!box) return;
+        const valid = new Set(filtered.map(r => getVal(r, f)).filter(Boolean));
+        box.querySelectorAll(`input[name='${f}']`).forEach(cb => {
           const label = cb.closest("label");
-          if(valid.has(cb.value)){ label.style.display = ""; } else { label.style.display = "none"; cb.checked = false; }
+          if (valid.has(cb.value)) label.style.display = "";
+          else {
+            label.style.display = "none";
+            cb.checked = false;
+          }
         });
       });
 
@@ -399,6 +417,7 @@ function applyFilters(){
     }
   });
 }
+
 
 /* -------------------- Render table, grouping, subtotal, totals -------------------- */
 function renderTable(filtered, selected){
