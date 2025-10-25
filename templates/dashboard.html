@@ -8,12 +8,10 @@
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
-  <!-- ExcelJS + FileSaver for export with styling -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 
   <style>
-    /* ---------- TABLE + FILTERS ---------- */
     th, td { padding:4px 6px !important; height:22px !important; font-size:0.85rem; transition:background-color .35s ease; }
     .subtotal-row td, .grandtotal-row td { height:26px !important; font-weight:700; transition:background-color .35s ease; }
 
@@ -26,7 +24,6 @@
     .dark-mode .filter-box label { color:#000; }
     .dark-mode .filter-box strong { color:#93c5fd; }
 
-    /* Sticky Header - ensure visible while scrolling */
     table { border-collapse:collapse; width:100%; }
     thead th { position: sticky; top:0; z-index:50; background: linear-gradient(90deg,#eef2ff,#e0e7ff); }
     .dark-mode thead th { background:#0b1220; color:#cfe8ff; }
@@ -34,15 +31,12 @@
     th.sortable { cursor:pointer; }
     th.sortable .sort-icon { margin-left:6px; color:#6b7280; font-size:0.85rem; }
 
-    /* Scrollbar style */
     .table-wrapper::-webkit-scrollbar { height:10px; width:10px; }
     .table-wrapper::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#2563eb,#4f46e5); border-radius:8px; }
 
-    /* Background color coding for values */
-    td.bg-pos { background-color:#d1fae5 !important; }  /* light green */
-    td.bg-neg { background-color:#fee2e2 !important; }  /* light red */
+    td.bg-pos { background-color:#d1fae5 !important; }
+    td.bg-neg { background-color:#fee2e2 !important; }
 
-    /* Overlay message */
     .overlay::after {
       content: "Processing...";
       display:inline-block;
@@ -53,250 +47,186 @@
       font-weight:700;
     }
 
-    /* compact header and row */
     header .logo { height:40px; }
     header h1 { font-size:1.05rem; font-weight:800; color:#1e40af; margin-left:8px; }
-
-    /* ensure numeric cells center */
     td.numeric { text-align:center; vertical-align:middle; font-weight:700; color:#000; }
 
-   
+    .dark-mode td.bg-pos, 
+    .dark-mode td.bg-neg { color: #000 !important; }
 
+    .dark-mode td:not(.numeric):not(.bg-pos):not(.bg-neg) {
+      background-color: #000 !important;
+      color: #fff !important;
+    }
 
+    .dark-mode th {
+      background-color: #111827 !important;
+      color: #f9fafb !important;
+      border-bottom: 1px solid #1f2937;
+    }
 
+    .dark-mode .subtotal-row td,
+    .dark-mode .grandtotal-row td {
+      background-color: #0f172a !important; 
+      color: #e2e8f0 !important;
+    }
+    .dark-mode td { border-bottom: 1px solid #1e293b; }
 
-/* ---------- DARK MODE VISIBILITY IMPROVEMENTS ---------- */
-
-/* Keep numeric background-coded cells readable */
-.dark-mode td.bg-pos, 
-.dark-mode td.bg-neg {
-  color: #000 !important;
-}
-
-/* Make text (non-numeric) cells have black background + white font */
-.dark-mode td:not(.numeric):not(.bg-pos):not(.bg-neg) {
-  background-color: #000 !important;
-  color: #fff !important;
-}
-
-/* Improve header contrast */
-.dark-mode th {
-  background-color: #111827 !important; /* dark navy */
-  color: #f9fafb !important;            /* white text */
-  border-bottom: 1px solid #1f2937;
-}
-
-/* Ensure subtotal & total rows remain visible */
-.dark-mode .subtotal-row td,
-.dark-mode .grandtotal-row td {
-  background-color: #0f172a !important; 
-  color: #e2e8f0 !important;
-}
-.dark-mode td {
-  border-bottom: 1px solid #1e293b;
-}
-
-
-
-
-
-
-
-
-
-
-
-    /* small responsive tweaks */
     @media(max-width:900px){ th, td { font-size:.78rem; padding:6px 8px; } }
   </style>
 </head>
 
 <body>
-  <header>
-    <div class="container header-row" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;">
-      <div style="display:flex;align-items:center">
-        <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="logo">
-        <h1>SMC Madhusudan Sales Dashboard</h1>
-      </div>
-
-      <div class="toolbar" style="display:flex;gap:8px;align-items:center">
-        <button id="exportBtn" class="btn btn-blue">Export</button>
-        <button id="clearBtn" class="btn btn-gray">Clear All Filters</button>
-        <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
-        <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
-        <button id="themeToggle" class="btn btn-gray">Dark Mode</button>
-      </div>
+<header>
+  <div class="container header-row" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;">
+    <div style="display:flex;align-items:center">
+      <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="logo">
+      <h1>SMC Madhusudan Sales Dashboard</h1>
     </div>
-  </header>
+    <div class="toolbar" style="display:flex;gap:8px;align-items:center">
+      <button id="exportBtn" class="btn btn-blue">Export</button>
+      <button id="clearBtn" class="btn btn-gray">Clear All Filters</button>
+      <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
+      <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
+      <button id="themeToggle" class="btn btn-gray">Dark Mode</button>
+    </div>
+  </div>
+</header>
 
-  <main class="container" style="max-width:1500px;margin:12px auto;padding:0 12px;">
-    <section>
-      <div id="filtersWrapper"><div id="filtersContainer" class="filter-bar" style="display:flex;gap:12px;padding:10px;background:#fff;border-radius:10px;overflow-x:auto;"></div></div>
+<main class="container" style="max-width:1500px;margin:12px auto;padding:0 12px;">
+  <section>
+    <div id="filtersWrapper"><div id="filtersContainer" class="filter-bar" style="display:flex;gap:12px;padding:10px;background:#fff;border-radius:10px;overflow-x:auto;"></div></div>
+    <div id="loader" class="loader" style="padding:8px;color:#6b7280">Loading data...</div>
+    <div id="overlayLoader" class="overlay hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:3000;"></div>
 
-      <div id="loader" class="loader" style="padding:8px;color:#6b7280">Loading data...</div>
-      <div id="overlayLoader" class="overlay hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:3000;"></div>
+    <div class="table-wrapper" style="margin-top:10px;background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);overflow:auto;max-height:75vh;">
+      <table id="dataTable" class="hidden" role="table" aria-label="data table" style="min-width:1100px;">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+        <tfoot id="tableFoot"></tfoot>
+      </table>
+    </div>
+  </section>
+</main>
 
-      <div class="table-wrapper" style="margin-top:10px;background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);overflow:auto;max-height:75vh;">
-        <table id="dataTable" class="hidden" role="table" aria-label="data table" style="min-width:1100px;">
-          <thead id="tableHead"></thead>
-          <tbody id="tableBody"></tbody>
-          <tfoot id="tableFoot"></tfoot>
-        </table>
-      </div>
-    </section>
-  </main>
-
-  <footer style="text-align:center;padding:12px;margin-top:16px;border-top:1px solid #e5e7eb;background:#f9fafb">
-    <p>© {{ current_year }} Created & Hosted by <strong>Amit Sharma</strong></p>
-  </footer>
+<footer style="text-align:center;padding:12px;margin-top:16px;border-top:1px solid #e5e7eb;background:#f9fafb">
+  <p>© {{ current_year }} Created & Hosted by <strong>Amit Sharma</strong></p>
+</footer>
 
 <script>
-/* -------------------- Config & helpers -------------------- */
 let currentView = "product";
 let fullData = [];
 let originalKeys = [];
-
 const baseTextCols = ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
-const monthOrder = [
-  "APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
-  "OCT-23","NOV-23","DEC-23","AVG_Q3_2023-24","JAN-24","FEB-24","MAR-24","AVG_Q4_2023-24","AVG_YEAR_2023-24",
-  "APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25","OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25",
-  "JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25","APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
-];
 
 const norm = s => String(s||"").toUpperCase().trim();
 const getVal = (r,k) => r?.[k] ?? r?.[k.toLowerCase()] ?? r?.[k.toUpperCase()] ?? "";
 
-/* overlay helpers */
-let __overlayTimer = null;
-function showOverlay(delay=150){
-  clearTimeout(__overlayTimer);
-  __overlayTimer = setTimeout(()=>document.getElementById("overlayLoader").classList.remove("hidden"), delay);
+/* Helpers */
+function debounce(fn, wait=300){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),wait);};}
+function runIdle(fn){if("requestIdleCallback" in window){requestIdleCallback(fn,{timeout:300});}else{setTimeout(fn,200);}}
+function showOverlay(delay=150){setTimeout(()=>document.getElementById("overlayLoader").classList.remove("hidden"),delay);}
+function hideOverlay(){document.getElementById("overlayLoader").classList.add("hidden");}
+
+/* -------------------- INIT -------------------- */
+document.addEventListener("DOMContentLoaded", ()=>{initUI();loadData(currentView);});
+
+/* Save / load filters between Product ↔ SKU */
+function saveFiltersState(){
+  const state={};
+  document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb=>{
+    const name=cb.name;
+    if(!state[name]) state[name]=[];
+    if(cb.checked) state[name].push(cb.value);
+  });
+  localStorage.setItem("dashboard_filters",JSON.stringify(state));
 }
-function hideOverlay(){
-  clearTimeout(__overlayTimer);
-  document.getElementById("overlayLoader").classList.add("hidden");
+
+function loadFiltersState(){
+  const state=JSON.parse(localStorage.getItem("dashboard_filters")||"{}");
+  Object.entries(state).forEach(([name,vals])=>{
+    document.querySelectorAll(`input[name='${name}']`).forEach(cb=>{cb.checked=vals.includes(cb.value);});
+  });
 }
 
-/* debounce + idle */
-function debounce(fn, wait=350){ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>fn(...a), wait); }; }
-function runIdle(fn){ if("requestIdleCallback" in window) requestIdleCallback(fn, {timeout:300}); else setTimeout(fn, 200); }
-
-/* -------------------- Initialization -------------------- */
-document.addEventListener("DOMContentLoaded", ()=>{
-  initUI();
-  loadData(currentView);
-});
-
+/* -------------------- UI -------------------- */
 function initUI(){
-  document.getElementById("toggleFiltersBtn").addEventListener("click", toggleFilters);
-  document.getElementById("clearBtn").addEventListener("click", ()=>{ runIdle(clearFilters); });
-  document.getElementById("exportBtn").addEventListener("click", ()=>{ showOverlay(120); runIdle(exportExcel); });
-  document.getElementById("toggleViewBtn").addEventListener("click", ()=>{
-    currentView = currentView === "product" ? "sku" : "product";
-    document.getElementById("toggleViewBtn").textContent = currentView === "product" ? "Switch to SKU View" : "Switch to Product View";
+  document.getElementById("toggleFiltersBtn").addEventListener("click",toggleFilters);
+  document.getElementById("clearBtn").addEventListener("click",()=>{runIdle(clearFilters);});
+  document.getElementById("exportBtn").addEventListener("click",()=>{showOverlay(120);runIdle(exportExcel);});
+  document.getElementById("toggleViewBtn").addEventListener("click",()=>{
+    saveFiltersState();
+    currentView=currentView==="product"?"sku":"product";
+    document.getElementById("toggleViewBtn").textContent=currentView==="product"?"Switch to SKU View":"Switch to Product View";
     loadData(currentView);
+    setTimeout(loadFiltersState,400);
   });
 
-  const themeBtn = document.getElementById("themeToggle");
-  if(localStorage.getItem("theme")==="dark"){ document.documentElement.classList.add("dark-mode"); themeBtn.textContent = "Light Mode"; }
-  themeBtn.addEventListener("click", ()=>{
-    const html = document.documentElement;
+  const themeBtn=document.getElementById("themeToggle");
+  if(localStorage.getItem("theme")==="dark"){document.documentElement.classList.add("dark-mode");themeBtn.textContent="Light Mode";}
+  themeBtn.addEventListener("click",()=>{
+    const html=document.documentElement;
     if(html.classList.contains("dark-mode")){
-      html.classList.remove("dark-mode"); localStorage.setItem("theme","light"); themeBtn.textContent="Dark Mode";
+      html.classList.remove("dark-mode");localStorage.setItem("theme","light");themeBtn.textContent="Dark Mode";
     } else {
-      html.classList.add("dark-mode"); localStorage.setItem("theme","dark"); themeBtn.textContent="Light Mode";
+      html.classList.add("dark-mode");localStorage.setItem("theme","dark");themeBtn.textContent="Light Mode";
     }
   });
 }
 
-
-// ---------- FILTER PERSISTENCE ----------
-function saveFiltersState() {
-  const state = {};
-  document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb => {
-    const name = cb.name;
-    if (!state[name]) state[name] = [];
-    if (cb.checked) state[name].push(cb.value);
-  });
-  localStorage.setItem("dashboard_filters", JSON.stringify(state));
-}
-
-function loadFiltersState() {
-  const state = JSON.parse(localStorage.getItem("dashboard_filters") || "{}");
-  Object.entries(state).forEach(([name, values]) => {
-    document.querySelectorAll(`input[name='${name}']`).forEach(cb => {
-      cb.checked = values.includes(cb.value);
-    });
-  });
-}
-
-// Save filters automatically
-document.addEventListener("change", (e) => {
-  if (e.target && e.target.closest("#filtersContainer")) saveFiltersState();
-});
-
-// Load saved filters on new view
-document.addEventListener("DOMContentLoaded", () => {
-  loadFiltersState();
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* toggle filters (completely hide or show) */
-let filtersVisible = true;
+let filtersVisible=true;
 function toggleFilters(){
-  const wrapper = document.getElementById("filtersWrapper");
-  const btn = document.getElementById("toggleFiltersBtn");
-  if(filtersVisible){ wrapper.classList.add("hidden"); setTimeout(()=>wrapper.style.display="none", 420); btn.textContent = "Show Filters"; filtersVisible = false; }
-  else { wrapper.style.display=""; setTimeout(()=>wrapper.classList.remove("hidden"), 20); btn.textContent = "Hide Filters"; filtersVisible = true; }
+  const w=document.getElementById("filtersWrapper");
+  const btn=document.getElementById("toggleFiltersBtn");
+  if(filtersVisible){w.classList.add("hidden");btn.textContent="Show Filters";filtersVisible=false;}
+  else{w.classList.remove("hidden");btn.textContent="Hide Filters";filtersVisible=true;}
 }
 
-/* clear filters */
 function clearFilters(){
-  document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb => cb.checked = false);
+  document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb=>cb.checked=false);
   applyFilters();
 }
 
-/* -------------------- Data load -------------------- */
+/* -------------------- LOAD DATA -------------------- */
 async function loadData(view){
-  const loader = document.getElementById("loader");
-  loader.classList.remove("hidden"); loader.textContent = "Loading data...";
+  const loader=document.getElementById("loader");
+  loader.classList.remove("hidden");
   try{
-    const res = await fetch(`/get_data/${view}`);
+    const res=await fetch(`/get_data/${view}`);
     if(!res.ok) throw new Error("Server returned "+res.status);
-    const data = await res.json();
-    if(!Array.isArray(data) || data.length===0){ loader.textContent = "No data found"; return; }
-    fullData = data;
-originalKeys = Object.keys(data[0]);
+    const data=await res.json();
+    if(!data.length){loader.textContent="No data found";return;}
+    fullData=data;originalKeys=Object.keys(data[0]);
 
-// ✅ Auto-select last 4 quarterly columns only
-const quarterlyCols = originalKeys.filter(c => c.startsWith("AVG_Q"));
-const last4 = quarterlyCols.slice(-6); // pick last 4 quarters
-localStorage.setItem("default_quarters", JSON.stringify(last4));
+    // ✅ Auto-detect last 4 quarters dynamically
+    const quarterlyCols=originalKeys.filter(c=>/^avg_q\d+_/i.test(c));
+    const sorted=quarterlyCols.sort((a,b)=>{
+      const ay=a.match(/\d{4}-\d{2}/); const by=b.match(/\d{4}-\d{2}/);
+      return ay && by ? ay[0].localeCompare(by[0]) : a.localeCompare(b);
+    });
+    const last4=sorted.slice(-4);
+    localStorage.setItem("default_quarters",JSON.stringify(last4));
 
-buildFilters();
+    buildFilters();
 
-// Preselect only last 4 quarters in the MONTH / YEAR filter
-setTimeout(() => {
-  const qCols = JSON.parse(localStorage.getItem("default_quarters") || "[]");
-  document.querySelectorAll("input[name='MONTH / YEAR']").forEach(cb => {
-    cb.checked = qCols.includes(cb.value);
-  });
-}, 300);
+    // Auto-check only last 4 quarters
+    setTimeout(()=>{
+      const qCols=JSON.parse(localStorage.getItem("default_quarters")||"[]");
+      document.querySelectorAll("input[name='MONTH / YEAR']").forEach(cb=>{
+        cb.checked=qCols.includes(cb.value);
+      });
+    },300);
 
-applyFilters();
+    applyFilters();
+  }catch(e){loader.textContent="⚠ "+e.message;}finally{setTimeout(()=>loader.classList.add("hidden"),200);}
+}
+
+/* -------------------- The rest (buildFilters, applyFilters, renderTable...) stays the same -------------------- */
+
+
+
+
+
 
 
 /* -------------------- Build filter UI -------------------- */
