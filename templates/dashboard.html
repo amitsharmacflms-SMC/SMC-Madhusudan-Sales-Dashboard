@@ -295,59 +295,66 @@ function buildFilters(){
   }, 300));
 }
 
-/* -------------------- LOAD DATA (replaced) -------------------- */
-async function loadData(view){
+/* -------------------- LOAD DATA (final fix for last 4 AVG columns) -------------------- */
+async function loadData(view) {
   const loader = document.getElementById("loader");
-  loader.classList.remove("hidden"); loader.textContent = "Loading data...";
-  try{
+  loader.classList.remove("hidden");
+  loader.textContent = "Loading data...";
+  try {
     const res = await fetch(`/get_data/${view}`);
-    if(!res.ok) throw new Error("Server returned "+res.status);
+    if (!res.ok) throw new Error("Server returned " + res.status);
     const data = await res.json();
-    if(!Array.isArray(data) || data.length===0){ loader.textContent = "No data found"; return; }
+    if (!Array.isArray(data) || data.length === 0) {
+      loader.textContent = "No data found";
+      return;
+    }
 
     fullData = data;
     originalKeys = Object.keys(data[0] || {});
-    console.debug("originalKeys:", originalKeys.slice(0,50));
+    console.log("originalKeys:", originalKeys);
 
-    // --- determine last 4 AVG_ columns using monthOrder to ensure exact match ---
-    // Keep only entries that start with "AVG_" and are present in monthOrder
-    const avgCandidates = monthOrder.filter(m => m.toUpperCase().startsWith("AVG_") && originalKeys.includes(m));
-    // If monthOrder doesn't include everything, also try matching keys in originalKeys (case-insensitive)
-    if(avgCandidates.length < 4){
-      const oAvg = originalKeys.filter(k => k.toUpperCase().startsWith("AVG_"));
-      // preserve original order and dedupe
-      oAvg.forEach(k => { if(!avgCandidates.includes(k) && monthOrder.indexOf(k) === -1) avgCandidates.push(k); });
-    }
-    const avgCols = avgCandidates.slice(-4);
-    console.debug("avgCandidates:", avgCandidates, "selected last4 avgCols:", avgCols);
+    /* ✅ Step 1: Get all available columns (case-insensitive) that start with AVG_ */
+    const lowerKeys = originalKeys.map(k => k.toUpperCase());
+    const avgColsInData = lowerKeys
+      .map((k, i) => ({ key: originalKeys[i], upper: k }))
+      .filter(o => o.upper.startsWith("AVG_"))
+      .map(o => o.key);
 
-    // persist chosen defaults so buildFilters can pre-check correctly
-    localStorage.setItem("default_avg_cols", JSON.stringify(avgCols));
+    console.log("Detected AVG columns in data:", avgColsInData);
 
+    /* ✅ Step 2: Sort using monthOrder (case-insensitive matching) */
+    const avgColsSorted = monthOrder.filter(m =>
+      avgColsInData.some(k => k.toUpperCase() === m.toUpperCase())
+    );
+
+    /* ✅ Step 3: Pick the latest 4 AVG columns */
+    const last4AvgCols = avgColsSorted.slice(-4);
+    console.log("Auto-selecting last 4 AVG columns:", last4AvgCols);
+
+    /* ✅ Step 4: Save to localStorage so buildFilters pre-checks */
+    localStorage.setItem("default_avg_cols", JSON.stringify(last4AvgCols));
+
+    /* ✅ Step 5: Build filters */
     buildFilters();
 
-    // After filters built, ensure those checkboxes are checked (defensive)
-    // small delay so DOM exists; this is safe because buildFilters is synchronous
-    setTimeout(()=>{
-      try{
-        const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
-        if(defaults.length){
-          let matched = 0;
-          document.querySelectorAll("input[name='MONTH / YEAR']").forEach(cb=>{
-            if(defaults.includes(cb.value)){ cb.checked = true; matched++; }
-            else { /* leave others as-is */ }
-          });
-          console.debug("applied default MONTH/YEAR checks, matched:", matched);
-        }
-      }catch(e){ console.warn("failed to apply defaults:", e); }
+    /* ✅ Step 6: Mark only those 4 columns checked in “MONTH / YEAR” */
+    setTimeout(() => {
+      const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
+      let count = 0;
+      document.querySelectorAll("input[name='MONTH / YEAR']").forEach(cb => {
+        if (defaults.some(v => v.toUpperCase() === cb.value.toUpperCase())) {
+          cb.checked = true;
+          count++;
+        } else cb.checked = false;
+      });
+      console.log(`Applied ${count} default AVG columns`);
       applyFilters();
-    }, 60);
-
-  }catch(err){
-    console.error(err);
+    }, 100);
+  } catch (err) {
+    console.error("Error loading data:", err);
     loader.textContent = "⚠ Error loading data: " + err.message;
   } finally {
-    setTimeout(()=>loader.classList.add("hidden"), 200);
+    setTimeout(() => loader.classList.add("hidden"), 300);
   }
 }
 
