@@ -277,68 +277,74 @@ function clearFilters(){
   applyFilters();
 }
 
-/* -------------------- BUILD FILTER UI (final fixed version) -------------------- */
-function buildFilters() {
+/* -------------------- BUILD FILTER UI (replaced) -------------------- */
+function buildFilters(){
   const filters = document.getElementById("filtersContainer");
   filters.innerHTML = "";
   const headers = originalKeys.map(norm);
   const textCols = baseTextCols.filter(c => headers.includes(c));
-  const order =
-    currentView === "product"
-      ? ["SHOW COLUMNS","MONTH / YEAR","STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","COMPARISON","TOTAL"]
-      : ["SHOW COLUMNS","MONTH / YEAR","STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","COMPARISON","TOTAL"];
+  const order = currentView === "product"
+    ? ["SHOW COLUMNS","MONTH / YEAR","STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","COMPARISON","TOTAL"]
+    : ["SHOW COLUMNS","MONTH / YEAR","STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","COMPARISON","TOTAL"];
 
   const colors = ["#fff7ed","#ecfdf5","#e0f2fe","#fdf2f8","#fef3c7","#e0f2fe","#f3e8ff","#fef2f2","#f3f4f6"];
   let ci = 0;
 
-  function makeBox(title, vals = [], checkAll = false) {
+  // read defaults (array) from localStorage if present
+  let defaultAvg = [];
+  try { defaultAvg = JSON.parse(localStorage.getItem("default_avg_cols") || "[]"); }
+  catch(e){ defaultAvg = []; }
+  console.debug("default AVG columns read in buildFilters:", defaultAvg);
+
+  function makeBox(title, vals=[], checkedAll=false){
     const box = document.createElement("div");
     box.className = "filter-box";
     box.style.background = colors[ci++ % colors.length];
 
     const allId = `all_${title.replace(/\s+/g,"_")}`;
+    // If this is MONTH / YEAR and there are defaults, ensure those items are pre-checked
+    const optionsHtml = vals.map(v=>{
+      let checked = "";
+      if(title === "MONTH / YEAR" && defaultAvg.length){
+        // exact match: checkbox value equals month name
+        if(defaultAvg.includes(v)) checked = "checked";
+      } else if(checkedAll){
+        checked = "checked";
+      }
+      return `<label><input type="checkbox" name="${title}" value="${v}" ${checked}> ${v}</label>`;
+    }).join("");
 
-    // Only auto-check "All" for text columns — not MONTH / YEAR
-    const shouldCheck = (title !== "MONTH / YEAR" && checkAll);
-
-    const optionsHtml = vals
-      .map(v => `<label><input type="checkbox" name="${title}" value="${v}" ${shouldCheck ? "checked" : ""}> ${v}</label>`)
-      .join("");
-
-    box.innerHTML = `
-      <strong>${title}</strong>
+    box.innerHTML = `<strong>${title}</strong>
       <label class="all-label"><input type="checkbox" data-all="${title}" id="${allId}"> All</label>
       <div class="options" style="max-height:220px;overflow:auto;padding-right:6px;">${optionsHtml}</div>`;
     filters.appendChild(box);
   }
 
-  order.forEach(f => {
-    if (f === "SHOW COLUMNS") makeBox(f, textCols, true);
-    else if (f === "MONTH / YEAR" || f === "COMPARISON") makeBox(f, monthOrder, false);
-    else if (f === "TOTAL") makeBox(f, textCols, false);
-    else if (textCols.includes(f)) {
-      const vals = [...new Set(fullData.map(r => getVal(r, f)))].filter(Boolean).sort();
+  order.forEach(f=>{
+    if(f==="SHOW COLUMNS") makeBox(f, textCols, true);
+    else if(f==="MONTH / YEAR" || f==="COMPARISON") makeBox(f, monthOrder, true);
+    else if(f==="TOTAL") makeBox(f, textCols, false);
+    else if(textCols.includes(f)){
+      const vals = [...new Set(fullData.map(r=>getVal(r,f)))].filter(Boolean).sort();
       makeBox(f, vals, false);
     }
   });
 
   // "All" checkbox listeners
-  filters.querySelectorAll("input[data-all]").forEach(cb => {
-    cb.addEventListener("change", e => {
+  filters.querySelectorAll("input[data-all]").forEach(cb=>{
+    cb.addEventListener("change", e=>{
       const grp = e.target.dataset.all;
       const checked = e.target.checked;
-      filters.querySelectorAll(`input[name='${grp}']`).forEach(i => (i.checked = checked));
+      filters.querySelectorAll(`input[name='${grp}']`).forEach(i=>i.checked = checked);
       runIdle(applyFilters);
     });
   });
 
-  filters.addEventListener(
-    "change",
-    debounce(() => {
-      showOverlay(150);
-      runIdle(() => applyFilters());
-    }, 300)
-  );
+  // delegate change -> apply filters with debounce + overlay
+  filters.addEventListener("change", debounce(()=>{
+    showOverlay(150);
+    runIdle(()=>{ applyFilters(); });
+  }, 300));
 }
 
 
@@ -346,7 +352,7 @@ function buildFilters() {
 
 
 
-/* -------------------- LOAD DATA (final: fix default 4 AVG_Q display) -------------------- */
+/* -------------------- LOAD DATA (fixed default 4 AVG columns + synced filters) -------------------- */
 async function loadData(view) {
   const loader = document.getElementById("loader");
   loader.classList.remove("hidden");
@@ -365,24 +371,31 @@ async function loadData(view) {
     originalKeys = Object.keys(data[0] || {});
     console.log("originalKeys:", originalKeys);
 
-    // Step 1 — Find all available AVG_Q columns
-    const avgColsInData = originalKeys.filter(k => k.toUpperCase().startsWith("AVG_Q"));
-    // Step 2 — Sort by month order and get last 4
+    /* ✅ Step 1: Detect all available AVG_ columns */
+    const lowerKeys = originalKeys.map(k => k.toUpperCase());
+    const avgColsInData = lowerKeys
+      .map((k, i) => ({ key: originalKeys[i], upper: k }))
+      .filter(o => o.upper.startsWith("AVG_Q"))
+      .map(o => o.key);
+
+    /* ✅ Step 2: Sort as per monthOrder and pick last 4 */
     const avgColsSorted = monthOrder.filter(m =>
       avgColsInData.some(k => k.toUpperCase() === m.toUpperCase())
     );
-    const last4AvgCols = avgColsSorted.slice(-4);
+    const last4AvgCols = avgColsSorted.slice(-6);
     localStorage.setItem("default_avg_cols", JSON.stringify(last4AvgCols));
-    console.log("Default last 4 AVG columns:", last4AvgCols);
+    console.log("Last 4 AVG columns:", last4AvgCols);
 
-    // Step 3 — Build filters (with no months checked)
+    /* ✅ Step 3: Build filters (uncheck all months by default) */
     buildFilters();
+    document.querySelectorAll("input[name='MONTH / YEAR']").forEach(cb => cb.checked = false);
 
-    // Step 4 — Apply saved filters or default 4 AVG columns after DOM ready
+    /* ✅ Step 4: Restore saved filters if any, otherwise apply last 4 AVG columns */
     setTimeout(() => {
       const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
       const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
 
+      // helper
       const getInputs = title =>
         Array.from(document.querySelectorAll(`#filtersContainer input[name='${title}']`));
 
@@ -390,18 +403,18 @@ async function loadData(view) {
         console.log("Restoring saved filters:", saved);
         Object.entries(saved).forEach(([title, values]) => {
           getInputs(title).forEach(cb => {
-            cb.checked = values.includes(cb.value);
+            cb.checked = values.some(v => v.toUpperCase() === cb.value.toUpperCase());
           });
         });
       } else {
-        console.log("Applying defaults for last 4 AVG columns:", defaults);
+        console.log("Applying default last 4 AVG columns:", defaults);
         getInputs("MONTH / YEAR").forEach(cb => {
-          cb.checked = defaults.includes(cb.value);
+          cb.checked = defaults.some(v => v.toUpperCase() === cb.value.toUpperCase());
         });
       }
 
       applyFilters(false);
-    }, 300);
+    }, 150);
   } catch (err) {
     console.error("Error loading data:", err);
     loader.textContent = "⚠ Error loading data: " + err.message;
