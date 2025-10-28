@@ -23,17 +23,105 @@
 
 
 
-/* ---------- MOBILE TABLE OPTIMIZATION ---------- */
-@media(max-width:768px){
-  body { font-size: 0.9rem; }
-  header { flex-wrap: wrap; }
-  .toolbar { flex-wrap: wrap; justify-content: center; gap: 6px; }
-  .table-wrapper { max-height: 60vh; overflow-x: auto; }
-  table th, table td { font-size: 0.75rem; padding: 3px 4px; }
-  .filter-box { min-width: 140px !important; padding: 6px !important; border-width: 1.5px !important; }
-  #filtersContainer { flex-wrap: wrap; gap: 8px; }
-  #toggleFiltersBtn { background:#2563eb; color:#fff; }
-  #exportBtn, #themeToggle { font-size:0.8rem; padding:4px 8px; }
+/* ---------- MOBILE FILTER ALIGNMENT (FIXED) ---------- */
+@media (max-width: 768px) {
+  body {
+    font-size: 0.9rem;
+    overflow-x: hidden;
+  }
+
+  header {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  /* Filter container: single column with spacing */
+  #filtersContainer {
+    #filtersContainer { margin-bottom: 8px; }
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    background: #f9fafb;
+    border-radius: 10px;
+    max-height: 65vh;
+    overflow-y: auto;
+  }
+
+  /* Each filter box: full-width block with tight padding */
+  .filter-box {
+    width: 100%;
+    border: 2px solid #1e3a8a;
+    border-radius: 8px;
+    background: #fff;
+    padding: 8px 10px;
+    box-shadow: none;
+  }
+
+  /* Filter title */
+  .filter-box strong {
+    display: block;
+    font-size: 0.9rem;
+    text-align: left;
+    color: #1e3a8a;
+    font-weight: 700;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 3px;
+  }
+
+  /* Labels in filters */
+  .filter-box label {
+    display: inline-block;
+    font-size: 0.85rem;
+    color: #000;
+    padding: 2px 4px;
+    margin: 2px 3px;
+    border-radius: 4px;
+    background: #f3f4f6;
+  }
+
+  .filter-box input[type="checkbox"] {
+    margin-right: 4px;
+    transform: scale(1.1);
+  }
+
+  /* Collapsible wrapper */
+  #filtersWrapper {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease;
+  }
+
+  #filtersWrapper.active {
+    max-height: 600px;
+  }
+
+  /* Buttons smaller */
+  .toolbar button {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+  }
+
+  /* Table readability */
+  .table-wrapper {
+    max-height: 60vh;
+    overflow-x: auto;
+    overflow-y: auto;
+    background: #fff;
+  }
+
+  table th, table td {
+    font-size: 0.75rem;
+    padding: 3px 4px;
+  }
 }
 
 
