@@ -20,6 +20,27 @@
     #filtersWrapper { transition:all .35s ease; opacity:1; max-height:600px; overflow:hidden; }
     #filtersWrapper.hidden { opacity:0; max-height:0; overflow:hidden; }
 
+
+
+
+/* ---------- MOBILE TABLE OPTIMIZATION ---------- */
+@media(max-width:768px){
+  body { font-size: 0.9rem; }
+  header { flex-wrap: wrap; }
+  .toolbar { flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .table-wrapper { max-height: 60vh; overflow-x: auto; }
+  table th, table td { font-size: 0.75rem; padding: 3px 4px; }
+  .filter-box { min-width: 140px !important; padding: 6px !important; border-width: 1.5px !important; }
+  #filtersContainer { flex-wrap: wrap; gap: 8px; }
+  #toggleFiltersBtn { background:#2563eb; color:#fff; }
+  #exportBtn, #themeToggle { font-size:0.8rem; padding:4px 8px; }
+}
+
+
+
+
+
+
     /* ---------- FILTER BOX VISUALS (Enhanced) ---------- */
 
 /* Base box design */
@@ -740,6 +761,79 @@ async function exportExcel(){
 
 /* ensure overlay hidden at start */
 hideOverlay();
+
+
+
+
+/* -------------------- MOBILE PERFORMANCE OPTIMIZATION -------------------- */
+
+// Detect mobile
+const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
+if (isMobile) {
+  console.log("📱 Mobile mode activated");
+
+  // Step 1: Reduce filter panel load
+  document.getElementById("filtersWrapper").style.maxHeight = "300px";
+
+  // Step 2: Optimize table rendering
+  const tableWrapper = document.querySelector(".table-wrapper");
+  tableWrapper.style.maxHeight = "60vh";
+  tableWrapper.style.overflowX = "auto";
+  tableWrapper.style.overflowY = "auto";
+
+  // Step 3: Simplify filter design
+  document.querySelectorAll(".filter-box").forEach(box => {
+    box.style.minWidth = "140px";
+    box.style.fontSize = "0.8rem";
+    box.style.padding = "6px";
+  });
+
+  // Step 4: Use requestIdleCallback for renderTable on mobile
+  const originalRenderTable = renderTable;
+  renderTable = function (filtered, selected) {
+    if ("requestIdleCallback" in window) {
+      requestIdleCallback(() => originalRenderTable(filtered, selected), { timeout: 800 });
+    } else {
+      setTimeout(() => originalRenderTable(filtered, selected), 100);
+    }
+  };
+
+  // Step 5: Lazy load ExcelJS & FileSaver only when Export clicked
+  document.getElementById("exportBtn").addEventListener("click", async () => {
+    showOverlay();
+    if (!window.ExcelJS) {
+      await new Promise(resolve => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js";
+        script.onload = resolve;
+        document.head.appendChild(script);
+      });
+    }
+    if (!window.saveAs) {
+      await new Promise(resolve => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js";
+        script.onload = resolve;
+        document.head.appendChild(script);
+      });
+    }
+    runIdle(exportExcel);
+  });
+
+  // Step 6: Add compact message
+  const msg = document.createElement("div");
+  msg.textContent = "📊 Mobile mode active: Simplified view for speed.";
+  msg.style.cssText = "text-align:center;color:#4b5563;font-size:0.85rem;padding:6px;background:#f3f4f6;margin-bottom:6px;border-radius:6px;";
+  document.querySelector("main").prepend(msg);
+}
+
+
+
+
+
+
+
 
 </script>
 </body>
