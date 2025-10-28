@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Select Sales Flow</title>
+  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg,#eef2ff,#e0e7ff);
+      height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin:0;
+    }
+    .container {
+      background:#fff;
+      padding:36px 48px;
+      border-radius:14px;
+      box-shadow:0 8px 28px rgba(0,0,0,0.1);
+      text-align:center;
+      width:420px;
+    }
+    h1 {
+      color:#1e3a8a;
+      font-size:1.35rem;
+      font-weight:700;
+      margin-bottom:24px;
+    }
+    button {
+      display:block;
+      width:100%;
+      margin:10px 0;
+      padding:12px 20px;
+      border:none;
+      border-radius:8px;
+      background:#1e3a8a;
+      color:#fff;
+      font-weight:600;
+      cursor:pointer;
+      transition:all .25s ease;
+    }
+    button:hover {
+      background:#312e81;
+      transform:scale(1.03);
+    }
+    .logout {
+      margin-top:20px;
+      font-size:0.9rem;
+    }
+    .logout a {
+      color:#1e3a8a;
+      text-decoration:none;
+      font-weight:600;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Select Sales Level</h1>
+
+    <button onclick="window.location.href='/dashboard/plant'">
+      1️⃣ Plant → Depot / Direct
+    </button>
+
+    <button onclick="window.location.href='/dashboard'">
+      2️⃣ Depot → SS / Direct
+    </button>
+
+    <button onclick="window.location.href='/dashboard/ss'">
+      3️⃣ SS → Distributor / Sub Distributor
+    </button>
+
+    <div class="logout">
+      <a href="/logout">Logout</a>
+    </div>
+  </div>
+</body>
+</html>

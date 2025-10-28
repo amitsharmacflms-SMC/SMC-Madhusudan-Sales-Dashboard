@@ -1,4 +1,3 @@
-# app.py (patched)
 import os
 from datetime import datetime
 import pandas as pd
@@ -11,16 +10,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_engine
 
 
-
-
-
-
-
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")  # set securely in prod
 
 
-
+# -------------------------------
 # Ensure users table and admin exist
 # -------------------------------
 def ensure_users_table():
@@ -59,15 +53,11 @@ def ensure_users_table():
         # 3️⃣ Ensure default admin user exists
         admin_user = conn.execute(text("SELECT * FROM users WHERE user_id = 'admin'")).fetchone()
         if not admin_user:
-            from werkzeug.security import generate_password_hash
             conn.execute(text("""
                 INSERT INTO users (user_id, password_hash, role)
                 VALUES ('admin', :pw, 'Admin')
             """), {"pw": generate_password_hash("smc123")})
             print("✅ Default admin user created (admin / smc123)")
-
-
-
 
 
 # -------------------------------
@@ -80,15 +70,14 @@ def get_user(user_id):
         res = conn.execute(q, {"uid": user_id}).fetchone()
         return dict(res._mapping) if res else None
 
+
 def require_admin():
-    """
-    Helper to be used in route handlers. If not admin, returns a redirect response.
-    If OK, returns None.
-    """
+    """Helper to ensure only Admin can access."""
     if "user" not in session or session.get("role") != "Admin":
         flash("Admin access required.", "danger")
         return redirect(url_for("dashboard"))
     return None
+
 
 # -------------------------------
 # LOGIN
@@ -109,33 +98,67 @@ def login():
             session["manager_name"] = user.get("manager_name")
             session["district"] = user.get("district")
             flash("Login successful.", "success")
-            return redirect(url_for("dashboard"))
-        # fallback admin (keeps your original quick-login)
+            return redirect(url_for("sales_levels"))
+
+        # fallback admin
         elif username == "admin" and password == "smc123":
             session["user"] = "admin"
             session["role"] = "Admin"
             flash("Login successful (fallback admin).", "success")
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("sales_levels"))
+
         else:
             flash("Invalid Username or Password.", "danger")
 
     return render_template("login.html", current_year=datetime.utcnow().year)
 
 
+# -------------------------------
+# SALES LEVEL SELECTION PAGE
+# -------------------------------
+@app.route("/sales_levels")
+def sales_levels():
+    """Landing page after login — choose sales flow level."""
+    if "user" not in session:
+        return redirect(url_for("login"))
+    return render_template("sales_levels.html", current_year=datetime.utcnow().year)
 
 
+# -------------------------------
+# DASHBOARDS
+# -------------------------------
+@app.route("/dashboard")
+def dashboard():
+    """Existing Depot → SS / Direct dashboard"""
+    if "user" not in session:
+        return redirect(url_for("login"))
+    return render_template("dashboard.html", current_year=datetime.utcnow().year)
 
 
+@app.route("/dashboard/plant")
+def dashboard_plant():
+    """Plant → Depot / Direct dashboard (Under Process popup)"""
+    if "user" not in session:
+        return redirect(url_for("login"))
+    return """
+    <script>
+    alert('🚧 Plant → Depot / Direct dashboard is under process.');
+    window.location.href='/sales_levels';
+    </script>
+    """
 
 
-
-
-
-
-
-
-
-
+@app.route("/dashboard/ss")
+def dashboard_ss():
+    """SS → Distributor / Sub Distributor dashboard (Under Process popup)"""
+    if "user" not in session:
+        return redirect(url_for("login"))
+    return """
+    <script>
+    alert('🚧 SS → Distributor / Sub Distributor dashboard is under process.');
+    window.location.href='/sales_levels';
+    </script>
+    """
 
 
 # -------------------------------
@@ -147,22 +170,9 @@ def logout():
     flash("Logged out successfully.", "success")
     return redirect(url_for("login"))
 
-# -------------------------------
-# DASHBOARD
-# -------------------------------
-@app.route("/dashboard")
-def dashboard():
-    if "user" not in session:
-        return redirect(url_for("login"))
-    return render_template("dashboard.html", current_year=datetime.utcnow().year)
 
 # -------------------------------
-# USER MANAGEMENT (ADMIN)
-# -------------------------------
-# ======================================================
-# -------------------------------
-# -------------------------------
-# ADMIN API ENDPOINTS (AJAX)
+# ADMIN USER MANAGEMENT
 # -------------------------------
 @app.route("/admin_api/list_users")
 def api_list_users():
@@ -177,7 +187,6 @@ def api_list_users():
 
 @app.route("/admin_api/create_or_update", methods=["POST"])
 def api_create_or_update_user():
-    """Create or update user (Postgres-safe version)"""
     if "user" not in session or session.get("role") != "Admin":
         return jsonify({"error": "Unauthorized"}), 403
 
@@ -254,10 +263,8 @@ def api_delete_user(user_id):
     return jsonify({"success": True, "message": "User deleted."})
 
 
-
 @app.route("/users")
 def users_page():
-    # Only allow Admins to access
     if "user" not in session or session.get("role") != "Admin":
         flash("Admin access required.", "danger")
         return redirect(url_for("dashboard"))
@@ -268,9 +275,6 @@ def users_page():
         users = [dict(u._mapping) for u in users]
 
     return render_template("admin.html", users=users, current_year=datetime.utcnow().year)
-
-
-
 
 
 # -------------------------------
@@ -306,10 +310,11 @@ def register():
             })
         flash("User registered successfully.", "success")
         return redirect(url_for("login"))
-        return render_template("register.html", current_year=datetime.utcnow().year)
+    return render_template("register.html", current_year=datetime.utcnow().year)
+
 
 # -------------------------------
-# GET DATA (with user restriction)
+# GET DATA (for dashboard)
 # -------------------------------
 @app.route("/get_data/<view_type>")
 def get_data(view_type):
@@ -319,14 +324,12 @@ def get_data(view_type):
 
     try:
         engine = get_engine()
-        # Only allow these two safe table names (prevents injection via table name)
         if view_type not in ["product", "sku"]:
             return jsonify({"error": "Invalid table name"}), 400
 
         base_query = f"SELECT * FROM {view_type}"
         params = {}
 
-        # Role-based access filtering (only non-admin users get filtered)
         if session.get("role") != "Admin":
             conditions = []
             if session.get("manager_name"):
@@ -341,13 +344,9 @@ def get_data(view_type):
             if conditions:
                 base_query += " WHERE " + " AND ".join(conditions)
 
-        # Use pandas read_sql with SQLAlchemy text + params
         df = pd.read_sql(text(base_query), con=engine, params=params).fillna(0)
-
-        # Normalize column names to lowercase for client JS expectations
         df.columns = [c.strip().lower() for c in df.columns]
 
-        # Round / format numeric columns (0 decimals)
         for col in df.columns:
             if pd.api.types.is_numeric_dtype(df[col]):
                 df[col] = df[col].astype(float).round(0).astype(int)
@@ -358,12 +357,14 @@ def get_data(view_type):
         app.logger.exception("Error loading data")
         return jsonify({"error": str(e)}), 500
 
+
 # -------------------------------
 # HEALTH CHECK
 # -------------------------------
 @app.route("/health")
 def health():
     return {"status": "ok", "time": datetime.utcnow().isoformat()}
+
 
 # -------------------------------
 # MAIN
