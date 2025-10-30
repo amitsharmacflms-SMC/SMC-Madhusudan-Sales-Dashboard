@@ -383,12 +383,23 @@ function initUI(){
 }
 
 /* toggle filters (completely hide or show) */
-let filtersVisible = true;
-function toggleFilters(){
+let filtersVisible = window.innerWidth > 768; // visible on desktop, hidden on mobile initially
+
+function toggleFilters() {
   const wrapper = document.getElementById("filtersWrapper");
   const btn = document.getElementById("toggleFiltersBtn");
-  if(filtersVisible){ wrapper.classList.add("hidden"); setTimeout(()=>wrapper.style.display="none", 420); btn.textContent = "Show Filters"; filtersVisible = false; }
-  else { wrapper.style.display=""; setTimeout(()=>wrapper.classList.remove("hidden"), 20); btn.textContent = "Hide Filters"; filtersVisible = true; }
+
+  if (filtersVisible) {
+    wrapper.classList.remove("active");
+    wrapper.style.maxHeight = "0";
+    btn.textContent = "Show Filters";
+  } else {
+    wrapper.classList.add("active");
+    wrapper.style.maxHeight = "600px";
+    btn.textContent = "Hide Filters";
+  }
+
+  filtersVisible = !filtersVisible;
 }
 
 /* clear filters */
