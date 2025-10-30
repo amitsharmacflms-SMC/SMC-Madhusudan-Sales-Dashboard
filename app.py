@@ -11,15 +11,14 @@ from database import get_engine
 
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")  # set securely in prod
+app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey")  # secure this in prod
 
 
 # -------------------------------
-# Ensure users table and admin exist
+# Ensure users table and default admin
 # -------------------------------
 def ensure_users_table():
     engine = get_engine()
-
     create_table_query = """
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -33,10 +32,8 @@ def ensure_users_table():
     """
 
     with engine.begin() as conn:
-        # 1️⃣ Create table if missing
         conn.execute(text(create_table_query))
-
-        # 2️⃣ Ensure UNIQUE constraint on user_id
+        # unique constraint
         conn.execute(text("""
             DO $$
             BEGIN
@@ -49,15 +46,13 @@ def ensure_users_table():
                 END IF;
             END$$;
         """))
-
-        # 3️⃣ Ensure default admin user exists
         admin_user = conn.execute(text("SELECT * FROM users WHERE user_id = 'admin'")).fetchone()
         if not admin_user:
             conn.execute(text("""
                 INSERT INTO users (user_id, password_hash, role)
                 VALUES ('admin', :pw, 'Admin')
             """), {"pw": generate_password_hash("smc123")})
-            print("✅ Default admin user created (admin / smc123)")
+            print("✅ Default admin created (admin / smc123)")
 
 
 # -------------------------------
@@ -72,7 +67,6 @@ def get_user(user_id):
 
 
 def require_admin():
-    """Helper to ensure only Admin can access."""
     if "user" not in session or session.get("role") != "Admin":
         flash("Admin access required.", "danger")
         return redirect(url_for("dashboard"))
@@ -85,7 +79,6 @@ def require_admin():
 @app.route("/", methods=["GET", "POST"])
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    """Login using users table or fallback admin."""
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
@@ -100,7 +93,6 @@ def login():
             flash("Login successful.", "success")
             return redirect(url_for("sales_levels"))
 
-        # fallback admin
         elif username == "admin" and password == "smc123":
             session["user"] = "admin"
             session["role"] = "Admin"
@@ -118,7 +110,6 @@ def login():
 # -------------------------------
 @app.route("/sales_levels")
 def sales_levels():
-    """Landing page after login — choose sales flow level."""
     if "user" not in session:
         return redirect(url_for("login"))
     return render_template("sales_levels.html", current_year=datetime.utcnow().year)
@@ -129,7 +120,6 @@ def sales_levels():
 # -------------------------------
 @app.route("/dashboard")
 def dashboard():
-    """Existing Depot → SS / Direct dashboard"""
     if "user" not in session:
         return redirect(url_for("login"))
     return render_template("dashboard.html", current_year=datetime.utcnow().year)
@@ -137,7 +127,7 @@ def dashboard():
 
 @app.route("/dashboard/plant")
 def dashboard_plant():
-    """Plant → Depot / Direct → ERP Dashboard"""
+    """Tab 1 → Plant → Depot / Direct (ERP Dashboard)"""
     if "user" not in session:
         return redirect(url_for("login"))
     return render_template("lighthouse_dashboard.html", current_year=datetime.utcnow().year)
@@ -145,7 +135,6 @@ def dashboard_plant():
 
 @app.route("/dashboard/ss")
 def dashboard_ss():
-    """SS → Distributor / Sub Distributor dashboard (Under Process popup)"""
     if "user" not in session:
         return redirect(url_for("login"))
     return """
@@ -167,7 +156,7 @@ def logout():
 
 
 # -------------------------------
-# ADMIN USER MANAGEMENT
+# ADMIN MANAGEMENT
 # -------------------------------
 @app.route("/admin_api/list_users")
 def api_list_users():
@@ -184,7 +173,6 @@ def api_list_users():
 def api_create_or_update_user():
     if "user" not in session or session.get("role") != "Admin":
         return jsonify({"error": "Unauthorized"}), 403
-
     try:
         data = request.get_json() or {}
         user_id = data.get("user_id", "").strip()
@@ -198,7 +186,6 @@ def api_create_or_update_user():
             return jsonify({"success": False, "message": "User ID is required."})
 
         password_hash = generate_password_hash(password) if password else None
-
         engine = get_engine()
         with engine.begin() as conn:
             if password_hash:
@@ -222,40 +209,10 @@ def api_create_or_update_user():
                         manager_name = EXCLUDED.manager_name,
                         district = EXCLUDED.district
                 """), {"u": user_id, "r": role, "s": state, "m": manager, "d": district})
-
         return jsonify({"success": True, "message": f"User '{user_id}' saved successfully."})
     except Exception as e:
         app.logger.exception("❌ Error in create_or_update_user:")
         return jsonify({"success": False, "message": str(e)}), 500
-
-
-@app.route("/admin_api/reset_password/<int:user_id>", methods=["POST"])
-def api_reset_password(user_id):
-    if "user" not in session or session.get("role") != "Admin":
-        return jsonify({"error": "Unauthorized"}), 403
-
-    data = request.get_json() or {}
-    new_pass = data.get("password")
-    if not new_pass:
-        return jsonify({"success": False, "message": "Password required."})
-
-    engine = get_engine()
-    with engine.begin() as conn:
-        conn.execute(text("""
-            UPDATE users SET password_hash = :p WHERE id = :id
-        """), {"p": generate_password_hash(new_pass), "id": user_id})
-
-    return jsonify({"success": True, "message": "Password updated successfully."})
-
-
-@app.route("/admin_api/delete/<int:user_id>", methods=["DELETE"])
-def api_delete_user(user_id):
-    if "user" not in session or session.get("role") != "Admin":
-        return jsonify({"error": "Unauthorized"}), 403
-    engine = get_engine()
-    with engine.begin() as conn:
-        conn.execute(text("DELETE FROM users WHERE id = :id AND user_id != 'admin'"), {"id": user_id})
-    return jsonify({"success": True, "message": "User deleted."})
 
 
 @app.route("/users")
@@ -263,57 +220,18 @@ def users_page():
     if "user" not in session or session.get("role") != "Admin":
         flash("Admin access required.", "danger")
         return redirect(url_for("dashboard"))
-
     engine = get_engine()
     with engine.connect() as conn:
         users = conn.execute(text("SELECT * FROM users ORDER BY id")).fetchall()
         users = [dict(u._mapping) for u in users]
-
     return render_template("admin.html", users=users, current_year=datetime.utcnow().year)
 
 
 # -------------------------------
-# REGISTER PAGE
-# -------------------------------
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    if request.method == "POST":
-        user_id = request.form.get("user_id", "").strip()
-        password = request.form.get("password", "")
-        role = request.form.get("role", "User")
-        state = request.form.get("state")
-        manager = request.form.get("manager_name")
-        district = request.form.get("district")
-
-        if not user_id or not password:
-            flash("User ID and password are required.", "danger")
-            return redirect(url_for("register"))
-
-        engine = get_engine()
-        with engine.begin() as conn:
-            conn.execute(text("""
-                INSERT INTO users (user_id, password_hash, role, state, manager_name, district)
-                VALUES (:u, :p, :r, :s, :m, :d)
-                ON CONFLICT (user_id) DO NOTHING
-            """), {
-                "u": user_id,
-                "p": generate_password_hash(password),
-                "r": role,
-                "s": state,
-                "m": manager,
-                "d": district
-            })
-        flash("User registered successfully.", "success")
-        return redirect(url_for("login"))
-    return render_template("register.html", current_year=datetime.utcnow().year)
-
-
-# -------------------------------
-# GET DATA (for dashboard)
+# GET DATA (Product / SKU / ERP)
 # -------------------------------
 @app.route("/get_data/<view_type>")
 def get_data(view_type):
-    """Return product or SKU data with normalized lowercase column names"""
     if "user" not in session:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -322,10 +240,8 @@ def get_data(view_type):
         if view_type not in ["product", "sku", "lighthouse_sales"]:
             return jsonify({"error": "Invalid table name"}), 400
 
-
         base_query = f"SELECT * FROM {view_type}"
         params = {}
-
         if session.get("role") != "Admin":
             conditions = []
             if session.get("manager_name"):
@@ -342,33 +258,33 @@ def get_data(view_type):
 
         df = pd.read_sql(text(base_query), con=engine, params=params).fillna(0)
         df.columns = [c.strip().lower() for c in df.columns]
-
         for col in df.columns:
             if pd.api.types.is_numeric_dtype(df[col]):
-                df[col] = df[col].astype(float).round(0).astype(int)
-
+                df[col] = df[col].astype(float).round(0)
         return jsonify(df.to_dict(orient="records"))
 
     except Exception as e:
+        if "lighthouse_sales" in view_type:
+            return jsonify({"error": "Lighthouse data missing. Please run /sync_lighthouse_csv first."}), 404
         app.logger.exception("Error loading data")
         return jsonify({"error": str(e)}), 500
 
 
-
+# -------------------------------
+# SYNC LIGHTHOUSE ERP CSV
+# -------------------------------
 @app.route("/sync_lighthouse_csv")
 def sync_lighthouse_csv():
     """Sync Lighthouse ERP CSV export into database."""
-    import pandas as pd, os
     try:
-        # 📂 Path to your exported CSV
-        csv_path = r"C:\Users\amit2\OneDrive\Desktop\DESKTOP\NEW DATA\usb data\dashboard_app\data\erpreport.csv"
-
+        csv_path = os.path.join(os.getcwd(), "erpreport.csv")  # CSV should be in project root
         if not os.path.exists(csv_path):
             return f"❌ File not found: {csv_path}", 404
 
         df = pd.read_csv(csv_path)
         df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
-        df["invoice_date"] = pd.to_datetime(df.get("invoice_date"), errors="coerce")
+        if "invoice_date" in df.columns:
+            df["invoice_date"] = pd.to_datetime(df["invoice_date"], errors="coerce")
 
         engine = get_engine()
         with engine.begin() as conn:
@@ -379,7 +295,6 @@ def sync_lighthouse_csv():
     except Exception as e:
         app.logger.exception("CSV sync failed:")
         return f"❌ Sync failed: {e}", 500
-
 
 
 
@@ -398,6 +313,10 @@ def health():
 # MAIN
 # -------------------------------
 if __name__ == "__main__":
+    try:
+        ensure_users_table()
+    except Exception as e:
+        print(⚠️ User table init failed:", e)
     port = int(os.environ.get("PORT", 5000))
     print(f"🚀 Starting Flask on port {port}")
     app.run(host="0.0.0.0", port=port, debug=True)

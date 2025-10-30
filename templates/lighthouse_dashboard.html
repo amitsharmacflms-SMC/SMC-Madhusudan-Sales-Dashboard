@@ -6,69 +6,113 @@
   <title>Plant → Depot / Direct (Lighthouse ERP)</title>
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <style>
-    th, td { padding:6px 10px; border-bottom:1px solid #e5e7eb; }
-    th { background:#1e3a8a; color:#fff; text-transform:uppercase; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    select, button { border:1px solid #1e3a8a; border-radius:6px; padding:6px 10px; }
-    .filter-bar { display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
-    button { background:#1e3a8a; color:white; font-weight:600; cursor:pointer; }
+    body { font-family:'Segoe UI',sans-serif;background:#f9fafb;margin:0; }
+    th,td { padding:6px 10px;border-bottom:1px solid #e5e7eb; }
+    th { background:#1e3a8a;color:#fff;text-transform:uppercase; }
+    table { width:100%;border-collapse:collapse;margin-top:10px; }
+    select,button { border:1px solid #1e3a8a;border-radius:6px;padding:6px 10px; }
+    .filter-bar { display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap; }
+    button { background:#1e3a8a;color:white;font-weight:600;cursor:pointer; }
+    button:hover { background:#312e81; }
+    .summary { background:#eef2ff;padding:10px 15px;border-radius:8px;
+               margin-bottom:15px;color:#1e3a8a;font-weight:700; }
+    .group-row { background:#f3f4f6;font-weight:700; }
+    .grand-row { background:#c7d2fe;font-weight:800; }
   </style>
 </head>
 <body>
-  <header style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.05)">
-    <h1 style="color:#1e3a8a;">Plant → Depot / Direct Dashboard (ERP Data)</h1>
-    <button onclick="window.location.href='/sales_levels'">⬅ Back</button>
-  </header>
+<header style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.05)">
+  <h1 style="color:#1e3a8a;">Plant → Depot / Direct Dashboard (ERP Data)</h1>
+  <button onclick="window.location.href='/sales_levels'">⬅ Back</button>
+</header>
 
-  <main style="max-width:1300px;margin:20px auto;background:#fff;padding:20px;border-radius:10px;">
-    <div class="filter-bar" id="filters"></div>
-    <table id="dataTable">
-      <thead></thead>
-      <tbody></tbody>
-    </table>
-  </main>
+<main style="max-width:1300px;margin:20px auto;background:#fff;padding:20px;border-radius:10px;">
+  <div class="summary" id="summaryBox">Loading summary…</div>
+  <div class="filter-bar" id="filters"></div>
+  <table id="dataTable">
+    <thead></thead>
+    <tbody></tbody>
+    <tfoot></tfoot>
+  </table>
+</main>
 
-  <script>
-    async function loadData() {
-      const res = await fetch('/get_data/lighthouse_sales');
-      const data = await res.json();
-      if (!Array.isArray(data) || data.length === 0) {
-        document.getElementById('dataTable').innerHTML = "<tr><td>No data available</td></tr>";
-        return;
-      }
+<script>
+async function loadData() {
+  const res = await fetch('/get_data/lighthouse_sales');
+  const data = await res.json();
+  if (!Array.isArray(data) || data.length === 0) {
+    document.getElementById('dataTable').innerHTML = "<tr><td>No data available</td></tr>";
+    document.getElementById('summaryBox').textContent = "No records found.";
+    return;
+  }
 
-      const headers = Object.keys(data[0]);
-      document.querySelector("thead").innerHTML = "<tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr>";
+  // --- Prepare ---
+  const headers = Object.keys(data[0]);
+  const tbody = document.querySelector("tbody");
+  const tfoot = document.querySelector("tfoot");
+  const thead = document.querySelector("thead");
+  thead.innerHTML = "<tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr>";
 
-      const tbody = document.querySelector("tbody");
-      const states = [...new Set(data.map(r => r.state))].filter(Boolean).sort();
-      const districts = [...new Set(data.map(r => r.district))].filter(Boolean).sort();
+  // --- Filters ---
+  const states = [...new Set(data.map(r=>r.state))].filter(Boolean).sort();
+  const dists  = [...new Set(data.map(r=>r.district))].filter(Boolean).sort();
+  const cats   = [...new Set(data.map(r=>r.category))].filter(Boolean).sort();
+  const filters = document.getElementById("filters");
+  filters.innerHTML = `
+    <div><label>State:</label><select id="stateF"><option value="">All</option>${states.map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div><label>District:</label><select id="distF"><option value="">All</option>${dists.map(d=>`<option>${d}</option>`).join('')}</select></div>
+    <div><label>Category:</label><select id="catF"><option value="">All</option>${cats.map(c=>`<option>${c}</option>`).join('')}</select></div>
+    <button onclick="applyFilters()">Filter</button>
+  `;
 
-      const filters = document.getElementById("filters");
-      filters.innerHTML = `
-        <div><label>State:</label><select id="stateFilter"><option value="">All</option>${states.map(s=>`<option>${s}</option>`).join('')}</select></div>
-        <div><label>District:</label><select id="districtFilter"><option value="">All</option>${districts.map(d=>`<option>${d}</option>`).join('')}</select></div>
-        <button onclick="applyFilters()">Filter</button>
-      `;
+  // --- Helpers ---
+  function groupBy(arr,key){
+    return arr.reduce((acc,obj)=>{
+      const k=obj[key]||'Unknown';
+      (acc[k]=acc[k]||[]).push(obj); return acc;
+    },{});
+  }
 
-      function renderRows(rows) {
-        tbody.innerHTML = rows.map(r => `<tr>${headers.map(h => `<td>${r[h] ?? ""}</td>`).join("")}</tr>`).join("");
-      }
+  function renderRows(rows){
+    tbody.innerHTML='';
+    let grand=0;
+    const byState=groupBy(rows,'state');
+    Object.entries(byState).forEach(([state,stRows])=>{
+      const byDist=groupBy(stRows,'district');
+      Object.entries(byDist).forEach(([dist,dRows])=>{
+        const byCat=groupBy(dRows,'category');
+        Object.entries(byCat).forEach(([cat,cRows])=>{
+          const subtotal=cRows.reduce((s,r)=>s+(parseFloat(r.aqtyissued)||0),0);
+          grand+=subtotal;
+          // first show detail
+          cRows.forEach(r=>{
+            tbody.insertAdjacentHTML('beforeend',
+              `<tr>${headers.map(h=>`<td>${r[h]??""}</td>`).join("")}</tr>`);
+          });
+          // subtotal row
+          tbody.insertAdjacentHTML('beforeend',
+            `<tr class="group-row"><td colspan="${headers.length-1}">${state} | ${dist} | ${cat} Subtotal</td><td>${subtotal.toLocaleString()}</td></tr>`);
+        });
+      });
+    });
+    // grand total
+    tfoot.innerHTML=`<tr class="grand-row"><td colspan="${headers.length-1}">Grand Total</td><td>${grand.toLocaleString()}</td></tr>`;
+    document.getElementById('summaryBox').textContent =
+      `Total records: ${rows.length.toLocaleString()} | Total Qty Issued: ${grand.toLocaleString()}`;
+  }
 
-      renderRows(data);
+  window.applyFilters=function(){
+    const s=document.getElementById("stateF").value;
+    const d=document.getElementById("distF").value;
+    const c=document.getElementById("catF").value;
+    const filtered=data.filter(r=>
+      (!s||r.state===s)&&(!d||r.district===d)&&(!c||r.category===c));
+    renderRows(filtered);
+  };
 
-      window.applyFilters = function() {
-        const s = document.getElementById("stateFilter").value;
-        const d = document.getElementById("districtFilter").value;
-        const filtered = data.filter(r =>
-          (!s || r.state === s) &&
-          (!d || r.district === d)
-        );
-        renderRows(filtered);
-      };
-    }
-
-    loadData();
-  </script>
+  renderRows(data);
+}
+loadData();
+</script>
 </body>
 </html>
