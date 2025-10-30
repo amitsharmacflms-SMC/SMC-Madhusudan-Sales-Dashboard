@@ -2,117 +2,155 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Plant → Depot / Direct (Lighthouse ERP)</title>
+  <title>ERP Sales Dashboard</title>
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+  <link href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" rel="stylesheet" />
   <style>
-    body { font-family:'Segoe UI',sans-serif;background:#f9fafb;margin:0; }
-    th,td { padding:6px 10px;border-bottom:1px solid #e5e7eb; }
-    th { background:#1e3a8a;color:#fff;text-transform:uppercase; }
-    table { width:100%;border-collapse:collapse;margin-top:10px; }
-    select,button { border:1px solid #1e3a8a;border-radius:6px;padding:6px 10px; }
-    .filter-bar { display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap; }
-    button { background:#1e3a8a;color:white;font-weight:600;cursor:pointer; }
-    button:hover { background:#312e81; }
-    .summary { background:#eef2ff;padding:10px 15px;border-radius:8px;
-               margin-bottom:15px;color:#1e3a8a;font-weight:700; }
-    .group-row { background:#f3f4f6;font-weight:700; }
-    .grand-row { background:#c7d2fe;font-weight:800; }
+    body { font-family: Arial, sans-serif; background: #f8f9fa; padding: 1rem; }
+    .filter-box { margin-bottom: 1rem; background: white; padding: 1rem; border-radius: 8px; }
+    .filter-box label { font-weight: bold; margin-right: 8px; }
+    select, #showColumns { min-width: 180px; margin-right: 12px; }
+    table.dataTable { font-size: 13px; }
   </style>
 </head>
 <body>
-<header style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.05)">
-  <h1 style="color:#1e3a8a;">Plant → Depot / Direct Dashboard (ERP Data)</h1>
-  <button onclick="window.location.href='/sales_levels'">⬅ Back</button>
-</header>
 
-<main style="max-width:1300px;margin:20px auto;background:#fff;padding:20px;border-radius:10px;">
-  <div class="summary" id="summaryBox">Loading summary…</div>
-  <div class="filter-bar" id="filters"></div>
-  <table id="dataTable">
-    <thead></thead>
+  <h2>📊 Lighthouse ERP Dashboard</h2>
+
+  <div class="filter-box">
+    <label>Show Columns:</label>
+    <select id="showColumns" multiple>
+      <option selected>Invoice_Date</option>
+      <option selected>State</option>
+      <option selected>District</option>
+      <option selected>Category</option>
+      <option selected>Customer_Name</option>
+      <option selected>Item_Name</option>
+      <option selected>Rate</option>
+      <option selected>Material_Amount</option>
+      <option selected>Bill_Amount</option>
+      <option selected>Total_Tax_Value_GST</option>
+      <option selected>AQTYISSUED</option>
+      <option selected>TCS_Amount</option>
+    </select>
+
+    <label>State:</label>
+    <select id="stateFilter"><option value="">All</option></select>
+
+    <label>District:</label>
+    <select id="districtFilter"><option value="">All</option></select>
+
+    <label>Category:</label>
+    <select id="categoryFilter"><option value="">All</option></select>
+
+    <label>Customer:</label>
+    <select id="customerFilter"><option value="">All</option></select>
+
+    <label>Item:</label>
+    <select id="itemFilter"><option value="">All</option></select>
+  </div>
+
+  <table id="erpTable" class="display" width="100%">
+    <thead>
+      <tr id="headerRow"></tr>
+    </thead>
     <tbody></tbody>
-    <tfoot></tfoot>
   </table>
-</main>
 
-<script>
-async function loadData() {
-  const res = await fetch('/get_data/lighthouse_sales');
-  const data = await res.json();
-  if (!Array.isArray(data) || data.length === 0) {
-    document.getElementById('dataTable').innerHTML = "<tr><td>No data available</td></tr>";
-    document.getElementById('summaryBox').textContent = "No records found.";
-    return;
-  }
+  <script>
+    let fullData = [];
+    const tableColumns = [
+      "invoice_date","state","district","category","customer_name","item_name",
+      "rate","material_amount","bill_amount","total_tax_value_gst","aqtyissued","tcs_amount"
+    ];
 
-  // --- Prepare ---
-  const headers = Object.keys(data[0]);
-  const tbody = document.querySelector("tbody");
-  const tfoot = document.querySelector("tfoot");
-  const thead = document.querySelector("thead");
-  thead.innerHTML = "<tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr>";
+    async function loadData() {
+      const res = await axios.get("/get_data/lighthouse_sales");
+      fullData = res.data;
+      updateFilters();
+      renderTable(fullData);
+    }
 
-  // --- Filters ---
-  const states = [...new Set(data.map(r=>r.state))].filter(Boolean).sort();
-  const dists  = [...new Set(data.map(r=>r.district))].filter(Boolean).sort();
-  const cats   = [...new Set(data.map(r=>r.category))].filter(Boolean).sort();
-  const filters = document.getElementById("filters");
-  filters.innerHTML = `
-    <div><label>State:</label><select id="stateF"><option value="">All</option>${states.map(s=>`<option>${s}</option>`).join('')}</select></div>
-    <div><label>District:</label><select id="distF"><option value="">All</option>${dists.map(d=>`<option>${d}</option>`).join('')}</select></div>
-    <div><label>Category:</label><select id="catF"><option value="">All</option>${cats.map(c=>`<option>${c}</option>`).join('')}</select></div>
-    <button onclick="applyFilters()">Filter</button>
-  `;
+    function renderTable(data) {
+      // Destroy existing DataTable if any
+      if ($.fn.DataTable.isDataTable("#erpTable")) {
+        $("#erpTable").DataTable().destroy();
+      }
 
-  // --- Helpers ---
-  function groupBy(arr,key){
-    return arr.reduce((acc,obj)=>{
-      const k=obj[key]||'Unknown';
-      (acc[k]=acc[k]||[]).push(obj); return acc;
-    },{});
-  }
-
-  function renderRows(rows){
-    tbody.innerHTML='';
-    let grand=0;
-    const byState=groupBy(rows,'state');
-    Object.entries(byState).forEach(([state,stRows])=>{
-      const byDist=groupBy(stRows,'district');
-      Object.entries(byDist).forEach(([dist,dRows])=>{
-        const byCat=groupBy(dRows,'category');
-        Object.entries(byCat).forEach(([cat,cRows])=>{
-          const subtotal=cRows.reduce((s,r)=>s+(parseFloat(r.aqtyissued)||0),0);
-          grand+=subtotal;
-          // first show detail
-          cRows.forEach(r=>{
-            tbody.insertAdjacentHTML('beforeend',
-              `<tr>${headers.map(h=>`<td>${r[h]??""}</td>`).join("")}</tr>`);
-          });
-          // subtotal row
-          tbody.insertAdjacentHTML('beforeend',
-            `<tr class="group-row"><td colspan="${headers.length-1}">${state} | ${dist} | ${cat} Subtotal</td><td>${subtotal.toLocaleString()}</td></tr>`);
-        });
+      // Build visible header row
+      const selectedCols = Array.from(document.getElementById("showColumns").selectedOptions).map(o => o.value.toLowerCase());
+      const header = document.getElementById("headerRow");
+      header.innerHTML = "";
+      selectedCols.forEach(col => {
+        header.innerHTML += `<th>${col.replaceAll("_", " ").toUpperCase()}</th>`;
       });
+
+      // Build DataTable rows
+      const rows = data.map(row => selectedCols.map(c => row[c]));
+      $("#erpTable").DataTable({
+        data: rows,
+        columns: selectedCols.map(c => ({ title: c })),
+        pageLength: 25,
+        scrollX: true,
+      });
+    }
+
+    // Update cascade filters dynamically
+    function updateFilters() {
+      const states = [...new Set(fullData.map(r => r.state))].sort();
+      fillOptions("stateFilter", states);
+
+      const districts = [...new Set(fullData.map(r => r.district))].sort();
+      fillOptions("districtFilter", districts);
+
+      const categories = [...new Set(fullData.map(r => r.category))].sort();
+      fillOptions("categoryFilter", categories);
+
+      const customers = [...new Set(fullData.map(r => r.customer_name))].sort();
+      fillOptions("customerFilter", customers);
+
+      const items = [...new Set(fullData.map(r => r.item_name))].sort();
+      fillOptions("itemFilter", items);
+    }
+
+    function fillOptions(id, list) {
+      const el = document.getElementById(id);
+      el.innerHTML = `<option value="">All</option>`;
+      list.forEach(v => el.innerHTML += `<option>${v}</option>`);
+    }
+
+    // Smart cascading filter logic
+    function applyFilters() {
+      const state = document.getElementById("stateFilter").value;
+      const district = document.getElementById("districtFilter").value;
+      const category = document.getElementById("categoryFilter").value;
+      const customer = document.getElementById("customerFilter").value;
+      const item = document.getElementById("itemFilter").value;
+
+      let filtered = [...fullData];
+      if (state) filtered = filtered.filter(r => r.state === state);
+      if (district) filtered = filtered.filter(r => r.district === district);
+      if (category) filtered = filtered.filter(r => r.category === category);
+      if (customer) filtered = filtered.filter(r => r.customer_name === customer);
+      if (item) filtered = filtered.filter(r => r.item_name === item);
+
+      renderTable(filtered);
+    }
+
+    // Attach event listeners
+    ["stateFilter","districtFilter","categoryFilter","customerFilter","itemFilter"].forEach(id => {
+      document.getElementById(id).addEventListener("change", applyFilters);
     });
-    // grand total
-    tfoot.innerHTML=`<tr class="grand-row"><td colspan="${headers.length-1}">Grand Total</td><td>${grand.toLocaleString()}</td></tr>`;
-    document.getElementById('summaryBox').textContent =
-      `Total records: ${rows.length.toLocaleString()} | Total Qty Issued: ${grand.toLocaleString()}`;
-  }
 
-  window.applyFilters=function(){
-    const s=document.getElementById("stateF").value;
-    const d=document.getElementById("distF").value;
-    const c=document.getElementById("catF").value;
-    const filtered=data.filter(r=>
-      (!s||r.state===s)&&(!d||r.district===d)&&(!c||r.category===c));
-    renderRows(filtered);
-  };
+    // Column visibility change
+    document.getElementById("showColumns").addEventListener("change", () => renderTable(fullData));
 
-  renderRows(data);
-}
-loadData();
-</script>
+    // Load on start
+    loadData();
+  </script>
+
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 </body>
 </html>
