@@ -866,61 +866,7 @@ hideOverlay();
 
 
 
-/* -------------------- MOBILE PERFORMANCE OPTIMIZATION -------------------- */
 
-// Detect mobile
-const isMobile = window.matchMedia("(max-width: 768px)").matches;
-
-if (isMobile) {
-  console.log("📱 Mobile mode activated");
-
-  // Step 1: Reduce filter panel load
-  document.getElementById("filtersWrapper").style.maxHeight = "300px";
-
-  // Step 2: Optimize table rendering
-  const tableWrapper = document.querySelector(".table-wrapper");
-  tableWrapper.style.maxHeight = "60vh";
-  tableWrapper.style.overflowX = "auto";
-  tableWrapper.style.overflowY = "auto";
-
-  // Step 3: Simplify filter design
-  document.querySelectorAll(".filter-box").forEach(box => {
-    box.style.minWidth = "140px";
-    box.style.fontSize = "0.8rem";
-    box.style.padding = "6px";
-  });
-
-  // Step 4: Use requestIdleCallback for renderTable on mobile
-  const originalRenderTable = renderTable;
-  renderTable = function (filtered, selected) {
-    if ("requestIdleCallback" in window) {
-      requestIdleCallback(() => originalRenderTable(filtered, selected), { timeout: 800 });
-    } else {
-      setTimeout(() => originalRenderTable(filtered, selected), 100);
-    }
-  };
-
-  // Step 5: Lazy load ExcelJS & FileSaver only when Export clicked
-  document.getElementById("exportBtn").addEventListener("click", async () => {
-    showOverlay();
-    if (!window.ExcelJS) {
-      await new Promise(resolve => {
-        const script = document.createElement("script");
-        script.src = "https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js";
-        script.onload = resolve;
-        document.head.appendChild(script);
-      });
-    }
-    if (!window.saveAs) {
-      await new Promise(resolve => {
-        const script = document.createElement("script");
-        script.src = "https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js";
-        script.onload = resolve;
-        document.head.appendChild(script);
-      });
-    }
-    runIdle(exportExcel);
-  });
 
   // Step 6: Add compact message
   const msg = document.createElement("div");
