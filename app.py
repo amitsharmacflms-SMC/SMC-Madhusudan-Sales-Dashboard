@@ -265,40 +265,9 @@ def get_data(view_type):
 
     except Exception as e:
         if "lighthouse_sales" in view_type:
-            return jsonify({"error": "Lighthouse data missing. Please run /sync_lighthouse_csv first."}), 404
+            return jsonify({"error": "Lighthouse data missing in database."}), 404
         app.logger.exception("Error loading data")
         return jsonify({"error": str(e)}), 500
-
-
-# -------------------------------
-# SYNC LIGHTHOUSE ERP CSV
-# -------------------------------
-@app.route("/sync_lighthouse_csv")
-def sync_lighthouse_csv():
-    """Sync Lighthouse ERP CSV export into database."""
-    try:
-        csv_path = os.path.join(os.getcwd(), "erpreport.csv")  # CSV should be in project root
-        if not os.path.exists(csv_path):
-            return f"❌ File not found: {csv_path}", 404
-
-        df = pd.read_csv(csv_path)
-        df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
-        if "invoice_date" in df.columns:
-            df["invoice_date"] = pd.to_datetime(df["invoice_date"], errors="coerce")
-
-        engine = get_engine()
-        with engine.begin() as conn:
-            df.to_sql("lighthouse_sales", conn, if_exists="replace", index=False)
-
-        return f"✅ {len(df)} rows successfully synced from {os.path.basename(csv_path)} into 'lighthouse_sales'."
-
-    except Exception as e:
-        app.logger.exception("CSV sync failed:")
-        return f"❌ Sync failed: {e}", 500
-
-
-
-
 
 
 # -------------------------------
