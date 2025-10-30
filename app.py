@@ -316,7 +316,7 @@ if __name__ == "__main__":
     try:
         ensure_users_table()
     except Exception as e:
-        print(⚠️ User table init failed:", e)
+        print(⚠️ User table init failed:", e)  # <-- emoji moved inside the quotes
     port = int(os.environ.get("PORT", 5000))
     print(f"🚀 Starting Flask on port {port}")
     app.run(host="0.0.0.0", port=port, debug=True)
