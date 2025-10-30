@@ -23,7 +23,7 @@
 
 
 
-/* ---------- MOBILE FILTER ALIGNMENT (FIXED) ---------- */
+/* ---------- MOBILE FILTER ALIGNMENT + PERFORMANCE ---------- */
 @media (max-width: 768px) {
   body {
     font-size: 0.9rem;
@@ -32,7 +32,9 @@
 
   header {
     flex-wrap: wrap;
-    gap: 6px;
+    justify-content: center;
+    text-align: center;
+    gap: 8px;
   }
 
   .toolbar {
@@ -41,9 +43,8 @@
     gap: 6px;
   }
 
-  /* Filter container: single column with spacing */
+  /* Filters scroll vertically and look clean */
   #filtersContainer {
-    #filtersContainer { margin-bottom: 8px; }
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -52,9 +53,9 @@
     border-radius: 10px;
     max-height: 65vh;
     overflow-y: auto;
+    scrollbar-width: thin;
   }
 
-  /* Each filter box: full-width block with tight padding */
   .filter-box {
     width: 100%;
     border: 2px solid #1e3a8a;
@@ -64,7 +65,6 @@
     box-shadow: none;
   }
 
-  /* Filter title */
   .filter-box strong {
     display: block;
     font-size: 0.9rem;
@@ -76,7 +76,6 @@
     padding-bottom: 3px;
   }
 
-  /* Labels in filters */
   .filter-box label {
     display: inline-block;
     font-size: 0.85rem;
@@ -92,35 +91,47 @@
     transform: scale(1.1);
   }
 
-  /* Collapsible wrapper */
+  /* Scroll-friendly filters wrapper */
   #filtersWrapper {
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.4s ease;
+    transition: max-height 0.3s ease;
   }
 
   #filtersWrapper.active {
     max-height: 600px;
   }
 
-  /* Buttons smaller */
   .toolbar button {
     font-size: 0.8rem;
     padding: 6px 10px;
     border-radius: 6px;
   }
 
-  /* Table readability */
+  /* Table scrolls and loads efficiently */
   .table-wrapper {
-    max-height: 60vh;
+    max-height: 65vh;
     overflow-x: auto;
     overflow-y: auto;
     background: #fff;
   }
 
-  table th, table td {
+  table th,
+  table td {
     font-size: 0.75rem;
     padding: 3px 4px;
+  }
+
+  /* Message for mobile users */
+  .mobile-tip {
+    display: block;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #4b5563;
+    background: #f3f4f6;
+    padding: 4px 6px;
+    border-radius: 6px;
+    margin: 8px auto;
   }
 }
 
@@ -853,6 +864,8 @@ hideOverlay();
 
 
 
+
+
 /* -------------------- MOBILE PERFORMANCE OPTIMIZATION -------------------- */
 
 // Detect mobile
@@ -917,6 +930,36 @@ if (isMobile) {
 }
 
 
+/* ---------- MOBILE PERFORMANCE OPTIMIZATION ---------- */
+const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
+if (isMobile) {
+  console.log("📱 Mobile view detected — optimizing performance...");
+
+  // Add tip message once
+  const msg = document.createElement("div");
+  msg.className = "mobile-tip";
+  msg.textContent = "📊 Mobile mode active — optimized for speed.";
+  document.querySelector("main").prepend(msg);
+
+  // Lightweight table rendering (no hang)
+  const originalRenderTable = renderTable;
+  renderTable = function (filtered, selected) {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        originalRenderTable(filtered, selected);
+      }, 50); // small delay prevents blocking UI thread
+    });
+  };
+
+  // Reduce shadow effects on filters
+  document.querySelectorAll(".filter-box").forEach(b => {
+    b.style.boxShadow = "none";
+  });
+
+  // Add smooth scrolling
+  document.getElementById("filtersContainer").style.scrollBehavior = "smooth";
+}
 
 
 
