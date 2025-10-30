@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plant → Depot / Direct (Lighthouse ERP)</title>
+  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+  <style>
+    th, td { padding:6px 10px; border-bottom:1px solid #e5e7eb; }
+    th { background:#1e3a8a; color:#fff; text-transform:uppercase; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    select, button { border:1px solid #1e3a8a; border-radius:6px; padding:6px 10px; }
+    .filter-bar { display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+    button { background:#1e3a8a; color:white; font-weight:600; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <header style="padding:10px 20px;display:flex;justify-content:space-between;align-items:center;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.05)">
+    <h1 style="color:#1e3a8a;">Plant → Depot / Direct Dashboard (ERP Data)</h1>
+    <button onclick="window.location.href='/sales_levels'">⬅ Back</button>
+  </header>
+
+  <main style="max-width:1300px;margin:20px auto;background:#fff;padding:20px;border-radius:10px;">
+    <div class="filter-bar" id="filters"></div>
+    <table id="dataTable">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </main>
+
+  <script>
+    async function loadData() {
+      const res = await fetch('/get_data/lighthouse_sales');
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        document.getElementById('dataTable').innerHTML = "<tr><td>No data available</td></tr>";
+        return;
+      }
+
+      const headers = Object.keys(data[0]);
+      document.querySelector("thead").innerHTML = "<tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr>";
+
+      const tbody = document.querySelector("tbody");
+      const states = [...new Set(data.map(r => r.state))].filter(Boolean).sort();
+      const districts = [...new Set(data.map(r => r.district))].filter(Boolean).sort();
+
+      const filters = document.getElementById("filters");
+      filters.innerHTML = `
+        <div><label>State:</label><select id="stateFilter"><option value="">All</option>${states.map(s=>`<option>${s}</option>`).join('')}</select></div>
+        <div><label>District:</label><select id="districtFilter"><option value="">All</option>${districts.map(d=>`<option>${d}</option>`).join('')}</select></div>
+        <button onclick="applyFilters()">Filter</button>
+      `;
+
+      function renderRows(rows) {
+        tbody.innerHTML = rows.map(r => `<tr>${headers.map(h => `<td>${r[h] ?? ""}</td>`).join("")}</tr>`).join("");
+      }
+
+      renderRows(data);
+
+      window.applyFilters = function() {
+        const s = document.getElementById("stateFilter").value;
+        const d = document.getElementById("districtFilter").value;
+        const filtered = data.filter(r =>
+          (!s || r.state === s) &&
+          (!d || r.district === d)
+        );
+        renderRows(filtered);
+      };
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

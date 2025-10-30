@@ -137,15 +137,10 @@ def dashboard():
 
 @app.route("/dashboard/plant")
 def dashboard_plant():
-    """Plant → Depot / Direct dashboard (Under Process popup)"""
+    """Plant → Depot / Direct → ERP Dashboard"""
     if "user" not in session:
         return redirect(url_for("login"))
-    return """
-    <script>
-    alert('🚧 Plant → Depot / Direct dashboard is under process.');
-    window.location.href='/sales_levels';
-    </script>
-    """
+    return render_template("lighthouse_dashboard.html", current_year=datetime.utcnow().year)
 
 
 @app.route("/dashboard/ss")
@@ -324,8 +319,9 @@ def get_data(view_type):
 
     try:
         engine = get_engine()
-        if view_type not in ["product", "sku"]:
+        if view_type not in ["product", "sku", "lighthouse_sales"]:
             return jsonify({"error": "Invalid table name"}), 400
+
 
         base_query = f"SELECT * FROM {view_type}"
         params = {}
@@ -356,6 +352,38 @@ def get_data(view_type):
     except Exception as e:
         app.logger.exception("Error loading data")
         return jsonify({"error": str(e)}), 500
+
+
+
+@app.route("/sync_lighthouse_csv")
+def sync_lighthouse_csv():
+    """Sync Lighthouse ERP CSV export into database."""
+    import pandas as pd, os
+    try:
+        # 📂 Path to your exported CSV
+        csv_path = r"C:\Users\amit2\OneDrive\Desktop\DESKTOP\NEW DATA\usb data\dashboard_app\data\erpreport.csv"
+
+        if not os.path.exists(csv_path):
+            return f"❌ File not found: {csv_path}", 404
+
+        df = pd.read_csv(csv_path)
+        df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
+        df["invoice_date"] = pd.to_datetime(df.get("invoice_date"), errors="coerce")
+
+        engine = get_engine()
+        with engine.begin() as conn:
+            df.to_sql("lighthouse_sales", conn, if_exists="replace", index=False)
+
+        return f"✅ {len(df)} rows successfully synced from {os.path.basename(csv_path)} into 'lighthouse_sales'."
+
+    except Exception as e:
+        app.logger.exception("CSV sync failed:")
+        return f"❌ Sync failed: {e}", 500
+
+
+
+
+
 
 
 # -------------------------------
