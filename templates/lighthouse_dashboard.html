@@ -3,15 +3,37 @@
 <head>
   <meta charset="utf-8" />
   <title>ERP Sales Dashboard</title>
-  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+
+  <!-- ✅ jQuery must load FIRST -->
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+  <!-- ✅ DataTables -->
   <link href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" rel="stylesheet" />
+  <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+
+  <!-- ✅ Axios -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+
   <style>
     body { font-family: Arial, sans-serif; background: #f8f9fa; padding: 1rem; }
-    .filter-box { margin-bottom: 1rem; background: white; padding: 1rem; border-radius: 8px; }
-    .filter-box label { font-weight: bold; margin-right: 8px; }
-    select, #showColumns { min-width: 180px; margin-right: 12px; }
+    h2 { margin-bottom: 1rem; }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    label { font-weight: bold; margin-right: 4px; }
+    select { min-width: 150px; padding: 3px; border-radius: 4px; }
+    #showColumns { min-width: 200px; height: 60px; }
     table.dataTable { font-size: 13px; }
   </style>
 </head>
@@ -19,7 +41,7 @@
 
   <h2>📊 Lighthouse ERP Dashboard</h2>
 
-  <div class="filter-box">
+  <div class="filter-row">
     <label>Show Columns:</label>
     <select id="showColumns" multiple>
       <option selected>Invoice_Date</option>
@@ -53,9 +75,7 @@
   </div>
 
   <table id="erpTable" class="display" width="100%">
-    <thead>
-      <tr id="headerRow"></tr>
-    </thead>
+    <thead><tr id="headerRow"></tr></thead>
     <tbody></tbody>
   </table>
 
@@ -74,20 +94,15 @@
     }
 
     function renderTable(data) {
-      // Destroy existing DataTable if any
       if ($.fn.DataTable.isDataTable("#erpTable")) {
         $("#erpTable").DataTable().destroy();
       }
 
-      // Build visible header row
       const selectedCols = Array.from(document.getElementById("showColumns").selectedOptions).map(o => o.value.toLowerCase());
       const header = document.getElementById("headerRow");
       header.innerHTML = "";
-      selectedCols.forEach(col => {
-        header.innerHTML += `<th>${col.replaceAll("_", " ").toUpperCase()}</th>`;
-      });
+      selectedCols.forEach(col => header.innerHTML += `<th>${col.replaceAll("_", " ").toUpperCase()}</th>`);
 
-      // Build DataTable rows
       const rows = data.map(row => selectedCols.map(c => row[c]));
       $("#erpTable").DataTable({
         data: rows,
@@ -97,22 +112,13 @@
       });
     }
 
-    // Update cascade filters dynamically
     function updateFilters() {
-      const states = [...new Set(fullData.map(r => r.state))].sort();
-      fillOptions("stateFilter", states);
-
-      const districts = [...new Set(fullData.map(r => r.district))].sort();
-      fillOptions("districtFilter", districts);
-
-      const categories = [...new Set(fullData.map(r => r.category))].sort();
-      fillOptions("categoryFilter", categories);
-
-      const customers = [...new Set(fullData.map(r => r.customer_name))].sort();
-      fillOptions("customerFilter", customers);
-
-      const items = [...new Set(fullData.map(r => r.item_name))].sort();
-      fillOptions("itemFilter", items);
+      const unique = (arr, key) => [...new Set(arr.map(r => r[key]))].filter(Boolean).sort();
+      fillOptions("stateFilter", unique(fullData, "state"));
+      fillOptions("districtFilter", unique(fullData, "district"));
+      fillOptions("categoryFilter", unique(fullData, "category"));
+      fillOptions("customerFilter", unique(fullData, "customer_name"));
+      fillOptions("itemFilter", unique(fullData, "item_name"));
     }
 
     function fillOptions(id, list) {
@@ -121,7 +127,6 @@
       list.forEach(v => el.innerHTML += `<option>${v}</option>`);
     }
 
-    // Smart cascading filter logic
     function applyFilters() {
       const state = document.getElementById("stateFilter").value;
       const district = document.getElementById("districtFilter").value;
@@ -139,18 +144,14 @@
       renderTable(filtered);
     }
 
-    // Attach event listeners
     ["stateFilter","districtFilter","categoryFilter","customerFilter","itemFilter"].forEach(id => {
       document.getElementById(id).addEventListener("change", applyFilters);
     });
 
-    // Column visibility change
     document.getElementById("showColumns").addEventListener("change", () => renderTable(fullData));
 
-    // Load on start
     loadData();
   </script>
 
-  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 </body>
 </html>
