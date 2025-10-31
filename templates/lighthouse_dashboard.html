@@ -136,6 +136,15 @@
       text-align: center;
       margin-bottom: 10px;
     }
+    table.dataTable tfoot th {
+      background-color: #e0f2fe;
+      font-weight: 700;
+      color: #1e3a8a;
+}
+
+
+
+
   </style>
 </head>
 
@@ -223,29 +232,49 @@
     }
 
     function initTable(data) {
-      if (table) table.destroy();
-      table = $("#erpTable").DataTable({
-        data,
-        columns: columns.map(c => ({ data: c, title: c.toUpperCase() })),
-        pageLength: 25,
-        scrollX: true,
-        footerCallback: function (row, data) {
-          if (!data.length) return;
-          const api = this.api();
-          let numCols = [7,8,9,10,11,12];
-          numCols.forEach(i => {
-            const total = api.column(i).data().reduce((a,b) => a + (parseFloat(b)||0), 0);
-            $(api.column(i).footer()).html(total.toLocaleString());
-          });
-        }
-      });
-      createFooter();
-    }
+  if (table) table.destroy();
 
-    function createFooter() {
-      const footer = document.querySelector("#erpTable tfoot");
-      footer.innerHTML = `<tr>${columns.map(()=>"<th></th>").join("")}</tr>`;
+  // Ensure table footer exists before initializing DataTables
+  let tableEl = document.getElementById("erpTable");
+  if (!tableEl.querySelector("tfoot")) {
+    const tfoot = document.createElement("tfoot");
+    tfoot.innerHTML = `<tr>${columns.map(() => "<th></th>").join("")}</tr>`;
+    tableEl.appendChild(tfoot);
+  }
+
+  table = $("#erpTable").DataTable({
+    data,
+    columns: columns.map(c => ({ data: c, title: c.toUpperCase() })),
+    pageLength: 25,
+    scrollX: true,
+    footerCallback: function (row, data) {
+      const api = this.api();
+      if (!data.length) return;
+
+      // Columns to sum
+      const numCols = [7, 8, 9, 10, 11, 12];
+      numCols.forEach(i => {
+        const total = api
+          .column(i, { page: "current" })
+          .data()
+          .reduce((a, b) => a + (parseFloat(b) || 0), 0);
+        $(api.column(i).footer()).html(total.toLocaleString());
+      });
     }
+  });
+}
+
+function createFooter() {
+  // This function is no longer needed separately,
+  // but keep a safe no-op for backward compatibility
+  const tableEl = document.getElementById("erpTable");
+  if (!tableEl.querySelector("tfoot")) {
+    const tfoot = document.createElement("tfoot");
+    tfoot.innerHTML = `<tr>${columns.map(() => "<th></th>").join("")}</tr>`;
+    tableEl.appendChild(tfoot);
+  }
+}
+
 
     const unique = (arr, key) =>
       [...new Set(arr.map(d => d[key]).filter(Boolean))]
