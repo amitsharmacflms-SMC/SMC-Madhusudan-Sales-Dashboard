@@ -4,178 +4,281 @@
   <meta charset="utf-8" />
   <title>🌈 Lighthouse ERP Dashboard</title>
 
+  <!-- jQuery + DataTables -->
   <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
   <link href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" rel="stylesheet" />
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
   <style>
-    body { font-family: 'Inter', sans-serif; background: #f5f6fa; margin:0; padding:20px; color:#1e293b; }
-    h1 { text-align:center; font-size:24px; background:linear-gradient(90deg,#2563eb,#9333ea);
-         -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:20px; font-weight:700;}
-    .dashboard-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05);margin-bottom:20px;}
-    .filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;}
-    .filter-group{background:linear-gradient(145deg,#2563eb,#1e40af);color:white;border-radius:10px;padding:10px;font-size:13px;}
-    .filter-group:nth-child(2n){background:linear-gradient(145deg,#0ea5e9,#0284c7);}
-    .filter-group:nth-child(3n){background:linear-gradient(145deg,#10b981,#059669);}
-    .filter-group h4{margin:0 0 4px 0;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.3);padding-bottom:2px;text-transform:uppercase;}
-    .filter-options{max-height:140px;overflow-y:auto;background:rgba(255,255,255,0.1);border-radius:6px;padding:4px;}
-    .filter-options label{display:block;cursor:pointer;margin:2px 0;}
-    .reset-btn{background:linear-gradient(90deg,#9333ea,#2563eb);border:none;color:white;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:600;}
-    .show-columns{text-align:center;margin:10px 0;}
-    table.dataTable{border-collapse:collapse;width:100%;font-weight:bold;table-layout:fixed;}
-    table.dataTable thead{background:linear-gradient(90deg,#2563eb,#9333ea);color:white;font-size:13px;}
-    table.dataTable td,table.dataTable th{border:1px solid #1e3a8a;text-align:center;padding:6px;word-wrap:break-word;}
-    table.dataTable tfoot th{background-color:#e0f2fe;color:#1e3a8a;font-weight:bold;}
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #eef2f3, #dfe9f3);
+      margin: 0;
+      padding: 20px;
+      color: #1e293b;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 26px;
+      background: linear-gradient(90deg, #2563eb, #9333ea);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 25px;
+      font-weight: 700;
+    }
+
+    .dashboard-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .filter-group {
+      background: linear-gradient(145deg, #2563eb, #1e40af);
+      color: white;
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      font-size: 13px;
+    }
+
+    .filter-group:nth-child(2n) { background: linear-gradient(145deg, #0ea5e9, #0284c7); }
+    .filter-group:nth-child(3n) { background: linear-gradient(145deg, #10b981, #059669); }
+
+    .filter-group h4 {
+      margin: 0 0 6px 0;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(255,255,255,0.3);
+      padding-bottom: 3px;
+      text-transform: uppercase;
+    }
+
+    .filter-options {
+      max-height: 140px;
+      overflow-y: auto;
+      background: rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 4px;
+    }
+
+    .filter-options label {
+      display: block;
+      cursor: pointer;
+      margin: 2px 0;
+    }
+
+    .reset-container {
+      text-align: center;
+      margin: 10px 0;
+    }
+
+    .reset-btn {
+      background: linear-gradient(90deg, #9333ea, #2563eb);
+      border: none;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    table.dataTable {
+      border-collapse: collapse;
+      width: 100%;
+      font-weight: bold;
+      table-layout: fixed;
+    }
+
+    table.dataTable thead {
+      background: linear-gradient(90deg, #2563eb, #9333ea);
+      color: white;
+      font-size: 13px;
+    }
+
+    table.dataTable td, table.dataTable th {
+      border: 1px solid #1e3a8a;
+      text-align: center;
+      padding: 6px;
+      word-wrap: break-word;
+    }
+
+    table.dataTable tfoot th {
+      background-color: #e0f2fe;
+      color: #1e3a8a;
+      font-weight: bold;
+    }
+
+    .show-columns {
+      text-align: center;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 
 <body>
-<h1>🌈 Lighthouse ERP Dashboard (Plant → Depot / Direct)</h1>
+  <h1>🌈 Lighthouse ERP Dashboard (Plant → Depot / Direct)</h1>
 
-<div class="dashboard-card">
-  <div style="text-align:center;margin-bottom:10px;">
-    <label>From:</label><input type="date" id="dateFrom">
-    <label>To:</label><input type="date" id="dateTo">
-    <button class="reset-btn" id="resetFilters">Reset</button>
+  <div class="dashboard-card">
+    <div style="text-align:center;">
+      <label>From:</label> <input type="date" id="dateFrom">
+      <label>To:</label> <input type="date" id="dateTo">
+      <button class="reset-btn" id="resetFilters">Reset Filters</button>
+    </div>
+
+    <div class="show-columns" id="showColumnsContainer"></div>
+    <div class="filters" id="filtersContainer"></div>
   </div>
 
-  <div class="show-columns" id="showColumnsContainer"></div>
-  <div class="filters" id="filtersContainer"></div>
-</div>
+  <table id="erpTable" class="display" style="width:100%">
+    <thead>
+      <tr>
+        <th>Invoice_Month</th>
+        <th>State</th>
+        <th>District</th>
+        <th>Category</th>
+        <th>Customer_Name</th>
+        <th>Item_Name</th>
+        <th>Bill_Amount</th>
+        <th>AQTYISSUED</th>
+      </tr>
+    </thead>
+    <tfoot><tr></tr></tfoot>
+  </table>
 
-<table id="erpTable" class="display" style="width:100%">
-  <thead>
-    <tr>
-      <th>Invoice_Month</th>
-      <th>State</th>
-      <th>District</th>
-      <th>Category</th>
-      <th>Customer_Name</th>
-      <th>Item_Name</th>
-      <th>Bill_Amount</th>
-      <th>AQTYISSUED</th>
-    </tr>
-  </thead>
-  <tfoot><tr></tr></tfoot>
-</table>
+  <script>
+    let fullData = [];
+    let table;
+    const columns = [
+      "invoice_month","state","district","category","customer_name","item_name","bill_amount","aqtyissued"
+    ];
+    const filters = ["invoice_month","state","district","category","customer_name","item_name"];
 
-<script>
-let fullData=[],table;
-const columns=["invoice_month","state","district","category","customer_name","item_name","bill_amount","aqtyissued"];
-const filtersUsed=["invoice_month","state","district","category","customer_name","item_name"];
+    const formatMonth = (d) => {
+      const date = new Date(d);
+      if (isNaN(date)) return "";
+      return `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+    };
 
-const formatDate=d=>{
-  const dt=new Date(d);
-  return isNaN(dt)?"":`${dt.toLocaleString('default',{month:'short'})} ${dt.getFullYear()}`;
-};
-
-async function loadData(){
-  const res=await axios.get("/get_data/lighthouse_sales");
-  fullData=res.data.filter(r=>r.invoice_date).map(r=>({
-    ...r,
-    invoice_month:formatDate(r.invoice_date)
-  }));
-  initTable(fullData);
-  buildFilters();
-  renderShowColumns();
-  setDefaultColumns();
-}
-
-function initTable(data){
-  if(table)table.destroy();
-  const tfoot=document.querySelector("#erpTable tfoot tr");
-  tfoot.innerHTML=columns.map(()=>"<th></th>").join("");
-  table=$("#erpTable").DataTable({
-    data,
-    columns:columns.map(c=>({data:c,title:c.toUpperCase()})),
-    pageLength:50,
-    scrollX:true,
-    footerCallback:function(row,data){
-      const api=this.api();
-      const totalBill=api.column(6).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
-      const totalQty=api.column(7).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
-      $(api.column(6).footer()).html(totalBill.toLocaleString());
-      $(api.column(7).footer()).html(totalQty.toLocaleString());
+    async function loadData() {
+      const res = await axios.get("/get_data/lighthouse_sales");
+      fullData = res.data.filter(r => r.invoice_date)
+        .map(r => ({
+          ...r,
+          invoice_month: formatMonth(r.invoice_date)
+        }));
+      initTable(groupAndAggregate(fullData));
+      buildFilters();
+      renderShowColumns();
+      setDefaultColumns();
     }
-  });
-}
 
-function buildFilters(){
-  const c=document.getElementById("filtersContainer");
-  c.innerHTML="";
-  filtersUsed.forEach(f=>{
-    const vals=[...new Set(fullData.map(r=>r[f]).filter(Boolean))].sort();
-    const div=document.createElement("div");
-    div.classList.add("filter-group");
-    div.innerHTML=`<h4>${f.replace(/_/g," ")}</h4>
-      <div class="filter-options" id="${f}Options">
-      ${vals.map(v=>`<label><input type="checkbox" value="${v}" onchange="applyFilters()"> ${v}</label>`).join("")}
-      </div>`;
-    c.appendChild(div);
-  });
-}
-
-function renderShowColumns(){
-  const c=document.getElementById("showColumnsContainer");
-  c.innerHTML=columns.map((col,i)=>
-    `<label><input type="checkbox" data-index="${i}" checked onchange="toggleColumn(this)"> ${col.toUpperCase()}</label>`
-  ).join(" ");
-}
-function toggleColumn(el){ table.column(el.dataset.index).visible(el.checked); }
-
-function groupAndAggregate(arr){
-  // group by invoice_month + visible filters combination
-  const map=new Map();
-  for(const row of arr){
-    const key=[row.invoice_month,row.state,row.district,row.category,row.customer_name,row.item_name].join("|");
-    if(!map.has(key)) map.set(key,{...row});
-    else{
-      const obj=map.get(key);
-      obj.bill_amount=Number(obj.bill_amount||0)+Number(row.bill_amount||0);
-      obj.aqtyissued=Number(obj.aqtyissued||0)+Number(row.aqtyissued||0);
+    function groupAndAggregate(data) {
+      const map = new Map();
+      data.forEach(r => {
+        const key = [r.invoice_month, r.state, r.district, r.category, r.customer_name, r.item_name].join("|");
+        if (!map.has(key)) {
+          map.set(key, {...r});
+        } else {
+          const obj = map.get(key);
+          obj.bill_amount = (Number(obj.bill_amount) || 0) + (Number(r.bill_amount) || 0);
+          obj.aqtyissued = (Number(obj.aqtyissued) || 0) + (Number(r.aqtyissued) || 0);
+        }
+      });
+      return Array.from(map.values());
     }
-  }
-  return Array.from(map.values());
-}
 
-function applyFilters(){
-  const from=document.getElementById("dateFrom").value;
-  const to=document.getElementById("dateTo").value;
-  let filtered=fullData.filter(r=>{
-    for(let f of filtersUsed){
-      const vals=[...document.querySelectorAll(`#${f}Options input:checked`)].map(i=>i.value);
-      if(vals.length && !vals.includes(r[f])) return false;
+    function initTable(data) {
+      if (table) table.destroy();
+      const tfoot = document.querySelector("#erpTable tfoot tr");
+      tfoot.innerHTML = columns.map(() => "<th></th>").join("");
+      table = $("#erpTable").DataTable({
+        data,
+        columns: columns.map(c => ({ data: c, title: c.toUpperCase() })),
+        order: [[0, "asc"]],
+        pageLength: 100,
+        scrollX: true,
+        footerCallback: function (row, data) {
+          const api = this.api();
+          const totalBill = api.column(6).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
+          const totalQty = api.column(7).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
+          $(api.column(6).footer()).html(totalBill.toLocaleString());
+          $(api.column(7).footer()).html(totalQty.toLocaleString());
+        }
+      });
     }
-    if(from && new Date(r.invoice_date)<new Date(from)) return false;
-    if(to && new Date(r.invoice_date)>new Date(to)) return false;
-    return true;
-  });
-  const grouped=groupAndAggregate(filtered);
-  table.clear().rows.add(grouped).draw();
-}
 
-function setDefaultColumns(){
-  table.columns().visible(false);
-  ["invoice_month","bill_amount","aqtyissued"].forEach(c=>table.column(columns.indexOf(c)).visible(true));
-  document.querySelectorAll("#showColumnsContainer input").forEach(i=>{
-    i.checked=["invoice_month","bill_amount","aqtyissued"].includes(columns[i.dataset.index]);
-  });
-}
+    function buildFilters() {
+      const container = document.getElementById("filtersContainer");
+      container.innerHTML = "";
+      filters.forEach(f => {
+        const uniqueVals = [...new Set(fullData.map(r => r[f]).filter(Boolean))].sort();
+        const div = document.createElement("div");
+        div.classList.add("filter-group");
+        div.innerHTML = `<h4>${f.replace(/_/g," ")}</h4>
+          <div class="filter-options" id="${f}Options">
+            ${uniqueVals.map(v=>`<label><input type="checkbox" value="${v}" onchange="applyFilters()"> ${v}</label>`).join("")}
+          </div>`;
+        container.appendChild(div);
+      });
+    }
 
-document.getElementById("resetFilters").addEventListener("click",()=>{
-  document.querySelectorAll(".filter-options input").forEach(i=>i.checked=false);
-  document.getElementById("dateFrom").value="";
-  document.getElementById("dateTo").value="";
-  const grouped=groupAndAggregate(fullData);
-  table.clear().rows.add(grouped).draw();
-  setDefaultColumns();
-});
+    function renderShowColumns() {
+      const c = document.getElementById("showColumnsContainer");
+      c.innerHTML = columns.map((col,i)=>
+        `<label><input type="checkbox" data-index="${i}" checked onchange="toggleColumn(this)"> ${col.toUpperCase()}</label>`
+      ).join(" ");
+    }
 
-document.getElementById("dateFrom").addEventListener("change",applyFilters);
-document.getElementById("dateTo").addEventListener("change",applyFilters);
+    function toggleColumn(el) {
+      table.column(el.dataset.index).visible(el.checked);
+    }
 
-loadData();
-</script>
+    function applyFilters() {
+      const from = document.getElementById("dateFrom").value;
+      const to = document.getElementById("dateTo").value;
+      let filtered = fullData.filter(r=>{
+        for(let f of filters){
+          const vals = [...document.querySelectorAll(`#${f}Options input:checked`)].map(i=>i.value);
+          if(vals.length && !vals.includes(r[f])) return false;
+        }
+        if(from && new Date(r.invoice_date) < new Date(from)) return false;
+        if(to && new Date(r.invoice_date) > new Date(to)) return false;
+        return true;
+      });
+      const grouped = groupAndAggregate(filtered);
+      table.clear().rows.add(grouped).draw();
+    }
+
+    function setDefaultColumns(){
+      table.columns().visible(false);
+      ["invoice_month","bill_amount","aqtyissued"].forEach(c=>table.column(columns.indexOf(c)).visible(true));
+      document.querySelectorAll("#showColumnsContainer input").forEach(i=>{
+        i.checked = ["invoice_month","bill_amount","aqtyissued"].includes(columns[i.dataset.index]);
+      });
+    }
+
+    document.getElementById("resetFilters").addEventListener("click",()=>{
+      document.querySelectorAll(".filter-options input").forEach(i=>i.checked=false);
+      document.getElementById("dateFrom").value="";
+      document.getElementById("dateTo").value="";
+      table.clear().rows.add(groupAndAggregate(fullData)).draw();
+      setDefaultColumns();
+    });
+
+    document.getElementById("dateFrom").addEventListener("change",applyFilters);
+    document.getElementById("dateTo").addEventListener("change",applyFilters);
+
+    loadData();
+  </script>
 </body>
 </html>
