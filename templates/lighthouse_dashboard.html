@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>🌈 ERP Dashboard</title>
+  <title>🌈 Lighthouse ERP Dashboard</title>
 
   <!-- jQuery + DataTables -->
   <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
@@ -43,7 +43,6 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 10px;
-      margin-top: 10px;
     }
 
     .filter-group {
@@ -57,7 +56,6 @@
 
     .filter-group:nth-child(2n) { background: linear-gradient(145deg, #0ea5e9, #0284c7); }
     .filter-group:nth-child(3n) { background: linear-gradient(145deg, #10b981, #059669); }
-    .filter-group:nth-child(4n) { background: linear-gradient(145deg, #8b5cf6, #7c3aed); }
 
     .filter-group h4 {
       margin: 0 0 6px 0;
@@ -83,7 +81,7 @@
 
     .reset-container {
       text-align: center;
-      margin-top: 10px;
+      margin: 10px 0;
     }
 
     .reset-btn {
@@ -96,7 +94,6 @@
       font-weight: 600;
     }
 
-    /* Table */
     table.dataTable {
       border-collapse: collapse;
       width: 100%;
@@ -128,6 +125,11 @@
       font-weight: bold;
       color: #312e81;
     }
+
+    .show-columns {
+      text-align: center;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 
@@ -141,6 +143,7 @@
       <button class="reset-btn" id="resetFilters">Reset Filters</button>
     </div>
 
+    <div class="show-columns" id="showColumnsContainer"></div>
     <div class="filters" id="filtersContainer"></div>
   </div>
 
@@ -154,12 +157,8 @@
         <th>Category</th>
         <th>Customer_Name</th>
         <th>Item_Name</th>
-        <th>Rate</th>
-        <th>Material_Amount</th>
         <th>Bill_Amount</th>
-        <th>Total_Tax_Value_GST</th>
         <th>AQTYISSUED</th>
-        <th>TCS_Amount</th>
       </tr>
     </thead>
     <tfoot><tr></tr></tfoot>
@@ -168,11 +167,9 @@
   <script>
     let fullData = [];
     let table;
-
     const columns = [
       "invoice_date","invoice_month","state","district","category",
-      "customer_name","item_name","rate","material_amount",
-      "bill_amount","total_tax_value_gst","aqtyissued","tcs_amount"
+      "customer_name","item_name","bill_amount","aqtyissued"
     ];
 
     const formatDate = (d) => {
@@ -197,14 +194,14 @@
         }));
       initTable(fullData);
       buildFilters(fullData);
+      renderShowColumns();
+      setDefaultColumns();
     }
 
     function initTable(data) {
       if (table) table.destroy();
-
       const tfoot = document.querySelector("#erpTable tfoot tr");
       tfoot.innerHTML = columns.map(() => "<th></th>").join("");
-
       table = $("#erpTable").DataTable({
         data,
         columns: columns.map(c => ({ data: c, title: c.toUpperCase() })),
@@ -214,68 +211,86 @@
         rowGroup: {
           dataSrc: "invoice_month",
           endRender: function(rows, group) {
-            const sums = {
-              bill: rows.data().pluck("bill_amount").reduce((a,b)=>a+Number(b||0),0),
-              qty: rows.data().pluck("aqtyissued").reduce((a,b)=>a+Number(b||0),0),
-              mat: rows.data().pluck("material_amount").reduce((a,b)=>a+Number(b||0),0)
-            };
+            const totalBill = rows.data().pluck("bill_amount").reduce((a,b)=>a+Number(b||0),0);
+            const totalQty = rows.data().pluck("aqtyissued").reduce((a,b)=>a+Number(b||0),0);
             return $('<tr/>')
               .addClass('subtotal-row')
               .append(`<td colspan="7" style="text-align:right;">Subtotal for ${group}</td>`)
-              .append(`<td>${sums.mat.toLocaleString()}</td>`)
-              .append(`<td>${sums.bill.toLocaleString()}</td>`)
-              .append(`<td></td>`)
-              .append(`<td>${sums.qty.toLocaleString()}</td>`)
-              .append(`<td></td>`);
+              .append(`<td>${totalBill.toLocaleString()}</td>`)
+              .append(`<td>${totalQty.toLocaleString()}</td>`);
           }
         },
         footerCallback: function (row, data) {
           const api = this.api();
-          const numCols = [7,8,9,10,11,12];
-          numCols.forEach(i => {
-            const total = api.column(i).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
-            $(api.column(i).footer()).html(total.toLocaleString());
-          });
+          const totalBill = api.column(7).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
+          const totalQty = api.column(8).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
+          $(api.column(7).footer()).html(totalBill.toLocaleString());
+          $(api.column(8).footer()).html(totalQty.toLocaleString());
         }
       });
     }
 
     function buildFilters() {
+      const filters = ["invoice_month","state","district","category","customer_name","item_name"];
       const container = document.getElementById("filtersContainer");
       container.innerHTML = "";
-      columns.forEach(c => {
-        const uniqueVals = [...new Set(fullData.map(r => r[c]).filter(Boolean))].sort();
+      filters.forEach(f => {
+        const uniqueVals = [...new Set(fullData.map(r => r[f]).filter(Boolean))].sort();
         const div = document.createElement("div");
         div.classList.add("filter-group");
-        div.innerHTML = `<h4>${c.replace(/_/g," ")}</h4>
-          <div class="filter-options" id="${c}Options">
+        div.innerHTML = `<h4>${f.replace(/_/g," ")}</h4>
+          <div class="filter-options" id="${f}Options">
             ${uniqueVals.map(v=>`<label><input type="checkbox" value="${v}" onchange="applyFilters()"> ${v}</label>`).join("")}
           </div>`;
         container.appendChild(div);
       });
     }
 
+    function renderShowColumns() {
+      const c = document.getElementById("showColumnsContainer");
+      c.innerHTML = columns.map((col,i)=>
+        `<label><input type="checkbox" data-index="${i}" checked onchange="toggleColumn(this)"> ${col.toUpperCase()}</label>`
+      ).join(" ");
+    }
+
+    function toggleColumn(el){
+      table.column(el.dataset.index).visible(el.checked);
+    }
+
     function applyFilters() {
       const from = document.getElementById("dateFrom").value;
       const to = document.getElementById("dateTo").value;
       let filtered = fullData.filter(r=>{
-        for (let c of columns) {
-          const checked = [...document.querySelectorAll(`#${c}Options input:checked`)].map(i=>i.value);
-          if (checked.length && !checked.includes(r[c])) return false;
+        const checks = ["invoice_month","state","district","category","customer_name","item_name"];
+        for(let f of checks){
+          const vals = [...document.querySelectorAll(`#${f}Options input:checked`)].map(i=>i.value);
+          if(vals.length && !vals.includes(r[f])) return false;
         }
-        if (from && new Date(r.invoice_date) < new Date(from)) return false;
-        if (to && new Date(r.invoice_date) > new Date(to)) return false;
+        if(from && new Date(r.invoice_date) < new Date(from)) return false;
+        if(to && new Date(r.invoice_date) > new Date(to)) return false;
         return true;
       });
       table.clear().rows.add(filtered).draw();
     }
 
-    document.getElementById("resetFilters").addEventListener("click", ()=>{
+    function setDefaultColumns(){
+      table.columns().visible(false);
+      ["invoice_date","invoice_month","bill_amount","aqtyissued"].forEach(c=>table.column(columns.indexOf(c)).visible(true));
+      document.querySelectorAll("#showColumnsContainer input").forEach(i=>{
+        i.checked = ["invoice_date","invoice_month","bill_amount","aqtyissued"].includes(columns[i.dataset.index]);
+      });
+    }
+
+    document.getElementById("resetFilters").addEventListener("click",()=>{
       document.querySelectorAll(".filter-options input").forEach(i=>i.checked=false);
       document.getElementById("dateFrom").value="";
       document.getElementById("dateTo").value="";
       table.clear().rows.add(fullData).draw();
+      setDefaultColumns();
     });
+
+    document.getElementById("dateFrom").addEventListener("change",applyFilters);
+    document.getElementById("dateTo").addEventListener("change",applyFilters);
 
     loadData();
   </script>
