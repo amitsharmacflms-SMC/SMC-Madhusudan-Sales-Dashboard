@@ -183,19 +183,43 @@
     }
 
     function groupAndAggregate(data) {
-      const map = new Map();
-      data.forEach(r => {
-        const key = [r.invoice_month, r.state, r.district, r.category, r.customer_name, r.item_name].join("|");
-        if (!map.has(key)) {
-          map.set(key, {...r});
-        } else {
-          const obj = map.get(key);
-          obj.bill_amount = (Number(obj.bill_amount) || 0) + (Number(r.bill_amount) || 0);
-          obj.aqtyissued = (Number(obj.aqtyissued) || 0) + (Number(r.aqtyissued) || 0);
-        }
+  const map = new Map();
+  data.forEach(r => {
+    const key = [r.invoice_month, r.state, r.district, r.category, r.customer_name, r.item_name].join("|");
+    if (!map.has(key)) {
+      // start new group
+      map.set(key, {
+        ...r,
+        bill_amount: Number(r.bill_amount) || 0,
+        aqtyissued: Number(r.aqtyissued) || 0,
+        first_invoice_date: r.invoice_date,
+        last_invoice_date: r.invoice_date
       });
-      return Array.from(map.values());
+    } else {
+      const obj = map.get(key);
+      obj.bill_amount += Number(r.bill_amount) || 0;
+      obj.aqtyissued += Number(r.aqtyissued) || 0;
+
+      // keep earliest and latest date for reference
+      const current = new Date(r.invoice_date);
+      const first = new Date(obj.first_invoice_date);
+      const last = new Date(obj.last_invoice_date);
+      if (current < first) obj.first_invoice_date = r.invoice_date;
+      if (current > last) obj.last_invoice_date = r.invoice_date;
     }
+  });
+
+  // Format a clear representative date label for display
+  const result = Array.from(map.values()).map(r => ({
+    ...r,
+    invoice_date: r.first_invoice_date === r.last_invoice_date
+      ? r.first_invoice_date
+      : `${r.first_invoice_date} → ${r.last_invoice_date}`
+  }));
+
+  return result;
+}
+
 
     function initTable(data) {
       if (table) table.destroy();
