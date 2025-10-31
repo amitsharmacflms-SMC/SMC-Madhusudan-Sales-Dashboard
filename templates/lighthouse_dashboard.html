@@ -2,432 +2,328 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Lighthouse ERP Dashboard</title>
+  <title>🌈 Lighthouse ERP Dashboard</title>
 
-  <!-- jQuery first -->
+  <!-- jQuery + DataTables -->
   <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-
-  <!-- DataTables -->
   <link href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" rel="stylesheet" />
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
 
   <!-- Axios -->
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
-  <!-- Optional: Font + icons (matches dashboard.html feel) -->
-  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:#f5f7fb; margin: 16px; }
-    h1 { font-size: 20px; margin-bottom: 12px; }
-    .panel { background:white; border-radius:8px; padding:12px; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
-    .filters { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; margin-bottom:10px; }
-    .filter-group { background:#fff; border-radius:6px; padding:8px; min-width:210px; max-height:220px; overflow:auto; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
-    .filter-group h4 { margin:0 0 6px 0; font-size:13px; }
-    .filter-options { display:flex; flex-direction:column; gap:6px; font-size:13px; }
-    .row-controls { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-    .date-range { display:flex; gap:8px; align-items:center; }
-    #erpTable { width:100%; margin-top:12px; border-radius:6px; overflow:auto; background: white; }
-    .small { font-size:12px; color:#333; }
-    .chip { display:inline-block; padding:6px 8px; border-radius:6px; background:#f0f4ff; font-size:12px; margin-right:6px; }
-    .checkbox-inline { display:flex; align-items:center; gap:6px; }
-    .controls-top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px; }
-    .col-checkboxes { display:flex; gap:8px; flex-wrap:wrap; max-width:700px; }
-    .apply-btn { padding:6px 10px; background:#2563eb; color:white; border-radius:6px; border:none; cursor:pointer; }
-    .reset-btn { padding:6px 10px; background:#e5e7eb; color:#111827; border-radius:6px; border:none; cursor:pointer; }
-    /* make checkboxes scrollable area consistent */
-    .filter-group { max-height:200px; min-width:180px; overflow:auto; padding-right:8px; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #eef2f3, #dfe9f3);
+      margin: 0; padding: 20px;
+      color: #1e293b;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      background: linear-gradient(90deg, #2563eb, #9333ea);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 20px;
+    }
+
+    .dashboard-card {
+      background: rgba(255,255,255,0.95);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      backdrop-filter: blur(8px);
+      margin-bottom: 20px;
+      transition: transform 0.2s ease, box-shadow 0.3s ease;
+    }
+    .dashboard-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(0,0,0,0.08);
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+    }
+
+    .filter-group {
+      flex: 1 1 220px;
+      background: linear-gradient(145deg, #3b82f6, #2563eb);
+      color: white;
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.2), 0 3px 8px rgba(0,0,0,0.15);
+    }
+
+    .filter-group:nth-child(2n) {
+      background: linear-gradient(145deg, #10b981, #059669);
+    }
+    .filter-group:nth-child(3n) {
+      background: linear-gradient(145deg, #f59e0b, #d97706);
+    }
+    .filter-group:nth-child(4n) {
+      background: linear-gradient(145deg, #8b5cf6, #7c3aed);
+    }
+
+    .filter-group h4 {
+      margin-top: 0;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.3);
+      padding-bottom: 4px;
+    }
+
+    .filter-options {
+      max-height: 160px;
+      overflow-y: auto;
+      padding-right: 4px;
+      scrollbar-width: thin;
+    }
+
+    .filter-options label {
+      display: flex;
+      align-items: center;
+      font-size: 13px;
+      cursor: pointer;
+      gap: 6px;
+    }
+
+    .filter-options input[type="checkbox"] {
+      accent-color: #2563eb;
+      cursor: pointer;
+    }
+
+    .filter-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 15px 0;
+    }
+
+    .filter-actions button {
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      color: white;
+      transition: transform 0.15s;
+    }
+    .apply-btn { background: linear-gradient(90deg,#2563eb,#9333ea); }
+    .reset-btn { background: linear-gradient(90deg,#f59e0b,#d97706); }
+    .filter-actions button:hover { transform: scale(1.05); }
+
+    #erpTable_wrapper {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+    }
+
+    table.dataTable {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      border: none;
+    }
+
+    table.dataTable thead {
+      background: linear-gradient(90deg,#2563eb,#9333ea);
+      color: white;
+    }
+
+    table.dataTable tbody tr:nth-child(odd) {
+      background-color: #f9fafb;
+    }
+    table.dataTable tbody tr:hover {
+      background-color: #e0f2fe;
+      cursor: pointer;
+    }
+
+    .date-range {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    input[type="date"] {
+      border: 1px solid #cbd5e1;
+      padding: 4px 6px;
+      border-radius: 6px;
+    }
+
+    #showColumnsContainer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+      justify-content: center;
+    }
+
+    .col-toggle {
+      accent-color: #9333ea;
+    }
   </style>
 </head>
+
 <body>
-  <h1>📊 Lighthouse ERP — Sales (Plant → Depot / Direct)</h1>
+  <h1>🌈 Lighthouse ERP Dashboard (Plant ➜ Depot / Direct)</h1>
 
-  <div class="panel">
-    <div class="controls-top">
-      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-        <div>
-          <strong class="small">Show Columns</strong>
-          <div class="col-checkboxes" id="showColumnsContainer">
-            <!-- checkboxes inserted by JS -->
-          </div>
-        </div>
-
-        <div>
-          <strong class="small">Invoice Date</strong>
-          <div class="date-range" style="margin-top:6px;">
-            <label class="small">From</label>
-            <input type="date" id="dateFrom" />
-            <label class="small">To</label>
-            <input type="date" id="dateTo" />
-            <button class="apply-btn" id="applyDateRange">Apply</button>
-            <button class="reset-btn" id="resetDateRange">Reset</button>
-          </div>
-        </div>
-      </div>
-
-      <div style="display:flex; gap:12px; align-items:center;">
-        <div class="small">Quick filters (select & apply)</div>
-        <button class="apply-btn" id="applyAllFilters">Apply Filters</button>
-        <button class="reset-btn" id="resetAll">Reset All</button>
-      </div>
+  <div class="dashboard-card">
+    <div class="filter-actions">
+      <button class="apply-btn" id="applyAllFilters">Apply Filters</button>
+      <button class="reset-btn" id="resetAll">Reset All</button>
     </div>
+
+    <div class="date-range">
+      <label>From:</label><input type="date" id="dateFrom">
+      <label>To:</label><input type="date" id="dateTo">
+    </div>
+
+    <div id="showColumnsContainer"></div>
 
     <div class="filters">
-      <!-- Filter groups: State -> District -> Category -> Customer -> Item -> Dates -->
-      <div class="filter-group">
-        <h4>State</h4>
-        <div id="stateOptions" class="filter-options"></div>
-      </div>
-
-      <div class="filter-group">
-        <h4>District</h4>
-        <div id="districtOptions" class="filter-options"></div>
-      </div>
-
-      <div class="filter-group">
-        <h4>Category</h4>
-        <div id="categoryOptions" class="filter-options"></div>
-      </div>
-
-      <div class="filter-group">
-        <h4>Customer</h4>
-        <div id="customerOptions" class="filter-options"></div>
-      </div>
-
-      <div class="filter-group">
-        <h4>Item</h4>
-        <div id="itemOptions" class="filter-options"></div>
-      </div>
-
-      <div class="filter-group" style="min-width:260px;">
-        <h4>Invoice Dates</h4>
-        <div id="dateCheckboxes" class="filter-options"></div>
-      </div>
+      <div class="filter-group"><h4>State</h4><div id="stateOptions" class="filter-options"></div></div>
+      <div class="filter-group"><h4>District</h4><div id="districtOptions" class="filter-options"></div></div>
+      <div class="filter-group"><h4>Category</h4><div id="categoryOptions" class="filter-options"></div></div>
+      <div class="filter-group"><h4>Customer</h4><div id="customerOptions" class="filter-options"></div></div>
+      <div class="filter-group"><h4>Item</h4><div id="itemOptions" class="filter-options"></div></div>
+      <div class="filter-group"><h4>Invoice Dates</h4><div id="dateCheckboxes" class="filter-options"></div></div>
     </div>
+  </div>
 
-    <table id="erpTable" class="display">
-      <thead>
-        <tr>
-          <th>Invoice_Date</th>
-          <th>State</th>
-          <th>District</th>
-          <th>Category</th>
-          <th>Customer_Name</th>
-          <th>Item_Name</th>
-          <th>Rate</th>
-          <th>Material_Amount</th>
-          <th>Bill_Amount</th>
-          <th>Total_Tax_Value_GST</th>
-          <th>AQTYISSUED</th>
-          <th>TCS_Amount</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-  </div> <!-- panel -->
+  <table id="erpTable" class="display">
+    <thead>
+      <tr>
+        <th>Invoice_Date</th>
+        <th>State</th>
+        <th>District</th>
+        <th>Category</th>
+        <th>Customer_Name</th>
+        <th>Item_Name</th>
+        <th>Rate</th>
+        <th>Material_Amount</th>
+        <th>Bill_Amount</th>
+        <th>Total_Tax_Value_GST</th>
+        <th>AQTYISSUED</th>
+        <th>TCS_Amount</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
   <script>
-    // Column order & keys (must match DB / get_data output)
     const columns = [
-      { key: "invoice_date", title: "Invoice_Date" },
-      { key: "state", title: "State" },
-      { key: "district", title: "District" },
-      { key: "category", title: "Category" },
-      { key: "customer_name", title: "Customer_Name" },
-      { key: "item_name", title: "Item_Name" },
-      { key: "rate", title: "Rate" },
-      { key: "material_amount", title: "Material_Amount" },
-      { key: "bill_amount", title: "Bill_Amount" },
-      { key: "total_tax_value_gst", title: "Total_Tax_Value_GST" },
-      { key: "aqtyissued", title: "AQTYISSUED" },
-      { key: "tcs_amount", title: "TCS_Amount" }
+      "invoice_date","state","district","category","customer_name","item_name",
+      "rate","material_amount","bill_amount","total_tax_value_gst","aqtyissued","tcs_amount"
     ];
+    let fullData = [];
+    let table;
 
-    let fullData = [];         // raw data from server
-    let table = null;          // DataTable instance
-
-    // Utility: normalize date -> YYYY-MM-DD (for <input type=date>) and display as DDMMYYYY
-    function toIsoDate(d) {
+    const formatDate = (d) => {
       if (!d) return "";
       const dt = new Date(d);
-      if (isNaN(dt)) return "";
-      const yyyy = dt.getFullYear();
-      const mm = String(dt.getMonth() + 1).padStart(2, "0");
-      const dd = String(dt.getDate()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd}`;
-    }
-    function toDisplayDDMMYYYY(d) {
-      if (!d) return "";
-      const dt = new Date(d);
-      if (isNaN(dt)) return "";
-      const yyyy = dt.getFullYear();
-      const mm = String(dt.getMonth() + 1).padStart(2, "0");
-      const dd = String(dt.getDate()).padStart(2, "0");
-      return `${dd}${mm}${yyyy}`; // DDMMYYYY without separators as requested
-    }
+      if (isNaN(dt)) return d;
+      return dt.getDate().toString().padStart(2,'0') +
+             (dt.getMonth()+1).toString().padStart(2,'0') +
+             dt.getFullYear();
+    };
 
-    // Load data from server
     async function loadData() {
-      try {
-        const res = await axios.get("/get_data/lighthouse_sales");
-        fullData = (res.data || []).map(r => {
-          // Ensure keys exist
-          const obj = {};
-          for (const c of columns) {
-            obj[c.key] = r[c.key] ?? null;
-          }
-          // invoice_date normalized
-          obj.invoice_date_raw = obj.invoice_date; // keep raw
-          // convert to ISO (if already string parseable)
-          obj.invoice_date = toIsoDate(obj.invoice_date_raw) || "";
-          obj.invoice_date_display = toDisplayDDMMYYYY(obj.invoice_date_raw);
-
-          return obj;
-        });
-        buildFilterLists();
-        initTable();
-      } catch (err) {
-        console.error("Failed to load data:", err);
-        alert("Failed to load ERP data. Make sure 'lighthouse_sales' table exists and /get_data/lighthouse_sales returns records.");
-      }
+      const res = await axios.get("/get_data/lighthouse_sales");
+      fullData = res.data.map(r => ({...r, invoice_date_display: formatDate(r.invoice_date)}));
+      initTable();
+      buildFilters();
     }
 
-    // Initialize DataTable with columns mapped to keys (object data source)
     function initTable() {
-      // Destroy existing table, if any
-      if (table) {
-        table.destroy();
-        $("#erpTable tbody").empty();
-      }
-
-      // DataTables columns config:
-      const dtCols = columns.map((c, idx) => {
-        // use invoice_date_display for invoice_date
-        const dataKey = c.key === "invoice_date" ? "invoice_date_display" : c.key;
-        return { data: dataKey, title: c.title };
-      });
-
+      if (table) table.destroy();
       table = $("#erpTable").DataTable({
         data: fullData,
-        columns: dtCols,
+        columns: columns.map(c => ({ data: c === "invoice_date" ? "invoice_date_display" : c, title: c })),
         pageLength: 25,
-        scrollX: true,
-        autoWidth: false,
-        order: [[0, "desc"]],
-        // avoid automatic type conversions that may break numeric display
-        columnDefs: [
-          { targets: [6,7,8,9,10,11], render: $.fn.dataTable.render.number(',', '.', 2, '') } // numeric columns formatting
-        ]
+        scrollX: true
       });
-
-      // Initially all columns visible by default
-      renderShowColumnsCheckboxes();
+      renderShowColumns();
     }
 
-    // Build unique lists and populate checkbox groups
-    function buildFilterLists() {
-      const unique = (key) => [...new Set(fullData.map(d => d[key]).filter(Boolean))].sort();
-      const states = unique("state");
-      const districts = unique("district");
-      const categories = unique("category");
-      const customers = unique("customer_name");
-      const items = unique("item_name");
-      const dates = [...new Set(fullData.map(d => d.invoice_date).filter(Boolean))].sort().reverse();
-
-      fillCheckboxGroup("stateOptions", states, "state");
-      fillCheckboxGroup("districtOptions", districts, "district");
-      fillCheckboxGroup("categoryOptions", categories, "category");
-      fillCheckboxGroup("customerOptions", customers, "customer");
-      fillCheckboxGroup("itemOptions", items, "item");
-      fillCheckboxGroup("dateCheckboxes", dates, "date", true); // dates show with DDMMYYYY and use ISO value
-    }
-
-    function fillCheckboxGroup(containerId, list, prefix, isDate=false) {
-      const container = document.getElementById(containerId);
-      container.innerHTML = "";
-      if (!list || list.length === 0) {
-        container.innerHTML = "<div class='small'>No values</div>";
-        return;
-      }
-      list.forEach(v => {
-        const val = isDate ? v : v;
-        const label = isDate ? toDisplayDDMMYYYY(v) : v;
-        const el = document.createElement("label");
-        el.className = "checkbox-inline";
-        el.innerHTML = `<input type="checkbox" data-type="${prefix}" value="${val}"> <span class="small">${label}</span>`;
-        container.appendChild(el);
+    function renderShowColumns() {
+      const cont = document.getElementById("showColumnsContainer");
+      cont.innerHTML = "";
+      columns.forEach((col, i) => {
+        const label = document.createElement("label");
+        label.innerHTML = `<input type="checkbox" class="col-toggle" data-index="${i}" checked> ${col}`;
+        cont.appendChild(label);
       });
-
-      // add quick select all / none toggles at top
-      const top = document.createElement("div");
-      top.style.marginBottom = "6px";
-      top.innerHTML = `<a href="#" class="small select-all" data-target="${containerId}">Select All</a> · <a href="#" class="small deselect-all" data-target="${containerId}">Clear</a>`;
-      container.prepend(top);
-    }
-
-    // Render Show Columns checkboxes (order preserved)
-    function renderShowColumnsCheckboxes() {
-      const ctn = document.getElementById("showColumnsContainer");
-      ctn.innerHTML = "";
-      columns.forEach((c, idx) => {
-        const lb = document.createElement("label");
-        lb.className = "checkbox-inline";
-        lb.style.marginRight = "6px";
-        lb.innerHTML = `<input type="checkbox" class="col-toggle" data-index="${idx}" value="${c.key}" checked> <span class="small">${c.title}</span>`;
-        ctn.appendChild(lb);
-      });
-
-      // attach change handler
-      document.querySelectorAll(".col-toggle").forEach(cb => {
-        cb.addEventListener("change", (ev) => {
-          const idx = parseInt(ev.target.dataset.index, 10);
-          const show = ev.target.checked;
-          table.column(idx).visible(show, false); // defer draw until end
-          table.draw(false);
+      document.querySelectorAll(".col-toggle").forEach(c => {
+        c.addEventListener("change", e => {
+          table.column(e.target.dataset.index).visible(e.target.checked);
         });
       });
     }
 
-    // Helpers to get selected values from checkboxes
-    function selectedValues(prefix) {
-      const sel = [];
-      document.querySelectorAll(`input[type=checkbox][data-type='${prefix}']:checked`).forEach(i => sel.push(i.value));
-      return sel;
+    function buildFilters() {
+      const unique = (key) => [...new Set(fullData.map(d => d[key]).filter(Boolean))].sort();
+      fillFilter("stateOptions", unique("state"));
+      fillFilter("districtOptions", unique("district"));
+      fillFilter("categoryOptions", unique("category"));
+      fillFilter("customerOptions", unique("customer_name"));
+      fillFilter("itemOptions", unique("item_name"));
+      fillFilter("dateCheckboxes", unique("invoice_date"), true);
     }
 
-    // Apply filters (reads all checkbox groups + date range)
-    function applyFilters() {
-      const states = selectedValues("state");
-      const districts = selectedValues("district");
-      const categories = selectedValues("category");
-      const customers = selectedValues("customer");
-      const items = selectedValues("item");
-      const dates = selectedValues("date"); // ISO date strings
+    function fillFilter(id, list, isDate=false) {
+      const container = document.getElementById(id);
+      container.innerHTML = list.map(v =>
+        `<label><input type="checkbox" data-type="${id}" value="${v}"> ${isDate ? formatDate(v) : v}</label>`
+      ).join("");
+    }
 
-      // date range inputs
-      const dateFrom = document.getElementById("dateFrom").value; // yyyy-mm-dd
-      const dateTo = document.getElementById("dateTo").value;
+    document.getElementById("applyAllFilters").addEventListener("click", () => {
+      const state = checked("stateOptions");
+      const district = checked("districtOptions");
+      const cat = checked("categoryOptions");
+      const cust = checked("customerOptions");
+      const item = checked("itemOptions");
+      const dateC = checked("dateCheckboxes");
+      const from = document.getElementById("dateFrom").value;
+      const to = document.getElementById("dateTo").value;
 
       let filtered = fullData.filter(r => {
-        if (states.length && !states.includes(r.state)) return false;
-        if (districts.length && !districts.includes(r.district)) return false;
-        if (categories.length && !categories.includes(r.category)) return false;
-        if (customers.length && !customers.includes(r.customer_name)) return false;
-        if (items.length && !items.includes(r.item_name)) return false;
-        if (dates.length && !dates.includes(r.invoice_date)) return false;
-
-        // date range filter if set
-        if (dateFrom) {
-          if (!r.invoice_date) return false;
-          if (r.invoice_date < dateFrom) return false;
-        }
-        if (dateTo) {
-          if (!r.invoice_date) return false;
-          if (r.invoice_date > dateTo) return false;
-        }
+        if (state.length && !state.includes(r.state)) return false;
+        if (district.length && !district.includes(r.district)) return false;
+        if (cat.length && !cat.includes(r.category)) return false;
+        if (cust.length && !cust.includes(r.customer_name)) return false;
+        if (item.length && !item.includes(r.item_name)) return false;
+        if (dateC.length && !dateC.includes(r.invoice_date)) return false;
+        if (from && new Date(r.invoice_date) < new Date(from)) return false;
+        if (to && new Date(r.invoice_date) > new Date(to)) return false;
         return true;
       });
 
-      // Update table data
-      table.clear();
-      table.rows.add(filtered);
-      table.draw();
-      // cascade: rebuild dependent lists based on filtered set
-      // (update district/category/customer/item lists to reflect available values)
-      cascadeFilterOptions(filtered);
-    }
-
-    // When filters applied, update downstream options (cascading)
-    function cascadeFilterOptions(currentData) {
-      const unique = (arr, key) => [...new Set(arr.map(d => d[key]).filter(Boolean))].sort();
-      const districts = unique(currentData, "district");
-      const categories = unique(currentData, "category");
-      const customers = unique(currentData, "customer_name");
-      const items = unique(currentData, "item_name");
-      // redraw those groups but preserve checked values where still present
-      refreshGroupPreserving("districtOptions", districts, "district");
-      refreshGroupPreserving("categoryOptions", categories, "category");
-      refreshGroupPreserving("customerOptions", customers, "customer");
-      refreshGroupPreserving("itemOptions", items, "item");
-    }
-
-    function refreshGroupPreserving(containerId, newList, prefix) {
-      const container = document.getElementById(containerId);
-      const checked = Array.from(container.querySelectorAll("input[type=checkbox]:checked")).map(i => i.value);
-      fillCheckboxGroup(containerId, newList, prefix, prefix==="date" ? true : false);
-      // re-check those that still exist
-      container.querySelectorAll("input[type=checkbox]").forEach(inp => {
-        if (checked.includes(inp.value)) inp.checked = true;
-      });
-      // reattach handlers for select-all/deselect
-      attachSelectAllHandlers();
-    }
-
-    // select all / clear links handler
-    function attachSelectAllHandlers() {
-      document.querySelectorAll(".select-all").forEach(a => {
-        a.onclick = function(e) {
-          e.preventDefault();
-          const tgt = document.getElementById(this.dataset.target);
-          tgt.querySelectorAll("input[type=checkbox]").forEach(i => { if (!i.dataset.type) return; if (i.dataset.type) i.checked = true; });
-        };
-      });
-      document.querySelectorAll(".deselect-all").forEach(a => {
-        a.onclick = function(e) {
-          e.preventDefault();
-          const tgt = document.getElementById(this.dataset.target);
-          tgt.querySelectorAll("input[type=checkbox]").forEach(i => { if (!i.dataset.type) return; if (i.dataset.type) i.checked = false; });
-        };
-      });
-    }
-
-    // Wire up top buttons
-    document.addEventListener("click", function(e) {
-      if (e.target && e.target.id === "applyAllFilters") {
-        applyFilters();
-      } else if (e.target && e.target.id === "resetAll") {
-        // clear all boxes and date range
-        document.querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = false);
-        document.getElementById("dateFrom").value = "";
-        document.getElementById("dateTo").value = "";
-        table.clear(); table.rows.add(fullData); table.draw();
-        buildFilterLists(); // repopulate
-      } else if (e.target && e.target.id === "applyDateRange") {
-        applyFilters();
-      } else if (e.target && e.target.id === "resetDateRange") {
-        document.getElementById("dateFrom").value = "";
-        document.getElementById("dateTo").value = "";
-        applyFilters();
-      }
+      table.clear().rows.add(filtered).draw();
     });
 
-    // Attach select-all handlers after initial build
-    function attachCheckboxChangeHandlers() {
-      // When user toggles any filter checkbox, do not automatically re-run filter.
-      // They can choose multiple and then click "Apply Filters". But we will allow per-date to auto-apply.
-      document.querySelectorAll("#dateCheckboxes input[type=checkbox]").forEach(cb => {
-        cb.addEventListener("change", () => applyFilters());
-      });
-      attachSelectAllHandlers();
-    }
-
-    // Once showColumns checkboxes created, that handler established in renderShowColumnsCheckboxes
-
-    // Init: load data and hook handlers
-    (async function init() {
-      await loadData();
-      // after initial DOM build attach handlers for select-all etc.
-      attachCheckboxChangeHandlers();
-    })();
-
-    // Ensure select-all links and checkbox clicks function
-    document.addEventListener("change", function(e) {
-      if (e.target && e.target.matches(".filter-options input[type=checkbox]")) {
-        // nothing here: explicit apply happens with button except dates
-      }
+    document.getElementById("resetAll").addEventListener("click", () => {
+      document.querySelectorAll("input[type=checkbox]").forEach(c => c.checked = false);
+      document.getElementById("dateFrom").value = "";
+      document.getElementById("dateTo").value = "";
+      table.clear().rows.add(fullData).draw();
     });
 
+    const checked = (id) => [...document.querySelectorAll(`#${id} input:checked`)].map(i => i.value);
+
+    loadData();
   </script>
 </body>
 </html>
