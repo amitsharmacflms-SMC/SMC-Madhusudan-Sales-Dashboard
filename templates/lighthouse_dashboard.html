@@ -2,15 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>🌈 ERP Dashboard</title>
+  <title>🌈 Lighthouse ERP Dashboard</title>
 
   <!-- jQuery + DataTables -->
   <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
   <link href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" rel="stylesheet" />
+  <link href="https://cdn.datatables.net/rowgroup/1.3.1/css/rowGroup.dataTables.min.css" rel="stylesheet" />
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.datatables.net/rowgroup/1.3.1/js/dataTables.rowGroup.min.js"></script>
-
-  <!-- Axios -->
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
   <style>
@@ -33,7 +32,7 @@
     }
 
     .dashboard-card {
-      background: rgba(255,255,255,0.98);
+      background: #fff;
       border-radius: 12px;
       padding: 16px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.05);
@@ -48,7 +47,7 @@
     }
 
     .filter-group {
-      flex: 1 1 200px;
+      flex: 1 1 180px;
       background: linear-gradient(145deg, #2563eb, #1e40af);
       color: white;
       border-radius: 10px;
@@ -106,45 +105,26 @@
       text-align: center;
     }
 
-    table.dataTable tfoot {
+    table.dataTable tfoot th {
+      background-color: #e0f2fe;
+      color: #1e3a8a;
       font-weight: bold;
-      background-color: #f8fafc;
     }
 
-    table.dataTable tbody tr:hover {
-      background-color: #dbeafe;
-      cursor: pointer;
-    }
-
-    #showColumnsContainer {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      margin-bottom: 10px;
-    }
-
-    #showColumnsContainer label {
-      font-weight: 500;
-      background: #f3e8ff;
-      padding: 6px 10px;
-      border-radius: 6px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .date-range {
+    .date-range, .reset-container {
       text-align: center;
       margin-bottom: 10px;
     }
-    table.dataTable tfoot th {
-      background-color: #e0f2fe;
-      font-weight: 700;
-      color: #1e3a8a;
-}
 
-
-
-
+    .reset-btn {
+      background: linear-gradient(90deg, #9333ea, #2563eb);
+      border: none;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
   </style>
 </head>
 
@@ -159,7 +139,9 @@
       <input type="date" id="dateTo">
     </div>
 
-    <div id="showColumnsContainer"></div>
+    <div class="reset-container">
+      <button class="reset-btn" id="resetFilters">Reset Filters</button>
+    </div>
 
     <div class="filters">
       <div class="filter-group"><h4>Invoice Month</h4><div id="invoiceMonthOptions" class="filter-options"></div></div>
@@ -189,18 +171,15 @@
         <th>TCS_Amount</th>
       </tr>
     </thead>
-    <tbody></tbody>
-    <tfoot></tfoot>
+    <tfoot><tr></tr></tfoot>
   </table>
 
   <script>
     let fullData = [];
     let table;
-
     const columns = [
-      "invoice_date","invoice_month","state","district","category",
-      "customer_name","item_name","rate","material_amount","bill_amount",
-      "total_tax_value_gst","aqtyissued","tcs_amount"
+      "invoice_date","invoice_month","state","district","category","customer_name",
+      "item_name","rate","material_amount","bill_amount","total_tax_value_gst","aqtyissued","tcs_amount"
     ];
 
     const formatDate = (d) => {
@@ -217,69 +196,63 @@
 
     async function loadData() {
       const res = await axios.get("/get_data/lighthouse_sales");
-      fullData = res.data
-        .filter(r => r.invoice_date)
+      fullData = res.data.filter(r => r.invoice_date)
         .map(r => ({
           ...r,
           invoice_date: formatDate(r.invoice_date),
           invoice_month: formatMonth(r.invoice_date)
         }));
-
       initTable(fullData);
       buildFilters(fullData);
-      renderShowColumns();
-      resetVisibleColumns();
     }
 
     function initTable(data) {
-  if (table) table.destroy();
+      if (table) table.destroy();
 
-  // Ensure table footer exists before initializing DataTables
-  let tableEl = document.getElementById("erpTable");
-  if (!tableEl.querySelector("tfoot")) {
-    const tfoot = document.createElement("tfoot");
-    tfoot.innerHTML = `<tr>${columns.map(() => "<th></th>").join("")}</tr>`;
-    tableEl.appendChild(tfoot);
-  }
+      let tableEl = document.getElementById("erpTable");
+      const tfoot = tableEl.querySelector("tfoot tr");
+      tfoot.innerHTML = columns.map(() => "<th></th>").join("");
 
-  table = $("#erpTable").DataTable({
-    data,
-    columns: columns.map(c => ({ data: c, title: c.toUpperCase() })),
-    pageLength: 25,
-    scrollX: true,
-    footerCallback: function (row, data) {
-      const api = this.api();
-      if (!data.length) return;
+      table = $("#erpTable").DataTable({
+        data,
+        columns: columns.map(c => ({ data: c, title: c.toUpperCase() })),
+        order: [[1, "asc"]],
+        pageLength: 100,
+        rowGroup: {
+          dataSrc: "invoice_month",
+          endRender: function(rows, group) {
+            const totalBill = rows.data().pluck("bill_amount").reduce((a,b)=>a+Number(b||0),0);
+            const totalQty = rows.data().pluck("aqtyissued").reduce((a,b)=>a+Number(b||0),0);
+            return $('<tr/>')
+              .append('<td colspan="8" style="text-align:right;font-weight:700;color:#1e3a8a;">Subtotal for '+group+'</td>')
+              .append('<td style="font-weight:700;">'+totalBill.toLocaleString()+'</td>')
+              .append('<td></td>')
+              .append('<td style="font-weight:700;">'+totalQty.toLocaleString()+'</td>')
+              .append('<td></td>');
+          }
+        },
+        footerCallback: function (row, data) {
+          const api = this.api();
+          const numCols = [7,8,9,10,11,12];
+          numCols.forEach(i => {
+            const total = api.column(i).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
+            $(api.column(i).footer()).html(total.toLocaleString());
+          });
+        }
+      });
 
-      // Columns to sum
-      const numCols = [7, 8, 9, 10, 11, 12];
-      numCols.forEach(i => {
-        const total = api
-          .column(i, { page: "current" })
-          .data()
-          .reduce((a, b) => a + (parseFloat(b) || 0), 0);
-        $(api.column(i).footer()).html(total.toLocaleString());
+      // Default visible columns
+      table.columns().visible(false);
+      ["invoice_date","bill_amount","aqtyissued"].forEach(c => table.column(columns.indexOf(c)).visible(true));
+    }
+
+    function unique(arr, key) {
+      return [...new Set(arr.map(d => d[key]).filter(Boolean))].sort((a,b)=>{
+        const dA = new Date(a.split(" ")[1], new Date(Date.parse(a.split(" ")[0]+" 1, 2000")).getMonth());
+        const dB = new Date(b.split(" ")[1], new Date(Date.parse(b.split(" ")[0]+" 1, 2000")).getMonth());
+        return dA - dB;
       });
     }
-  });
-}
-
-function createFooter() {
-  // This function is no longer needed separately,
-  // but keep a safe no-op for backward compatibility
-  const tableEl = document.getElementById("erpTable");
-  if (!tableEl.querySelector("tfoot")) {
-    const tfoot = document.createElement("tfoot");
-    tfoot.innerHTML = `<tr>${columns.map(() => "<th></th>").join("")}</tr>`;
-    tableEl.appendChild(tfoot);
-  }
-}
-
-
-    const unique = (arr, key) =>
-      [...new Set(arr.map(d => d[key]).filter(Boolean))]
-        .sort((a,b)=>new Date(a.split(" ")[1], new Date(Date.parse(a.split(" ")[0]+" 1, 2000")).getMonth()) - 
-                     new Date(b.split(" ")[1], new Date(Date.parse(b.split(" ")[0]+" 1, 2000")).getMonth()));
 
     function fillFilter(id, list) {
       const c = document.getElementById(id);
@@ -287,23 +260,13 @@ function createFooter() {
       c.querySelectorAll("input").forEach(i => i.addEventListener("change", applyFilters));
     }
 
-    function buildFilters(data) {
-      fillFilter("invoiceMonthOptions", unique(data, "invoice_month"));
-      fillFilter("stateOptions", unique(data, "state"));
-      fillFilter("districtOptions", unique(data, "district"));
-      fillFilter("categoryOptions", unique(data, "category"));
-      fillFilter("customerOptions", unique(data, "customer_name"));
-      fillFilter("itemOptions", unique(data, "item_name"));
-    }
-
-    function renderShowColumns() {
-      const c = document.getElementById("showColumnsContainer");
-      c.innerHTML = columns.map((col, i) =>
-        `<label><input type="checkbox" data-index="${i}" checked> ${col.toUpperCase()}</label>`
-      ).join("");
-      c.querySelectorAll("input").forEach(i =>
-        i.addEventListener("change", e => table.column(e.target.dataset.index).visible(e.target.checked))
-      );
+    function buildFilters() {
+      fillFilter("invoiceMonthOptions", unique(fullData, "invoice_month"));
+      fillFilter("stateOptions", unique(fullData, "state"));
+      fillFilter("districtOptions", unique(fullData, "district"));
+      fillFilter("categoryOptions", unique(fullData, "category"));
+      fillFilter("customerOptions", unique(fullData, "customer_name"));
+      fillFilter("itemOptions", unique(fullData, "item_name"));
     }
 
     function applyFilters() {
@@ -330,14 +293,14 @@ function createFooter() {
       });
 
       table.clear().rows.add(filtered).draw();
-      buildFilters(filtered);
     }
 
-    function resetVisibleColumns() {
-      table.columns().visible(false);
-      const cols = ["invoice_date", "bill_amount", "aqtyissued"];
-      cols.forEach(c => table.column(columns.indexOf(c)).visible(true));
-    }
+    document.getElementById("resetFilters").addEventListener("click", () => {
+      document.querySelectorAll(".filter-options input").forEach(i => i.checked = false);
+      document.getElementById("dateFrom").value = "";
+      document.getElementById("dateTo").value = "";
+      table.clear().rows.add(fullData).draw();
+    });
 
     document.getElementById("dateFrom").addEventListener("change", applyFilters);
     document.getElementById("dateTo").addEventListener("change", applyFilters);
