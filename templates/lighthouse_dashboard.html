@@ -113,46 +113,55 @@
 
     // ✅ Use parseDDMMYYYY instead of new Date()
     function groupAndAggregate(data) {
-      const map = new Map();
-      data.forEach(r => {
-        const key = [r.invoice_month, r.state, r.district, r.category, r.customer_name, r.item_name].join("|");
-        const cur = parseDDMMYYYY(r.invoice_date_raw);
-        if (!map.has(key)) {
-          map.set(key, {
-            invoice_month: r.invoice_month,
-            state: r.state,
-            district: r.district,
-            category: r.category,
-            customer_name: r.customer_name,
-            item_name: r.item_name,
-            bill_amount: Number(r.bill_amount) || 0,
-            aqtyissued: Number(r.aqtyissued) || 0,
-            first_date: cur,
-            last_date: cur
-          });
-        } else {
-          const obj = map.get(key);
-          obj.bill_amount += Number(r.bill_amount) || 0;
-          obj.aqtyissued += Number(r.aqtyissued) || 0;
-          if (cur < obj.first_date) obj.first_date = cur;
-          if (cur > obj.last_date) obj.last_date = cur;
-        }
-      });
+  const map = new Map();
 
-      return Array.from(map.values()).map(r => ({
-        invoice_date: (r.first_date.getTime() === r.last_date.getTime())
-          ? formatDateDDMonYYYY(`${String(r.first_date.getDate()).padStart(2,"0")}-${String(r.first_date.getMonth()+1).padStart(2,"0")}-${r.first_date.getFullYear()}`)
-          : `${formatDateDDMonYYYY(`${String(r.first_date.getDate()).padStart(2,"0")}-${String(r.first_date.getMonth()+1).padStart(2,"0")}-${r.first_date.getFullYear()}`)} → ${formatDateDDMonYYYY(`${String(r.last_date.getDate()).padStart(2,"0")}-${String(r.last_date.getMonth()+1).padStart(2,"0")}-${r.last_date.getFullYear()}`)}`,
+  data.forEach(r => {
+    const key = [r.invoice_month, r.state, r.district, r.category, r.customer_name, r.item_name].join("|");
+    const cur = parseDDMMYYYY(r.invoice_date_raw);
+
+    if (!cur) return; // skip rows with invalid date
+
+    if (!map.has(key)) {
+      map.set(key, {
         invoice_month: r.invoice_month,
         state: r.state,
         district: r.district,
         category: r.category,
         customer_name: r.customer_name,
         item_name: r.item_name,
-        bill_amount: Math.round(r.bill_amount),
-        aqtyissued: Math.round(r.aqtyissued)
-      }));
+        bill_amount: Number(r.bill_amount) || 0,
+        aqtyissued: Number(r.aqtyissued) || 0,
+        first_date: cur,
+        last_date: cur
+      });
+    } else {
+      const obj = map.get(key);
+      obj.bill_amount += Number(r.bill_amount) || 0;
+      obj.aqtyissued += Number(r.aqtyissued) || 0;
+
+      if (obj.first_date && cur < obj.first_date) obj.first_date = cur;
+      if (obj.last_date && cur > obj.last_date) obj.last_date = cur;
     }
+  });
+
+  return Array.from(map.values()).map(r => {
+    const sameDay = r.first_date && r.last_date && r.first_date.getTime() === r.last_date.getTime();
+    const firstStr = formatDateDDMonYYYY(`${String(r.first_date.getDate()).padStart(2,"0")}-${String(r.first_date.getMonth()+1).padStart(2,"0")}-${r.first_date.getFullYear()}`);
+    const lastStr = formatDateDDMonYYYY(`${String(r.last_date.getDate()).padStart(2,"0")}-${String(r.last_date.getMonth()+1).padStart(2,"0")}-${r.last_date.getFullYear()}`);
+    return {
+      invoice_date: sameDay ? firstStr : `${firstStr} → ${lastStr}`,
+      invoice_month: r.invoice_month,
+      state: r.state,
+      district: r.district,
+      category: r.category,
+      customer_name: r.customer_name,
+      item_name: r.item_name,
+      bill_amount: Math.round(r.bill_amount),
+      aqtyissued: Math.round(r.aqtyissued)
+    };
+  });
+}
+
 
     function initTable(data) {
       if (table) table.destroy();
