@@ -69,14 +69,26 @@
     ];
     const filters = ["invoice_month","state","district","category","customer_name","item_name"];
 
-    function parseDDMMYYYY(str){
-      if(!str)return null;
-      const parts=str.trim().split("-");
-      if(parts.length!==3)return null;
-      const [dd,mm,yyyy]=parts.map(x=>parseInt(x,10));
-      if(!dd||!mm||!yyyy)return null;
-      return new Date(yyyy,mm-1,dd);
-    }
+function parseDDMMYYYY(str) {
+  if (!str) return null;
+  str = str.trim();
+
+  // Try native Date first (handles ISO and SQL automatically)
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) return d;
+
+  // Fallback for DD-MM-YYYY format
+  const parts = str.split("-");
+  if (parts.length === 3) {
+    let [a, b, c] = parts.map(x => x.trim());
+    // Detect if first part is year (YYYY-MM-DD)
+    if (a.length === 4) return new Date(a, b - 1, c);
+    // Otherwise assume DD-MM-YYYY
+    if (c.length === 4) return new Date(c, b - 1, a);
+  }
+  return null;
+}
+
     function formatDateDDMonYYYY(str){
       const d=parseDDMMYYYY(str);
       if(!d)return"";
@@ -93,11 +105,19 @@
     async function loadData(){
       try{
         const res=await axios.get("/get_data/lighthouse_sales");
-        fullData=res.data.filter(r=>r.invoice_date).map(r=>({
-          ...r,
-          invoice_date_raw:r.invoice_date.trim(),
-          invoice_month:formatMonthLabel(r.invoice_date.trim())
-        }));
+        fullData = res.data
+  .filter(r => r.invoice_date)
+  .map(r => {
+    const rawDate = typeof r.invoice_date === "string"
+      ? r.invoice_date.trim()
+      : String(r.invoice_date);
+    return {
+      ...r,
+      invoice_date_raw: rawDate,
+      invoice_month: formatMonthLabel(rawDate)
+    };
+  });
+
         const aggregated=groupAndAggregate(fullData);
         initTable(aggregated);
         buildFilters();
