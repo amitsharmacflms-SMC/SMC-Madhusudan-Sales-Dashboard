@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <title>🌈 Lighthouse ERP Dashboard</title>
 
-  <!-- jQuery + DataTables + Axios -->
   <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
   <link href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css" rel="stylesheet" />
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
@@ -62,75 +61,63 @@
   </table>
 
   <script>
-    // --- Data + table state
-    let fullData = []; // raw records (each has invoice_date_raw)
+    let fullData = [];
     let table;
-    // Columns shown in table (invoice_date is first column)
     const columns = [
       "invoice_date", "invoice_month", "state", "district", "category",
       "customer_name", "item_name", "bill_amount", "aqtyissued"
     ];
-    // filters that are checkbox lists (invoice_date handled via dateFrom/dateTo)
     const filters = ["invoice_month","state","district","category","customer_name","item_name"];
 
-    // Format helpers
+    // ✅ Custom date parser for DD-MM-YYYY format
     function parseDDMMYYYY(str) {
-  if (!str) return null;
-  const [dd, mm, yyyy] = str.split("-").map(x => parseInt(x, 10));
-  if (!dd || !mm || !yyyy) return null;
-  return new Date(yyyy, mm - 1, dd);
-}
+      if (!str) return null;
+      const [dd, mm, yyyy] = str.split("-").map(x => parseInt(x, 10));
+      if (!dd || !mm || !yyyy) return null;
+      return new Date(yyyy, mm - 1, dd);
+    }
 
-function formatDateDDMonYYYY(str) {
-  const d = parseDDMMYYYY(str);
-  if (!d) return "";
-  const dd = String(d.getDate()).padStart(2,"0");
-  const mon = d.toLocaleString('default',{month:'short'});
-  return `${dd}-${mon}-${d.getFullYear()}`;
-}
+    function formatDateDDMonYYYY(str) {
+      const d = parseDDMMYYYY(str);
+      if (!d) return "";
+      const dd = String(d.getDate()).padStart(2,"0");
+      const mon = d.toLocaleString('default',{month:'short'});
+      return `${dd}-${mon}-${d.getFullYear()}`;
+    }
 
-function formatMonthLabel(str) {
-  const d = parseDDMMYYYY(str);
-  if (!d) return "";
-  return `${d.toLocaleString('default',{month:'short'})} ${d.getFullYear()}`;
-}
+    function formatMonthLabel(str) {
+      const d = parseDDMMYYYY(str);
+      if (!d) return "";
+      return `${d.toLocaleString('default',{month:'short'})} ${d.getFullYear()}`;
+    }
 
-
-    // Load initial data from backend
     async function loadData() {
       try {
         const res = await axios.get("/get_data/lighthouse_sales");
-        // Ensure we keep a raw ISO invoice_date for comparisons (invoice_date_raw)
         fullData = res.data
-          .filter(r => r.invoice_date) // drop empty dates
+          .filter(r => r.invoice_date)
           .map(r => ({
             ...r,
-            // keep raw original (useful for accurate comparisons)
             invoice_date_raw: r.invoice_date,
-            // Not changing invoice_date_raw; create a display-ready date if needed later
-            // Invoice month computed from raw date
             invoice_month: formatMonthLabel(r.invoice_date)
           }));
-        // init table with aggregated data (one row per group)
         const aggregated = groupAndAggregate(fullData);
         initTable(aggregated);
-        buildFilters();            // build checkbox filters
-        renderShowColumns();       // build show/hide columns control
-        setDefaultColumns();       // hide/show default columns
+        buildFilters();
+        renderShowColumns();
+        setDefaultColumns();
       } catch (err) {
-        console.error("Failed to load lighthouse_sales:", err);
-        alert("Failed to load ERP data. Check console for details.");
+        console.error("Failed to load data:", err);
       }
     }
 
-    // Group & aggregate BEFORE sending to DataTable so one row per group
+    // ✅ Use parseDDMMYYYY instead of new Date()
     function groupAndAggregate(data) {
       const map = new Map();
       data.forEach(r => {
-        // group by invoice_month + state + district + category + customer + item
         const key = [r.invoice_month, r.state, r.district, r.category, r.customer_name, r.item_name].join("|");
+        const cur = parseDDMMYYYY(r.invoice_date_raw);
         if (!map.has(key)) {
-          // store numeric fields as numbers for sum
           map.set(key, {
             invoice_month: r.invoice_month,
             state: r.state,
@@ -140,54 +127,33 @@ function formatMonthLabel(str) {
             item_name: r.item_name,
             bill_amount: Number(r.bill_amount) || 0,
             aqtyissued: Number(r.aqtyissued) || 0,
-            // keep raw first/last ISO dates to compute display range
-            first_invoice_date_raw: r.invoice_date_raw,
-            last_invoice_date_raw: r.invoice_date_raw
+            first_date: cur,
+            last_date: cur
           });
         } else {
           const obj = map.get(key);
           obj.bill_amount += Number(r.bill_amount) || 0;
           obj.aqtyissued += Number(r.aqtyissued) || 0;
-          // compare raw dates
-          const cur = new Date(r.invoice_date_raw);
-          const f = new Date(obj.first_invoice_date_raw);
-          const l = new Date(obj.last_invoice_date_raw);
-          if (cur < f) obj.first_invoice_date_raw = r.invoice_date_raw;
-          if (cur > l) obj.last_invoice_date_raw = r.invoice_date_raw;
+          if (cur < obj.first_date) obj.first_date = cur;
+          if (cur > obj.last_date) obj.last_date = cur;
         }
       });
 
-      // Prepare final array and create invoice_date display and keep invoice_date_raw_range for any use
-      const out = Array.from(map.values()).map(row => {
-        const first = formatDateDDMonYYYY(row.first_invoice_date_raw);
-        const last = formatDateDDMonYYYY(row.last_invoice_date_raw);
-        return {
-          invoice_date: (first === last) ? first : `${first} → ${last}`,
-          invoice_month: row.invoice_month,
-          state: row.state,
-          district: row.district,
-          category: row.category,
-          customer_name: row.customer_name,
-          item_name: row.item_name,
-          bill_amount: Math.round(row.bill_amount),   // round if needed
-          aqtyissued: Math.round(row.aqtyissued),
-          // keep min/max raw for internal logic (not displayed directly)
-          first_invoice_date_raw: row.first_invoice_date_raw,
-          last_invoice_date_raw: row.last_invoice_date_raw
-        };
-      });
-
-      // Sort by invoice_month (convert "Mon YYYY" to Date for robust sort)
-      out.sort((a,b) => {
-        const da = new Date(a.first_invoice_date_raw || 0);
-        const db = new Date(b.first_invoice_date_raw || 0);
-        return da - db;
-      });
-
-      return out;
+      return Array.from(map.values()).map(r => ({
+        invoice_date: (r.first_date.getTime() === r.last_date.getTime())
+          ? formatDateDDMonYYYY(`${String(r.first_date.getDate()).padStart(2,"0")}-${String(r.first_date.getMonth()+1).padStart(2,"0")}-${r.first_date.getFullYear()}`)
+          : `${formatDateDDMonYYYY(`${String(r.first_date.getDate()).padStart(2,"0")}-${String(r.first_date.getMonth()+1).padStart(2,"0")}-${r.first_date.getFullYear()}`)} → ${formatDateDDMonYYYY(`${String(r.last_date.getDate()).padStart(2,"0")}-${String(r.last_date.getMonth()+1).padStart(2,"0")}-${r.last_date.getFullYear()}`)}`,
+        invoice_month: r.invoice_month,
+        state: r.state,
+        district: r.district,
+        category: r.category,
+        customer_name: r.customer_name,
+        item_name: r.item_name,
+        bill_amount: Math.round(r.bill_amount),
+        aqtyissued: Math.round(r.aqtyissued)
+      }));
     }
 
-    // Initialize DataTable with aggregated rows
     function initTable(data) {
       if (table) table.destroy();
       const foot = document.querySelector("#erpTable tfoot tr");
@@ -197,31 +163,15 @@ function formatMonthLabel(str) {
         columns: columns.map(c => ({ data: c, title: c.toUpperCase() })),
         order: [[1, "asc"]],
         pageLength: 100,
-        scrollX: true,
-        footerCallback: function(row, data) {
-          const api = this.api();
-          const totalBill = api.column(6).data().reduce((a,b)=>a + (parseFloat(b) || 0), 0);
-          const totalQty = api.column(7).data().reduce((a,b)=>a + (parseFloat(b) || 0), 0);
-          $(api.column(6).footer()).html(totalBill.toLocaleString());
-          $(api.column(7).footer()).html(totalQty.toLocaleString());
-        }
+        scrollX: true
       });
     }
 
-    // Build checkbox filters for specified categorical fields (invoice_month included)
     function buildFilters() {
       const container = document.getElementById("filtersContainer");
       container.innerHTML = "";
       filters.forEach(f => {
-        const uniqueVals = [...new Set(fullData.map(r => r[f]).filter(Boolean))].sort((a,b) => {
-          // ensure month sort if invoice_month
-          if (f === "invoice_month") {
-            const da = new Date((fullData.find(x=>x.invoice_month===a)||{}).invoice_date_raw||0);
-            const db = new Date((fullData.find(x=>x.invoice_month===b)||{}).invoice_date_raw||0);
-            return da - db;
-          }
-          return (a > b) ? 1 : (a < b ? -1 : 0);
-        });
+        const uniqueVals = [...new Set(fullData.map(r => r[f]).filter(Boolean))];
         const div = document.createElement("div");
         div.classList.add("filter-group");
         div.innerHTML = `<h4>${f.replace(/_/g," ")}</h4>
@@ -232,71 +182,55 @@ function formatMonthLabel(str) {
       });
     }
 
-    // Show/Hide columns control
     function renderShowColumns() {
       const c = document.getElementById("showColumnsContainer");
-      c.innerHTML = columns.map((col,i) => `<label style="margin-right:8px;"><input type="checkbox" data-index="${i}" checked onchange="toggleColumn(this)"> ${col.toUpperCase()}</label>`).join(" ");
+      c.innerHTML = columns.map((col,i)=>
+        `<label style="margin-right:8px;"><input type="checkbox" data-index="${i}" checked onchange="toggleColumn(this)"> ${col.toUpperCase()}</label>`
+      ).join(" ");
     }
-    function toggleColumn(el) {
-      table.column(Number(el.dataset.index)).visible(el.checked);
-    }
+    function toggleColumn(el){ table.column(Number(el.dataset.index)).visible(el.checked); }
 
-    // Filters apply to fullData (raw rows) then aggregate and update the table
     function applyFilters() {
       const from = document.getElementById("dateFrom").value;
       const to = document.getElementById("dateTo").value;
       const fromDate = from ? new Date(from) : null;
       const toDate = to ? new Date(to) : null;
-
       let filtered = fullData.filter(r => {
-        // date range filter uses raw invoice_date (ISO) stored in fullData as r.invoice_date_raw
-        if (fromDate && new Date(r.invoice_date_raw) < fromDate) return false;
-        if (toDate && new Date(r.invoice_date_raw) > toDate) return false;
-        // checkbox filters
+        const cur = parseDDMMYYYY(r.invoice_date_raw);
+        if (fromDate && cur < fromDate) return false;
+        if (toDate && cur > toDate) return false;
         for (const f of filters) {
-          const checked = [...document.querySelectorAll(`#${f}Options input:checked`)].map(i=>i.value);
-          if (checked.length && !checked.includes(r[f])) return false;
+          const vals = [...document.querySelectorAll(`#${f}Options input:checked`)].map(i=>i.value);
+          if (vals.length && !vals.includes(r[f])) return false;
         }
         return true;
       });
-
       const aggregated = groupAndAggregate(filtered);
       table.clear().rows.add(aggregated).draw();
     }
 
-    // Default columns visible on load / reset
     function setDefaultColumns() {
-      // Hide all, then show defaults
       table.columns().visible(false);
-      const defaults = ["invoice_date","invoice_month","bill_amount","aqtyissued"];
-      defaults.forEach(c => {
+      ["invoice_date","invoice_month","bill_amount","aqtyissued"].forEach(c=>{
         const idx = columns.indexOf(c);
         if (idx >= 0) table.column(idx).visible(true);
       });
-      // Update checkbox states in Show Columns UI
-      document.querySelectorAll("#showColumnsContainer input").forEach(i=>{
-        i.checked = (["invoice_date","invoice_month","bill_amount","aqtyissued"].includes(columns[Number(i.dataset.index)]));
-      });
     }
 
-    // ---------- events ----------
-    document.getElementById("dateFrom").addEventListener("change", applyFilters);
-    document.getElementById("dateTo").addEventListener("change", applyFilters);
-
-    document.getElementById("resetFilters").addEventListener("click", ()=>{
-      document.querySelectorAll(".filter-options input").forEach(i => i.checked = false);
-      document.getElementById("dateFrom").value = "";
-      document.getElementById("dateTo").value = "";
+    document.getElementById("dateFrom").addEventListener("change",applyFilters);
+    document.getElementById("dateTo").addEventListener("change",applyFilters);
+    document.getElementById("resetFilters").addEventListener("click",()=>{
+      document.querySelectorAll(".filter-options input").forEach(i=>i.checked=false);
+      document.getElementById("dateFrom").value="";
+      document.getElementById("dateTo").value="";
       const aggregated = groupAndAggregate(fullData);
       table.clear().rows.add(aggregated).draw();
       setDefaultColumns();
     });
 
-    // Expose applyFilters to inline onchange attributes created for checkboxes
     window.applyFilters = applyFilters;
-    window.toggleColumn = function(el){ toggleColumn(el); };
+    window.toggleColumn = toggleColumn;
 
-    // Load on start
     loadData();
   </script>
 </body>
