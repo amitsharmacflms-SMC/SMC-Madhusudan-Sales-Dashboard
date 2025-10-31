@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>🌈 Lighthouse ERP Dashboard</title>
+  <title>🌈 ERP Dashboard</title>
 
   <!-- jQuery + DataTables -->
   <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
@@ -40,19 +40,19 @@
     }
 
     .filters {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      justify-content: center;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
     }
 
     .filter-group {
-      flex: 1 1 180px;
       background: linear-gradient(145deg, #2563eb, #1e40af);
       color: white;
       border-radius: 10px;
-      padding: 12px;
+      padding: 10px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      font-size: 13px;
     }
 
     .filter-group:nth-child(2n) { background: linear-gradient(145deg, #0ea5e9, #0284c7); }
@@ -63,57 +63,27 @@
       margin: 0 0 6px 0;
       font-weight: 600;
       border-bottom: 1px solid rgba(255,255,255,0.3);
-      padding-bottom: 4px;
+      padding-bottom: 3px;
       text-transform: uppercase;
-      font-size: 13px;
     }
 
     .filter-options {
-      max-height: 150px;
+      max-height: 140px;
       overflow-y: auto;
+      background: rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 4px;
     }
 
     .filter-options label {
-      display: flex;
-      align-items: center;
-      font-size: 13px;
+      display: block;
       cursor: pointer;
-      gap: 6px;
+      margin: 2px 0;
     }
 
-    input[type="checkbox"] {
-      accent-color: #9333ea;
-      cursor: pointer;
-    }
-
-    table.dataTable {
-      border: 2px solid #1e3a8a;
-      border-collapse: collapse;
-      font-weight: bold;
-    }
-
-    table.dataTable thead {
-      background: linear-gradient(90deg, #2563eb, #9333ea);
-      color: white;
-      text-transform: uppercase;
-      font-size: 13px;
-    }
-
-    table.dataTable td, table.dataTable th {
-      border: 1px solid #1e3a8a;
-      padding: 6px;
+    .reset-container {
       text-align: center;
-    }
-
-    table.dataTable tfoot th {
-      background-color: #e0f2fe;
-      color: #1e3a8a;
-      font-weight: bold;
-    }
-
-    .date-range, .reset-container {
-      text-align: center;
-      margin-bottom: 10px;
+      margin-top: 10px;
     }
 
     .reset-btn {
@@ -125,6 +95,39 @@
       cursor: pointer;
       font-weight: 600;
     }
+
+    /* Table */
+    table.dataTable {
+      border-collapse: collapse;
+      width: 100%;
+      font-weight: bold;
+      table-layout: fixed;
+    }
+
+    table.dataTable thead {
+      background: linear-gradient(90deg, #2563eb, #9333ea);
+      color: white;
+      font-size: 13px;
+    }
+
+    table.dataTable td, table.dataTable th {
+      border: 1px solid #1e3a8a;
+      text-align: center;
+      padding: 6px;
+      word-wrap: break-word;
+    }
+
+    table.dataTable tfoot th {
+      background-color: #e0f2fe;
+      color: #1e3a8a;
+      font-weight: bold;
+    }
+
+    .subtotal-row {
+      background-color: #f3e8ff !important;
+      font-weight: bold;
+      color: #312e81;
+    }
   </style>
 </head>
 
@@ -132,25 +135,13 @@
   <h1>🌈 Lighthouse ERP Dashboard (Plant → Depot / Direct)</h1>
 
   <div class="dashboard-card">
-    <div class="date-range">
-      <label>From:</label>
-      <input type="date" id="dateFrom">
-      <label>To:</label>
-      <input type="date" id="dateTo">
-    </div>
-
-    <div class="reset-container">
+    <div style="text-align:center;">
+      <label>From:</label> <input type="date" id="dateFrom">
+      <label>To:</label> <input type="date" id="dateTo">
       <button class="reset-btn" id="resetFilters">Reset Filters</button>
     </div>
 
-    <div class="filters">
-      <div class="filter-group"><h4>Invoice Month</h4><div id="invoiceMonthOptions" class="filter-options"></div></div>
-      <div class="filter-group"><h4>State</h4><div id="stateOptions" class="filter-options"></div></div>
-      <div class="filter-group"><h4>District</h4><div id="districtOptions" class="filter-options"></div></div>
-      <div class="filter-group"><h4>Category</h4><div id="categoryOptions" class="filter-options"></div></div>
-      <div class="filter-group"><h4>Customer</h4><div id="customerOptions" class="filter-options"></div></div>
-      <div class="filter-group"><h4>Item</h4><div id="itemOptions" class="filter-options"></div></div>
-    </div>
+    <div class="filters" id="filtersContainer"></div>
   </div>
 
   <table id="erpTable" class="display" style="width:100%">
@@ -177,21 +168,23 @@
   <script>
     let fullData = [];
     let table;
+
     const columns = [
-      "invoice_date","invoice_month","state","district","category","customer_name",
-      "item_name","rate","material_amount","bill_amount","total_tax_value_gst","aqtyissued","tcs_amount"
+      "invoice_date","invoice_month","state","district","category",
+      "customer_name","item_name","rate","material_amount",
+      "bill_amount","total_tax_value_gst","aqtyissued","tcs_amount"
     ];
 
     const formatDate = (d) => {
       const date = new Date(d);
-      return isNaN(date) ? "" :
-        `${String(date.getDate()).padStart(2,"0")}-${date.toLocaleString('default',{month:'short'})}-${date.getFullYear()}`;
+      if (isNaN(date)) return "";
+      return `${String(date.getDate()).padStart(2,"0")}-${date.toLocaleString('default',{month:'short'})}-${date.getFullYear()}`;
     };
 
     const formatMonth = (d) => {
       const date = new Date(d);
-      return isNaN(date) ? "" :
-        `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
+      if (isNaN(date)) return "";
+      return `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
     };
 
     async function loadData() {
@@ -209,8 +202,7 @@
     function initTable(data) {
       if (table) table.destroy();
 
-      let tableEl = document.getElementById("erpTable");
-      const tfoot = tableEl.querySelector("tfoot tr");
+      const tfoot = document.querySelector("#erpTable tfoot tr");
       tfoot.innerHTML = columns.map(() => "<th></th>").join("");
 
       table = $("#erpTable").DataTable({
@@ -218,17 +210,23 @@
         columns: columns.map(c => ({ data: c, title: c.toUpperCase() })),
         order: [[1, "asc"]],
         pageLength: 100,
+        scrollX: true,
         rowGroup: {
           dataSrc: "invoice_month",
           endRender: function(rows, group) {
-            const totalBill = rows.data().pluck("bill_amount").reduce((a,b)=>a+Number(b||0),0);
-            const totalQty = rows.data().pluck("aqtyissued").reduce((a,b)=>a+Number(b||0),0);
+            const sums = {
+              bill: rows.data().pluck("bill_amount").reduce((a,b)=>a+Number(b||0),0),
+              qty: rows.data().pluck("aqtyissued").reduce((a,b)=>a+Number(b||0),0),
+              mat: rows.data().pluck("material_amount").reduce((a,b)=>a+Number(b||0),0)
+            };
             return $('<tr/>')
-              .append('<td colspan="8" style="text-align:right;font-weight:700;color:#1e3a8a;">Subtotal for '+group+'</td>')
-              .append('<td style="font-weight:700;">'+totalBill.toLocaleString()+'</td>')
-              .append('<td></td>')
-              .append('<td style="font-weight:700;">'+totalQty.toLocaleString()+'</td>')
-              .append('<td></td>');
+              .addClass('subtotal-row')
+              .append(`<td colspan="7" style="text-align:right;">Subtotal for ${group}</td>`)
+              .append(`<td>${sums.mat.toLocaleString()}</td>`)
+              .append(`<td>${sums.bill.toLocaleString()}</td>`)
+              .append(`<td></td>`)
+              .append(`<td>${sums.qty.toLocaleString()}</td>`)
+              .append(`<td></td>`);
           }
         },
         footerCallback: function (row, data) {
@@ -240,70 +238,44 @@
           });
         }
       });
-
-      // Default visible columns
-      table.columns().visible(false);
-      ["invoice_date","bill_amount","aqtyissued"].forEach(c => table.column(columns.indexOf(c)).visible(true));
-    }
-
-    function unique(arr, key) {
-      return [...new Set(arr.map(d => d[key]).filter(Boolean))].sort((a,b)=>{
-        const dA = new Date(a.split(" ")[1], new Date(Date.parse(a.split(" ")[0]+" 1, 2000")).getMonth());
-        const dB = new Date(b.split(" ")[1], new Date(Date.parse(b.split(" ")[0]+" 1, 2000")).getMonth());
-        return dA - dB;
-      });
-    }
-
-    function fillFilter(id, list) {
-      const c = document.getElementById(id);
-      c.innerHTML = list.map(v => `<label><input type="checkbox" value="${v}"> ${v}</label>`).join("");
-      c.querySelectorAll("input").forEach(i => i.addEventListener("change", applyFilters));
     }
 
     function buildFilters() {
-      fillFilter("invoiceMonthOptions", unique(fullData, "invoice_month"));
-      fillFilter("stateOptions", unique(fullData, "state"));
-      fillFilter("districtOptions", unique(fullData, "district"));
-      fillFilter("categoryOptions", unique(fullData, "category"));
-      fillFilter("customerOptions", unique(fullData, "customer_name"));
-      fillFilter("itemOptions", unique(fullData, "item_name"));
+      const container = document.getElementById("filtersContainer");
+      container.innerHTML = "";
+      columns.forEach(c => {
+        const uniqueVals = [...new Set(fullData.map(r => r[c]).filter(Boolean))].sort();
+        const div = document.createElement("div");
+        div.classList.add("filter-group");
+        div.innerHTML = `<h4>${c.replace(/_/g," ")}</h4>
+          <div class="filter-options" id="${c}Options">
+            ${uniqueVals.map(v=>`<label><input type="checkbox" value="${v}" onchange="applyFilters()"> ${v}</label>`).join("")}
+          </div>`;
+        container.appendChild(div);
+      });
     }
 
     function applyFilters() {
-      const checked = id => [...document.querySelectorAll(`#${id} input:checked`)].map(i => i.value);
-      const selMonth = checked("invoiceMonthOptions");
-      const selState = checked("stateOptions");
-      const selDist = checked("districtOptions");
-      const selCat = checked("categoryOptions");
-      const selCust = checked("customerOptions");
-      const selItem = checked("itemOptions");
       const from = document.getElementById("dateFrom").value;
       const to = document.getElementById("dateTo").value;
-
-      let filtered = fullData.filter(r => {
-        if (selMonth.length && !selMonth.includes(r.invoice_month)) return false;
-        if (selState.length && !selState.includes(r.state)) return false;
-        if (selDist.length && !selDist.includes(r.district)) return false;
-        if (selCat.length && !selCat.includes(r.category)) return false;
-        if (selCust.length && !selCust.includes(r.customer_name)) return false;
-        if (selItem.length && !selItem.includes(r.item_name)) return false;
+      let filtered = fullData.filter(r=>{
+        for (let c of columns) {
+          const checked = [...document.querySelectorAll(`#${c}Options input:checked`)].map(i=>i.value);
+          if (checked.length && !checked.includes(r[c])) return false;
+        }
         if (from && new Date(r.invoice_date) < new Date(from)) return false;
         if (to && new Date(r.invoice_date) > new Date(to)) return false;
         return true;
       });
-
       table.clear().rows.add(filtered).draw();
     }
 
-    document.getElementById("resetFilters").addEventListener("click", () => {
-      document.querySelectorAll(".filter-options input").forEach(i => i.checked = false);
-      document.getElementById("dateFrom").value = "";
-      document.getElementById("dateTo").value = "";
+    document.getElementById("resetFilters").addEventListener("click", ()=>{
+      document.querySelectorAll(".filter-options input").forEach(i=>i.checked=false);
+      document.getElementById("dateFrom").value="";
+      document.getElementById("dateTo").value="";
       table.clear().rows.add(fullData).draw();
     });
-
-    document.getElementById("dateFrom").addEventListener("change", applyFilters);
-    document.getElementById("dateTo").addEventListener("change", applyFilters);
 
     loadData();
   </script>
