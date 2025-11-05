@@ -8,8 +8,6 @@
   <!-- ExcelJS + FileSaver for export -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-
-  <!-- axios + lightweight UI libs -->
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
   <style>
@@ -28,7 +26,6 @@
     .btn-gray{background:#f3f4f6;color:#0f172a;border:1px solid #e6eef9}
     main{max-width:1400px;margin:0 auto}
     .card{background:var(--card);border-radius:12px;padding:12px;box-shadow:0 8px 30px rgba(2,6,23,0.04); margin-bottom:12px}
-    /* filters layout */
     #filtersWrapper{overflow:hidden;transition:all .25s ease}
     #filtersContainer{display:flex;gap:10px;align-items:flex-start;overflow:auto;padding:10px}
     .filter-box{min-width:170px;border:2px solid var(--navy);border-radius:10px;padding:8px;background:#fff;box-shadow:0 2px 10px rgba(2,6,23,0.04)}
@@ -36,7 +33,6 @@
     .filter-box .options{max-height:220px;overflow:auto;padding-right:6px}
     .filter-box label{display:inline-block;margin:3px 6px;padding:3px 6px;border-radius:6px;background:#f8fafc; cursor:pointer; font-size:13px}
     .filter-box input[type="checkbox"]{margin-right:6px}
-    /* table */
     .table-wrapper{background:#fff;border-radius:10px;padding:8px;box-shadow:0 6px 18px rgba(2,6,23,0.04);overflow:auto;max-height:70vh}
     table{border-collapse:collapse;width:100%;min-width:980px}
     thead th{position:sticky;top:0;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));color:#fff;padding:8px;border:1px solid rgba(255,255,255,0.06);font-weight:800}
@@ -47,11 +43,9 @@
     .hidden{display:none}
     .controls-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap; justify-content:space-between;margin-bottom:8px}
     .controls-left{display:flex;gap:8px;align-items:center}
-    .small{font-size:0.9rem;padding:6px 8px}
-    /* responsive */
-    @media(max-width:920px){ #filtersContainer{flex-direction:column} table{font-size:12px} }
   </style>
 </head>
+
 <body>
   <header>
     <div class="left">
@@ -71,22 +65,23 @@
     <div class="card" id="filtersWrapper">
       <div class="controls-row">
         <div class="controls-left">
-          <label class="small">From: <input type="date" id="dateFrom" class="small"></label>
-          <label class="small">To: <input type="date" id="dateTo" class="small"></label>
-          <label class="small">Invoice Month: <select id="monthQuick" class="small"><option value="">--Select--</option></select></label>
+          <label>From: <input type="date" id="dateFrom"></label>
+          <label>To: <input type="date" id="dateTo"></label>
+          <label>Invoice Month: 
+            <select id="monthQuick"><option value="">--Select--</option></select>
+          </label>
         </div>
         <div style="text-align:right">
           <small id="recordsInfo" style="color:var(--muted)"></small>
         </div>
       </div>
-
-      <div id="filtersContainer" aria-label="Filters area"></div>
+      <div id="filtersContainer"></div>
     </div>
 
     <div id="loader" class="card" style="text-align:center">Loading data…</div>
 
     <div class="table-wrapper card">
-      <table id="dataTable" role="table" aria-label="ERP aggregated table">
+      <table id="dataTable">
         <thead id="tableHead"></thead>
         <tbody id="tableBody"></tbody>
         <tfoot id="tableFoot"></tfoot>
@@ -99,552 +94,183 @@
   </footer>
 
 <script>
-/* ---------------- Config & helpers ---------------- */
-const API_ENDPOINT = "/get_data/lighthouse_sales"; // backend endpoint
-let rawData = [];            // original rows from backend
-let aggregatedRows = [];     // grouped rows (one per PARTY_NAME group+item)
-let originalKeys = [];       // keys from raw
-const TEXT_COLS = ["STATE","PARTY_NAME","ITEM_NAME"]; // text columns used in SHOW COLUMNS
-const TOTAL_FILTER_KEY = "TOTAL"; // filter name for selecting grouping totals
-const SHOW_COLUMNS_KEY = "SHOW COLUMNS";
-const MONTH_FILTER_KEY = "INVOICE_MONTH";
-const STORAGE_KEY = "lighthouse_saved_filters_v1";
+/* ---------- CONFIG ---------- */
+const API_ENDPOINT = "/get_data/lighthouse_sales";
+let rawData = [], aggregatedRows = [];
+const TEXT_COLS = ["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE"];
+const STORAGE_KEY = "lighthouse_saved_filters_v2";
 
-const monthLabel = (d) => {
-  if(!d) return "";
-  try{
-    const dt = new Date(d);
-    if(!isNaN(dt.getTime())) return dt.toLocaleString('default',{month:'short', year:'numeric'});
-    // fallback if string like dd-mm-yyyy -> parse
-    const parts = String(d).trim().split("-");
-    if(parts.length===3){
-      let [a,b,c] = parts;
-      // if first is year -> yyyy-mm-dd
-      if(a.length===4) return new Date(a, b-1, c).toLocaleString('default',{month:'short', year:'numeric'});
-      // dd-mm-yyyy
-      return new Date(c, b-1, a).toLocaleString('default',{month:'short', year:'numeric'});
-    }
-  }catch(e){}
-  return "";
-};
-
-const formatDateFriendly = (d) => {
+/* ---------- UTILITIES ---------- */
+function num(v){ return Number(v)||0; }
+function monthLabel(d){
   if(!d) return "";
   const dt = new Date(d);
-  if(!isNaN(dt.getTime())) {
-    const dd = String(dt.getDate()).padStart(2,"0");
-    const mon = dt.toLocaleString('default',{month:'short'});
-    return `${dd}-${mon}-${dt.getFullYear()}`;
-  }
-  // fallback for dd-mm-yyyy strings:
-  const parts = String(d).trim().split("-");
+  if(!isNaN(dt)) return dt.toLocaleString('default',{month:'short',year:'numeric'});
+  const parts = String(d).split("-");
   if(parts.length===3){
-    const [a,b,c]=parts;
-    if(c && c.length===4) {
-      // assume dd-mm-yyyy
-      const dt2 = new Date(c, b-1, a);
-      if(!isNaN(dt2.getTime())) {
-        const dd = String(dt2.getDate()).padStart(2,"0");
-        const mon = dt2.toLocaleString('default',{month:'short'});
-        return `${dd}-${mon}-${dt2.getFullYear()}`;
-      }
-    }
+    const [a,b,c] = parts;
+    if(c.length===4) return new Date(c,b-1,a).toLocaleString('default',{month:'short',year:'numeric'});
   }
-  return String(d);
-};
+  return "";
+}
+function formatDate(d){
+  const dt = new Date(d);
+  if(!isNaN(dt)) return `${String(dt.getDate()).padStart(2,"0")}-${dt.toLocaleString('default',{month:'short'})}-${dt.getFullYear()}`;
+  const p = String(d).split("-");
+  if(p.length===3){
+    const [a,b,c]=p; if(c.length===4) return `${a}-${b}-${c}`;
+  }
+  return d;
+}
+function debounce(fn,ms=250){ let t; return (...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)};}
 
-function num(v){ return Number(v) || 0; }
-function norm(s){ return String(s||"").toUpperCase().trim(); }
-
-/* Overlay + UI helpers */
-function showLoader(msg){ document.getElementById("loader").classList.remove("hidden"); document.getElementById("loader").textContent = msg || "Processing..."; }
-function hideLoader(){ document.getElementById("loader").classList.add("hidden"); }
-
-/* Debounce */
-function debounce(fn, ms=250){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
-
-/* ---------------- Build Filters UI (match SMC dashboard style) ---------------- */
+/* ---------- FILTER UI ---------- */
 function buildFiltersUI(){
-  const container = document.getElementById("filtersContainer");
-  container.innerHTML = "";
-
-  // 1) SHOW COLUMNS box (text columns)
-  const showColsBox = document.createElement("div");
-  showColsBox.className = "filter-box";
-  showColsBox.innerHTML = `<strong>${SHOW_COLUMNS_KEY}</strong>
-    <label><input type="checkbox" data-all="showcols"> All</label>
-    <div class="options" id="showcolsOptions"></div>`;
-  container.appendChild(showColsBox);
-
-  const showcolsOptions = document.getElementById("showcolsOptions");
-  const availableTextCols = TEXT_COLS.filter(c => true); // ensure uppercase order
-  showcolsOptions.innerHTML = availableTextCols.map(c=>`<label><input type="checkbox" name="${SHOW_COLUMNS_KEY}" value="${c}"> ${c}</label>`).join("");
-
-  // 2) INVOICE_MONTH box
-  const months = [...new Set(rawData.map(r => monthLabel(r.invoice_date)).filter(Boolean))];
-  months.sort((a,b)=> {
-    const da = new Date(a), db = new Date(b);
-    return da - db;
+  const container=document.getElementById("filtersContainer");
+  container.innerHTML="";
+  const boxes=[
+    {key:"SHOW COLUMNS",values:TEXT_COLS},
+    {key:"INVOICE_MONTH",values:[...new Set(rawData.map(r=>monthLabel(r.invoice_date)).filter(Boolean))].sort((a,b)=>new Date(a)-new Date(b))},
+    {key:"STATE",values:[...new Set(rawData.map(r=>r.state).filter(Boolean))].sort()},
+    {key:"PARTY_NAME",values:[...new Set(rawData.map(r=>r.party_name).filter(Boolean))].sort()},
+    {key:"ITEM_NAME",values:[...new Set(rawData.map(r=>r.item_name).filter(Boolean))].sort()},
+    {key:"TOTAL",values:TEXT_COLS}
+  ];
+  boxes.forEach(b=>{
+    const div=document.createElement("div");
+    div.className="filter-box";
+    div.innerHTML=`<strong>${b.key}</strong>
+      <label><input type="checkbox" data-all="${b.key}"> All</label>
+      <div class="options">${b.values.map(v=>`<label><input type="checkbox" name="${b.key}" value="${v}"> ${v}</label>`).join("")}</div>`;
+    container.appendChild(div);
   });
-  const monthBox = document.createElement("div");
-  monthBox.className = "filter-box";
-  monthBox.innerHTML = `<strong>${MONTH_FILTER_KEY}</strong>
-    <label><input type="checkbox" data-all="months"> All</label>
-    <div class="options" id="monthOptions">${months.map(m=>`<label><input type="checkbox" name="${MONTH_FILTER_KEY}" value="${m}"> ${m}</label>`).join("")}</div>`;
-  container.appendChild(monthBox);
-
-  // fill quick select dropdown
-  const mq = document.getElementById("monthQuick");
-  mq.innerHTML = `<option value="">--Select--</option>` + months.map(m=>`<option value="${m}">${m}</option>`).join("");
-
-  // 3) STATE box
-  const states = [...new Set(rawData.map(r => norm(r.state)).filter(Boolean))].sort();
-  const stateBox = document.createElement("div");
-  stateBox.className = "filter-box";
-  stateBox.innerHTML = `<strong>STATE</strong><label><input type="checkbox" data-all="stateAll"> All</label>
-    <div class="options" id="stateOptions">${states.map(s=>`<label><input type="checkbox" name="STATE" value="${s}"> ${s}</label>`).join("")}</div>`;
-  container.appendChild(stateBox);
-
-  // 4) PARTY_NAME box
-  const parties = [...new Set(rawData.map(r=>String(r.party_name||"").trim()).filter(Boolean))].sort();
-  const partyBox = document.createElement("div");
-  partyBox.className = "filter-box";
-  partyBox.innerHTML = `<strong>PARTY_NAME</strong><label><input type="checkbox" data-all="partyAll"> All</label>
-    <div class="options" id="partyOptions">${parties.map(p=>`<label><input type="checkbox" name="PARTY_NAME" value="${p}"> ${p}</label>`).join("")}</div>`;
-  container.appendChild(partyBox);
-
-  // 5) ITEM_NAME box
-  const items = [...new Set(rawData.map(r=>String(r.item_name||"").trim()).filter(Boolean))].sort();
-  const itemBox = document.createElement("div");
-  itemBox.className = "filter-box";
-  itemBox.innerHTML = `<strong>ITEM_NAME</strong><label><input type="checkbox" data-all="itemAll"> All</label>
-    <div class="options" id="itemOptions">${items.map(i=>`<label><input type="checkbox" name="ITEM_NAME" value="${i}"> ${i}</label>`).join("")}</div>`;
-  container.appendChild(itemBox);
-
-  // 6) TOTAL (select which text columns should show "TOTAL per group")
-  const totalBox = document.createElement("div");
-  totalBox.className = "filter-box";
-  totalBox.innerHTML = `<strong>${TOTAL_FILTER_KEY}</strong>
-    <div class="options" id="totalOptions">${TEXT_COLS.map(c=>`<label><input type="checkbox" name="${TOTAL_FILTER_KEY}" value="${c}"> ${c}</label>`).join("")}</div>`;
-  container.appendChild(totalBox);
-
-  // hook up "All" toggles
   container.querySelectorAll("input[data-all]").forEach(cb=>{
-    cb.addEventListener("change", (e)=>{
-      const key = e.target.getAttribute("data-all");
-      let name;
-      if(key==="showcols") name = SHOW_COLUMNS_KEY;
-      else if(key==="months") name = MONTH_FILTER_KEY;
-      else if(key==="stateAll") name = "STATE";
-      else if(key==="partyAll") name = "PARTY_NAME";
-      else if(key==="itemAll") name = "ITEM_NAME";
-      const checked = e.target.checked;
-      container.querySelectorAll(`input[name='${name}']`).forEach(i=> i.checked = checked);
+    cb.addEventListener("change",e=>{
+      const key=e.target.dataset.all;
+      const checked=e.target.checked;
+      container.querySelectorAll(`input[name='${key}']`).forEach(i=>i.checked=checked);
       debounceApply();
     });
   });
-
-  // general change listener (cascade behavior):
-  container.addEventListener("change", debounceApply);
-
-  // restore saved filters
-  restoreSavedFilters();
+  container.addEventListener("change",debounceApply);
 }
 
-/* ---------------- Persist / restore filters ---------------- */
-function saveFilters() {
-  const container = document.getElementById("filtersContainer");
-  const data = {};
-  container.querySelectorAll(".filter-box").forEach(box=>{
-    const title = box.querySelector("strong").textContent.trim();
-    data[title] = Array.from(box.querySelectorAll("input[name]")).filter(i=>i.checked).map(i=>i.value);
-  });
-  // date range + monthQuick
-  data.__dateFrom = document.getElementById("dateFrom").value || "";
-  data.__dateTo = document.getElementById("dateTo").value || "";
-  data.__monthQuick = document.getElementById("monthQuick").value || "";
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-function restoreSavedFilters(){
-  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-  const container = document.getElementById("filtersContainer");
-  if(!container) return;
-  Object.entries(saved).forEach(([k, vals])=>{
-    if(k.startsWith("__")){
-      if(k==="__dateFrom") document.getElementById("dateFrom").value = vals;
-      if(k==="__dateTo") document.getElementById("dateTo").value = vals;
-      if(k==="__monthQuick") document.getElementById("monthQuick").value = vals;
-      return;
-    }
-    const checkboxes = container.querySelectorAll(`input[name='${k}']`);
-    if(checkboxes && checkboxes.length){
-      checkboxes.forEach(cb=>{
-        cb.checked = Array.isArray(vals) && vals.some(v=>String(v).toUpperCase()===String(cb.value).toUpperCase());
-      });
-    }
-  });
-}
-
-/* ---------------- Load data from backend ---------------- */
+/* ---------- LOAD DATA ---------- */
 async function loadData(){
-  showLoader("Loading ERP data…");
+  document.getElementById("loader").classList.remove("hidden");
   try{
-    const res = await axios.get(API_ENDPOINT);
-    rawData = Array.isArray(res.data) ? res.data : [];
-    if(rawData.length === 0){
-      document.getElementById("recordsInfo").textContent = "No ERP rows found";
-      hideLoader();
-      buildFiltersUI();
-      renderTable([], {});
-      return;
-    }
-
-    // normalize keys to common lower-case names for usage
-    rawData = rawData.map(r=>{
-      // ensure fields exist
-      return {
-        state: r.state || r.STATE || r.State || r.State || "",
-        party_name: r.party_name || r.Party_Name || r.customer_name || r.PARTY_NAME || r.party || "",
-        item_name: r.item_name || r.ITEM_NAME || r.Item_Name || r.item || "",
-        invoice_date: r.invoice_date || r.Invoice_Date || r.invoice_date_raw || r.InvoiceDate || "",
-        bill_number: r.bill_number || r.Bill_Number || r.bill_no || r.BILL_NUMBER || "",
-        quantity_kg: num(r.quantity_kg || r.Quantity_KG || r.quantity || r.QUANTITY_KG),
-        bill_amount: num(r.bill_amount || r.Bill_Amount || r.bill || r.BILL_AMOUNT),
-        quantity_cs: num(r.quantity_cs || r.Quantity_CS || r.quantity_cs || r.QUANTITY_CS),
-        raw: r
-      };
-    });
-
-    document.getElementById("recordsInfo").textContent = `Rows fetched: ${rawData.length}`;
-
-    // build filter UI and default selections
+    const res=await axios.get(API_ENDPOINT);
+    rawData=res.data.map(r=>({
+      state:r.state||r.STATE||"",
+      party_name:r.party_name||r.PARTY_NAME||"",
+      item_name:r.item_name||r.ITEM_NAME||"",
+      invoice_date:formatDate(r.invoice_date||r.Invoice_Date||""),
+      bill_number:r.bill_number||r.BILL_NUMBER||"",
+      quantity_kg:num(r.quantity_kg||r.Quantity_KG),
+      bill_amount:num(r.bill_amount||r.Bill_Amount),
+      quantity_cs:num(r.quantity_cs||r.Quantity_CS)
+    }));
+    document.getElementById("recordsInfo").textContent=`Rows loaded: ${rawData.length}`;
     buildFiltersUI();
-
-    // initial apply
     debounceApply();
-  }catch(err){
-    console.error("Load failed", err);
-    showLoader("Failed to load ERP data (see console).");
-  } finally {
-    hideLoader();
-  }
+  }catch(e){console.error(e);}
+  finally{document.getElementById("loader").classList.add("hidden");}
 }
 
-/* ---------------- Cascade filtering + grouping ---------------- */
-function getSelectedFilters(){
-  const container = document.getElementById("filtersContainer");
-  const selected = {};
-  if(!container) return selected;
-  container.querySelectorAll(".filter-box").forEach(box=>{
-    const title = box.querySelector("strong").textContent.trim();
-    const vals = Array.from(box.querySelectorAll("input[name]")).filter(i=>i.checked).map(i=>i.value);
-    selected[title] = vals;
+/* ---------- APPLY FILTERS + AGGREGATION ---------- */
+function getSelected(){
+  const s={};
+  document.querySelectorAll(".filter-box").forEach(b=>{
+    const title=b.querySelector("strong").textContent.trim();
+    s[title]=[...b.querySelectorAll("input[name]")].filter(i=>i.checked).map(i=>i.value);
   });
-  // also include date range and quick month
-  selected.__dateFrom = document.getElementById("dateFrom").value || "";
-  selected.__dateTo = document.getElementById("dateTo").value || "";
-  selected.__monthQuick = document.getElementById("monthQuick").value || "";
-  return selected;
+  s.__from=document.getElementById("dateFrom").value;
+  s.__to=document.getElementById("dateTo").value;
+  s.__month=document.getElementById("monthQuick").value;
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(s));
+  return s;
 }
 
-/* Cascade: filter rawData according to selections then aggregate by PARTY_NAME & ITEM_NAME */
-function cascadeAndAggregate(selected){
-  // start with raw
-  let filtered = [...rawData];
-
-  // apply date range
-  const from = selected.__dateFrom ? new Date(selected.__dateFrom) : null;
-  const to = selected.__dateTo ? new Date(selected.__dateTo) : null;
-  if(selected.__monthQuick){ // quick month select: filter by that month label
-    filtered = filtered.filter(r => monthLabel(r.invoice_date) === selected.__monthQuick);
-  } else if(from || to){
-    filtered = filtered.filter(r=>{
-      const d = new Date(r.invoice_date);
-      if(isNaN(d.getTime())) {
-        // try dd-mm-yyyy fallback
-        const parts = String(r.invoice_date || "").trim().split("-");
-        if(parts.length===3){
-          let [a,b,c] = parts;
-          if(c && c.length===4) { // dd-mm-yyyy
-            const dd = new Date(c, b-1, a);
-            if(!isNaN(dd.getTime())) { 
-              if(from && dd < from) return false;
-              if(to && dd > to) return false;
-              return true;
-            }
-          }
-        }
-        return false;
-      }
-      if(from && d < from) return false;
-      if(to && d > to) return false;
+function cascadeAndAggregate(sel){
+  let filtered=[...rawData];
+  const from=sel.__from?new Date(sel.__from):null,to=sel.__to?new Date(sel.__to):null;
+  if(sel.__month){filtered=filtered.filter(r=>monthLabel(r.invoice_date)===sel.__month);}
+  else if(from||to){
+    filtered=filtered.filter(r=>{
+      const d=new Date(r.invoice_date);
+      if(isNaN(d))return false;
+      if(from&&d<from)return false;
+      if(to&&d>to)return false;
       return true;
     });
   }
-
-  // apply cascade selection order: STATE -> PARTY_NAME -> ITEM_NAME -> INVOICE_MONTH
-  const cascadeOrder = ["STATE","PARTY_NAME","ITEM_NAME", MONTH_FILTER_KEY];
-  for(const key of cascadeOrder){
-    const sel = selected[key] || [];
-    if(sel && sel.length){
-      if(key === MONTH_FILTER_KEY){
-        filtered = filtered.filter(r => sel.includes(monthLabel(r.invoice_date)));
-      } else {
-        filtered = filtered.filter(r => sel.includes((r[(key.toLowerCase())]||"").toString().trim()));
-      }
+  ["STATE","PARTY_NAME","ITEM_NAME","INVOICE_MONTH"].forEach(k=>{
+    const vals=sel[k]||[];
+    if(vals.length){
+      if(k==="INVOICE_MONTH") filtered=filtered.filter(r=>vals.includes(monthLabel(r.invoice_date)));
+      else filtered=filtered.filter(r=>vals.includes(r[k.toLowerCase()]));
     }
-  }
-
-  // After filtering, update the visible options for downstream cascade (two-way)
-  updateCascadeVisibility(filtered);
-
-  // Aggregate: group by STATE + PARTY_NAME + ITEM_NAME but requirement: one row per PARTY_NAME grouping set with ITEM_NAME as separate row
-  // As user requested: group by PARTY_NAME and ITEM_NAME then subtotal per PARTY_NAME
-  const map = new Map();
+  });
+  const map=new Map();
   filtered.forEach(r=>{
-    const state = r.state || "";
-    const party = String(r.party_name || "").trim();
-    const item = String(r.item_name || "").trim();
-    const key = [state, party, item].join("|");
-    if(!map.has(key)){
-      map.set(key, {
-        STATE: state,
-        PARTY_NAME: party,
-        ITEM_NAME: item,
-        SUM_QUANTITY_KG: num(r.quantity_kg),
-        SUM_BILL_AMOUNT: num(r.bill_amount),
-        SUM_QUANTITY_CS: num(r.quantity_cs)
-      });
-    } else {
-      const obj = map.get(key);
-      obj.SUM_QUANTITY_KG += num(r.quantity_kg);
-      obj.SUM_BILL_AMOUNT += num(r.bill_amount);
-      obj.SUM_QUANTITY_CS += num(r.quantity_cs);
+    const key=[r.state,r.party_name,r.item_name,r.invoice_date].join("|");
+    if(!map.has(key)) map.set(key,{STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_DATE:r.invoice_date,
+      SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs});
+    else{
+      const o=map.get(key);
+      o.SUM_QUANTITY_KG+=r.quantity_kg;o.SUM_BILL_AMOUNT+=r.bill_amount;o.SUM_QUANTITY_CS+=r.quantity_cs;
     }
   });
-
-  const arr = Array.from(map.values());
-
-  // Sort by PARTY_NAME then ITEM_NAME
-  arr.sort((a,b)=>{
-    if(a.PARTY_NAME < b.PARTY_NAME) return -1;
-    if(a.PARTY_NAME > b.PARTY_NAME) return 1;
-    if(a.ITEM_NAME < b.ITEM_NAME) return -1;
-    if(a.ITEM_NAME > b.ITEM_NAME) return 1;
-    return 0;
-  });
-
-  aggregatedRows = arr;
-  return arr;
+  return [...map.values()];
 }
 
-/* Update cascade visibility: hide options that have no matching rows in filtered set */
-function updateCascadeVisibility(filtered){
-  const container = document.getElementById("filtersContainer");
-  if(!container) return;
-  // for STATE, PARTY_NAME, ITEM_NAME and monthOptions, hide labels without matches
-  const sets = {
-    STATE: new Set(filtered.map(r=> (r.state||"").toString().trim())),
-    PARTY_NAME: new Set(filtered.map(r=> (r.party_name||"").toString().trim())),
-    ITEM_NAME: new Set(filtered.map(r=> (r.item_name||"").toString().trim())),
-    MONTHS: new Set(filtered.map(r=> monthLabel(r.invoice_date)).filter(Boolean))
-  };
-
-  // STATE
-  container.querySelectorAll("input[name='STATE']").forEach(cb=>{
-    const lab = cb.closest("label");
-    if(!sets.STATE.has(cb.value)) { lab.style.display = "none"; cb.checked = false; } else lab.style.display = "";
-  });
-  // PARTY_NAME
-  container.querySelectorAll("input[name='PARTY_NAME']").forEach(cb=>{
-    const lab = cb.closest("label");
-    if(!sets.PARTY_NAME.has(cb.value)) { lab.style.display = "none"; cb.checked = false; } else lab.style.display = "";
-  });
-  // ITEM_NAME
-  container.querySelectorAll("input[name='ITEM_NAME']").forEach(cb=>{
-    const lab = cb.closest("label");
-    if(!sets.ITEM_NAME.has(cb.value)) { lab.style.display = "none"; cb.checked = false; } else lab.style.display = "";
-  });
-  // MONTHS
-  container.querySelectorAll("input[name='INVOICE_MONTH']").forEach(cb=>{
-    const lab = cb.closest("label");
-    if(!sets.MONTHS.has(cb.value)) { lab.style.display = "none"; cb.checked = false; } else lab.style.display = "";
-  });
+function renderTable(rows,sel){
+  const th=document.getElementById("tableHead"),tb=document.getElementById("tableBody"),tf=document.getElementById("tableFoot");
+  const show=sel["SHOW COLUMNS"].length?sel["SHOW COLUMNS"]:TEXT_COLS;
+  const header=[...show,"SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
+  th.innerHTML="<tr>"+header.map(h=>`<th>${h.replace(/_/g," ")}</th>`).join("")+"</tr>";
+  tb.innerHTML=rows.map(r=>"<tr>"+header.map(h=>`<td>${r[h]??r[h.toLowerCase()]??""}</td>`).join("")+"</tr>").join("")||
+    `<tr><td colspan="${header.length}">No data</td></tr>`;
+  const grand={SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0};
+  rows.forEach(r=>{grand.SUM_QUANTITY_KG+=num(r.SUM_QUANTITY_KG);grand.SUM_BILL_AMOUNT+=num(r.SUM_BILL_AMOUNT);grand.SUM_QUANTITY_CS+=num(r.SUM_QUANTITY_CS);});
+  tf.innerHTML="<tr class='grandtotal-row'>"+header.map(h=>{
+    if(h==="SUM_QUANTITY_KG")return`<td>${grand.SUM_QUANTITY_KG.toLocaleString()}</td>`;
+    if(h==="SUM_BILL_AMOUNT")return`<td>${grand.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
+    if(h==="SUM_QUANTITY_CS")return`<td>${grand.SUM_QUANTITY_CS.toLocaleString()}</td>`;
+    if(h===header[0])return`<td><b>GRAND TOTAL</b></td>`;
+    return"<td></td>";
+  }).join("")+"</tr>";
 }
 
-/* ---------------- Render Table with subtotals & grand total ---------------- */
-function renderTable(filteredRows, selected){
-  const thead = document.getElementById("tableHead");
-  const tbody = document.getElementById("tableBody");
-  const tfoot = document.getElementById("tableFoot");
+const debounceApply=debounce(()=>{
+  const sel=getSelected();
+  const data=cascadeAndAggregate(sel);
+  renderTable(data,sel);
+},300);
 
-  // Determine which SHOW columns to show (default text columns)
-  const showColsSelected = selected[SHOW_COLUMNS_KEY] && selected[SHOW_COLUMNS_KEY].length ? selected[SHOW_COLUMNS_KEY] : TEXT_COLS;
-
-  // Build header: show selected columns + fixed numeric columns
-  const headerCols = [...showColsSelected, "SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
-  thead.innerHTML = "<tr>" + headerCols.map(c => `<th>${c.replace(/_/g," ")}</th>`).join("") + "</tr>";
-
-  // Build body grouped by PARTY_NAME with subtotal row after each party group
-  let html = "";
-  let currentParty = null;
-  let partyAccumulator = null;
-
-  function appendPartySubtotal(partyAcc){
-    if(!partyAcc) return "";
-    const cells = headerCols.map(col=>{
-      if(col === "SUM_QUANTITY_KG") return `<td class="numeric"><b>${Number(partyAcc.SUM_QUANTITY_KG).toLocaleString()}</b></td>`;
-      if(col === "SUM_BILL_AMOUNT") return `<td class="numeric"><b>${Number(partyAcc.SUM_BILL_AMOUNT).toLocaleString()}</b></td>`;
-      if(col === "SUM_QUANTITY_CS") return `<td class="numeric"><b>${Number(partyAcc.SUM_QUANTITY_CS).toLocaleString()}</b></td>`;
-      // show "Subtotal" label in first text column
-      if(col === headerCols[0]) return `<td><b>Subtotal for ${partyAcc.PARTY_NAME}</b></td>`;
-      return `<td></td>`;
-    }).join("");
-    return `<tr class="subtotal-row">${cells}</tr>`;
-  }
-
-  // iterate rows
-  filteredRows.forEach(row=>{
-    const party = row.PARTY_NAME || "";
-    if(currentParty === null) {
-      currentParty = party;
-      partyAccumulator = { PARTY_NAME: party, SUM_QUANTITY_KG:0, SUM_BILL_AMOUNT:0, SUM_QUANTITY_CS:0 };
-    } else if(party !== currentParty){
-      // flush subtotal for previous
-      html += appendPartySubtotal(partyAccumulator);
-      currentParty = party;
-      partyAccumulator = { PARTY_NAME: party, SUM_QUANTITY_KG:0, SUM_BILL_AMOUNT:0, SUM_QUANTITY_CS:0 };
-    }
-    // add row
-    partyAccumulator.SUM_QUANTITY_KG += num(row.SUM_QUANTITY_KG);
-    partyAccumulator.SUM_BILL_AMOUNT += num(row.SUM_BILL_AMOUNT);
-    partyAccumulator.SUM_QUANTITY_CS += num(row.SUM_QUANTITY_CS);
-
-    const rowHtml = headerCols.map(col=>{
-      if(col === "SUM_QUANTITY_KG") return `<td class="numeric">${Number(row.SUM_QUANTITY_KG).toLocaleString()}</td>`;
-      if(col === "SUM_BILL_AMOUNT") return `<td class="numeric">${Number(row.SUM_BILL_AMOUNT).toLocaleString()}</td>`;
-      if(col === "SUM_QUANTITY_CS") return `<td class="numeric">${Number(row.SUM_QUANTITY_CS).toLocaleString()}</td>`;
-      // text columns
-      return `<td>${row[col] ?? ""}</td>`;
-    }).join("");
-    html += `<tr>${rowHtml}</tr>`;
-  });
-
-  // append last party subtotal
-  html += appendPartySubtotal(partyAccumulator);
-
-  tbody.innerHTML = html || `<tr><td colspan="${headerCols.length}">No data available</td></tr>`;
-
-  // grand totals
-  const grand = { SUM_QUANTITY_KG:0, SUM_BILL_AMOUNT:0, SUM_QUANTITY_CS:0 };
-  filteredRows.forEach(r=>{
-    grand.SUM_QUANTITY_KG += num(r.SUM_QUANTITY_KG);
-    grand.SUM_BILL_AMOUNT += num(r.SUM_BILL_AMOUNT);
-    grand.SUM_QUANTITY_CS += num(r.SUM_QUANTITY_CS);
-  });
-
-  const footCells = headerCols.map(col=>{
-    if(col === "SUM_QUANTITY_KG") return `<td class="numeric"><b>${grand.SUM_QUANTITY_KG.toLocaleString()}</b></td>`;
-    if(col === "SUM_BILL_AMOUNT") return `<td class="numeric"><b>${grand.SUM_BILL_AMOUNT.toLocaleString()}</b></td>`;
-    if(col === "SUM_QUANTITY_CS") return `<td class="numeric"><b>${grand.SUM_QUANTITY_CS.toLocaleString()}</b></td>`;
-    // show TOTAL label in first column
-    if(col === headerCols[0]) return `<td><b>GRAND TOTAL</b></td>`;
-    return `<td></td>`;
-  }).join("");
-  tfoot.innerHTML = `<tr class="grandtotal-row">${footCells}</tr>`;
-
-  // update record count
-  document.getElementById("recordsInfo").textContent = `Displayed groups: ${Math.max(0, filteredRows.length)} — Raw rows: ${rawData.length}`;
-}
-
-/* ---------------- Apply Filters (main) ---------------- */
-const debounceApply = debounce(()=> {
-  const selected = getSelectedFilters();
-  saveFilters(); // persist
-  showLoader("Applying filters…");
-  try{
-    const result = cascadeAndAggregate(selected);
-    renderTable(result, selected);
-  } finally {
-    hideLoader();
-  }
-}, 220);
-
-/* ---------------- Export to Excel ---------------- */
-async function exportToExcel(){
-  try{
-    showLoader("Preparing export…");
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("ERP Export");
-    // header
-    const headerRow = Array.from(document.querySelectorAll("#tableHead th")).map(h=>h.innerText.trim());
-    ws.addRow(headerRow);
-    // body rows
-    document.querySelectorAll("#tableBody tr").forEach(tr=>{
-      const row = Array.from(tr.querySelectorAll("td")).map(td=>td.innerText.trim());
-      ws.addRow(row);
-    });
-    // totals (footer)
-    const footer = Array.from(document.querySelectorAll("#tableFoot tr")).map(tr=>Array.from(tr.querySelectorAll("td")).map(td=>td.innerText.trim()));
-    if(footer.length) footer.forEach(r=> ws.addRow(r));
-
-    // basic styling: bold header, bold footer
-    ws.eachRow((row, idx)=>{
-      if(idx===1) row.font = { bold:true };
-    });
-
-    const buf = await wb.xlsx.writeBuffer();
-    saveAs(new Blob([buf]), `lighthouse_export_${new Date().toISOString().slice(0,10)}.xlsx`);
-  } catch(e){
-    console.error(e);
-    alert("Export failed: " + (e.message || e));
-  } finally {
-    hideLoader();
-  }
-}
-
-/* ---------------- UI event wiring ---------------- */
-document.getElementById("toggleFiltersBtn").addEventListener("click", ()=>{
-  const wrap = document.getElementById("filtersWrapper");
-  if(wrap.style.maxHeight) { wrap.style.maxHeight = ""; document.getElementById("toggleFiltersBtn").textContent = "Show Filters"; }
-  else { wrap.style.maxHeight = "400px"; document.getElementById("toggleFiltersBtn").textContent = "Hide Filters"; }
-});
-
-document.getElementById("clearBtn").addEventListener("click", ()=>{
-  // clear checkboxes and date range
-  document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb=>cb.checked=false);
-  document.getElementById("dateFrom").value = "";
-  document.getElementById("dateTo").value = "";
-  document.getElementById("monthQuick").value = "";
+/* ---------- EVENTS ---------- */
+document.getElementById("dateFrom").addEventListener("change",debounceApply);
+document.getElementById("dateTo").addEventListener("change",debounceApply);
+document.getElementById("monthQuick").addEventListener("change",debounceApply);
+document.getElementById("clearBtn").addEventListener("click",()=>{
+  document.querySelectorAll("input[type=checkbox]").forEach(c=>c.checked=false);
+  document.getElementById("dateFrom").value="";
+  document.getElementById("dateTo").value="";
+  document.getElementById("monthQuick").value="";
   localStorage.removeItem(STORAGE_KEY);
   debounceApply();
 });
-
-document.getElementById("exportBtn").addEventListener("click", ()=> exportToExcel());
-
-document.getElementById("monthQuick").addEventListener("change", ()=>{
-  // select corresponding month checkbox if present
-  const val = document.getElementById("monthQuick").value;
-  if(!val) return;
-  // check the month checkbox, uncheck others
-  document.querySelectorAll("input[name='INVOICE_MONTH']").forEach(cb=> cb.checked = (cb.value === val));
-  debounceApply();
+document.getElementById("exportBtn").addEventListener("click",async()=>{
+  const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet("ERP Export");
+  const rows=[...document.querySelectorAll("#dataTable tr")].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
+  rows.forEach(r=>ws.addRow(r));
+  ws.eachRow((r,i)=>{if(i===1)r.font={bold:true};});
+  const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`ERP_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
 });
-
-// date fields trigger apply immediately
-document.getElementById("dateFrom").addEventListener("change", debounceApply);
-document.getElementById("dateTo").addEventListener("change", debounceApply);
-
-// theme toggle
-document.getElementById("themeToggle").addEventListener("click", ()=>{
-  document.documentElement.classList.toggle("dark-mode");
-  document.getElementById("themeToggle").textContent = document.documentElement.classList.contains("dark-mode") ? "Light Mode" : "Dark Mode";
+document.getElementById("themeToggle").addEventListener("click",()=>{
+  document.body.classList.toggle("dark-mode");
 });
-
-/* ---------------- Initialize ---------------- */
 loadData();
-
 </script>
 </body>
 </html>
