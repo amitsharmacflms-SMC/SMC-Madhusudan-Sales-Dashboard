@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>🌈 Lighthouse ERP Dashboard</title>
+  <title>🌈 ERP Dashboard</title>
 
   <!-- Libraries -->
   <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
@@ -12,16 +12,20 @@
 
   <style>
     body { font-family:'Inter',sans-serif;background:linear-gradient(135deg,#eef2f3,#dfe9f3);margin:0;padding:20px;color:#1e293b;}
-    h1 { text-align:center;font-size:26px;background:linear-gradient(90deg,#2563eb,#9333ea);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:20px;font-weight:700;}
+    h1 { text-align:center;font-size:26px;background:linear-gradient(90deg,#2563eb,#9333ea);
+         -webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:20px;font-weight:700;}
     .dashboard-card {background:#fff;border-radius:12px;padding:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05);margin-bottom:20px;}
     .filters {display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px;}
-    .filter-group {background:linear-gradient(145deg,#2563eb,#1e40af);color:white;border-radius:10px;padding:10px;box-shadow:0 2px 8px rgba(0,0,0,0.12);font-size:13px;}
+    .filter-group {background:linear-gradient(145deg,#2563eb,#1e40af);color:white;border-radius:10px;padding:10px;
+                   box-shadow:0 2px 8px rgba(0,0,0,0.12);font-size:13px;}
     .filter-group:nth-child(2n){background:linear-gradient(145deg,#0ea5e9,#0284c7);}
     .filter-group:nth-child(3n){background:linear-gradient(145deg,#10b981,#059669);}
-    .filter-group h4 {margin:0 0 6px 0;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.25);padding-bottom:3px;text-transform:uppercase;}
+    .filter-group h4 {margin:0 0 6px 0;font-weight:600;border-bottom:1px solid rgba(255,255,255,0.25);
+                      padding-bottom:3px;text-transform:uppercase;}
     .filter-options {max-height:140px;overflow-y:auto;background:rgba(255,255,255,0.08);border-radius:6px;padding:4px;}
     .filter-options label{display:block;cursor:pointer;margin:2px 0;color:#ffffff;}
-    .reset-btn {background:linear-gradient(90deg,#9333ea,#2563eb);border:none;color:white;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:600;}
+    .reset-btn {background:linear-gradient(90deg,#9333ea,#2563eb);border:none;color:white;padding:6px 14px;
+                border-radius:6px;cursor:pointer;font-weight:600;}
     .show-columns {text-align:center;margin:10px 0;}
     table.dataTable {border-collapse:collapse;width:100%;font-weight:700;table-layout:fixed;}
     table.dataTable thead {background:linear-gradient(90deg,#2563eb,#9333ea);color:white;font-size:13px;}
@@ -31,7 +35,7 @@
 </head>
 
 <body>
-  <h1>🌈 Lighthouse ERP Dashboard (Plant → Depot / Direct)</h1>
+  <h1>🌈 ERP Dashboard (Plant → Depot / Direct)</h1>
 
   <div class="dashboard-card">
     <div style="text-align:center;margin-bottom:8px;">
@@ -40,7 +44,16 @@
       <button class="reset-btn" id="resetFilters">Reset Filters</button>
     </div>
 
-    <div class="show-columns" id="showColumnsContainer"></div>
+    <div style="text-align:center;margin-bottom:10px;">
+      <strong>Group By:</strong>
+      <select id="groupBy" multiple size="1" style="padding:4px;">
+        <option value="state" selected>STATE</option>
+        <option value="party_name" selected>Party_Name</option>
+        <option value="item_name" selected>ITEM_NAME</option>
+        <option value="invoice_month">Invoice_Month</option>
+      </select>
+    </div>
+
     <div class="filters" id="filtersContainer"></div>
   </div>
 
@@ -51,6 +64,7 @@
         <th>Party_Name</th>
         <th>ITEM_NAME</th>
         <th>Invoice_Date</th>
+        <th>Invoice_Month</th>
         <th>Bill_Number</th>
         <th>Quantity_KG</th>
         <th>Bill_Amount</th>
@@ -63,24 +77,21 @@
   <script>
     let fullData = [];
     let table;
-
     const columns = [
-      "state", "party_name", "item_name", "invoice_date", 
-      "bill_number", "quantity_kg", "bill_amount", "quantity_cs"
+      "state","party_name","item_name","invoice_date","invoice_month",
+      "bill_number","quantity_kg","bill_amount","quantity_cs"
     ];
+    const filters = ["invoice_month","state","party_name","item_name"];
 
-    const filters = ["state","party_name","item_name"];
-
-    // 🔹 Date Parsing & Formatting
+    // --------- Helpers ----------
     function parseDateSmart(str){
       if(!str)return null;
-      str=String(str).trim();
       const d=new Date(str);
-      if(!isNaN(d.getTime()))return d;
-      const parts=str.replace(/\//g,"-").split("-");
+      if(!isNaN(d))return d;
+      const parts=str.split("-");
       if(parts.length===3){
-        if(parts[0].length===4)return new Date(parts[0],parts[1]-1,parts[2]);
         if(parts[2].length===4)return new Date(parts[2],parts[1]-1,parts[0]);
+        if(parts[0].length===4)return new Date(parts[0],parts[1]-1,parts[2]);
       }
       return null;
     }
@@ -93,86 +104,35 @@
       return `${dd}-${mon}-${d.getFullYear()}`;
     }
 
-    // 🔹 Load data from backend
+    function monthLabel(raw){
+      const d=parseDateSmart(raw);
+      if(!d)return"";
+      return `${d.toLocaleString("default",{month:"short"})} ${d.getFullYear()}`;
+    }
+
+    // --------- Load data ----------
     async function loadData(){
-      try{
-        const res=await axios.get("/get_data/lighthouse_sales");
-        fullData=res.data.filter(r=>r.invoice_date).map(r=>{
-          const raw=String(r.invoice_date).trim();
-          return{
-            state:r.state||"",
-            party_name:r.customer_name||r.party_name||"",
-            item_name:r.item_name||"",
-            invoice_date:formatDateDDMonYYYY(raw),
-            invoice_date_raw:raw,
-            bill_number:r.invoice_no||r.bill_number||"",
-            quantity_kg:Number(r.aqtyissued||r.quantity_kg||0),
-            bill_amount:Number(r.bill_amount||0),
-            quantity_cs:Number(r.quantity_cs||r.aqtyissued_cs||0)
-          };
-        });
-
-        const aggregated=groupAndAggregate(fullData);
-        initTable(aggregated);
-        buildFilters();
-        renderShowColumns();
-        setDefaultColumns();
-      }catch(err){
-        console.error("Failed to load data:",err);
-        alert("❌ Failed to load ERP data.");
-      }
-    }
-
-    // 🔹 Group and aggregate
-    function groupAndAggregate(rows){
-      const map=new Map();
-      rows.forEach(r=>{
-        const key=[r.state,r.party_name,r.item_name,r.bill_number,r.invoice_date].join("|");
-        if(!map.has(key)){
-          map.set(key,{...r});
-        }else{
-          const obj=map.get(key);
-          obj.quantity_kg+=r.quantity_kg||0;
-          obj.quantity_cs+=r.quantity_cs||0;
-          obj.bill_amount+=r.bill_amount||0;
-        }
+      const res=await axios.get("/get_data/lighthouse_sales");
+      fullData=res.data.filter(r=>r.invoice_date).map(r=>{
+        const raw=String(r.invoice_date).trim();
+        return{
+          state:r.state||"",
+          party_name:r.customer_name||r.party_name||"",
+          item_name:r.item_name||"",
+          invoice_date:formatDateDDMonYYYY(raw),
+          invoice_date_raw:raw,
+          invoice_month:monthLabel(raw),
+          bill_number:r.bill_number||r.invoice_no||"",
+          quantity_kg:Number(r.quantity_kg||r.aqtyissued||0),
+          bill_amount:Number(r.bill_amount||0),
+          quantity_cs:Number(r.quantity_cs||0)
+        };
       });
-      return Array.from(map.values()).map(r=>({
-        state:r.state,
-        party_name:r.party_name,
-        item_name:r.item_name,
-        invoice_date:r.invoice_date,
-        bill_number:r.bill_number,
-        quantity_kg:Math.round(r.quantity_kg),
-        bill_amount:Math.round(r.bill_amount),
-        quantity_cs:Math.round(r.quantity_cs)
-      }));
+      buildFilters();
+      applyFilters();
     }
 
-    // 🔹 Initialize DataTable
-    function initTable(data){
-      if(table)table.destroy();
-      const foot=document.querySelector("#erpTable tfoot tr");
-      foot.innerHTML=columns.map(()=>"<th></th>").join("");
-      table=$("#erpTable").DataTable({
-        data,
-        columns:columns.map(c=>({data:c,title:c.replace(/_/g," ").toUpperCase()})),
-        order:[[3,"asc"]],
-        pageLength:100,
-        scrollX:true,
-        footerCallback:function(row,data){
-          const api=this.api();
-          const totalKG=api.column(5).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
-          const totalBill=api.column(6).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
-          const totalCS=api.column(7).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
-          $(api.column(5).footer()).html(totalKG.toLocaleString());
-          $(api.column(6).footer()).html(totalBill.toLocaleString());
-          $(api.column(7).footer()).html(totalCS.toLocaleString());
-        }
-      });
-    }
-
-    // 🔹 Build Filters
+    // --------- Build filters ----------
     function buildFilters(){
       const container=document.getElementById("filtersContainer");
       container.innerHTML="";
@@ -188,21 +148,14 @@
       });
     }
 
-    // 🔹 Column toggle
-    function renderShowColumns(){
-      const c=document.getElementById("showColumnsContainer");
-      c.innerHTML=columns.map((col,i)=>
-        `<label style="margin-right:8px;"><input type="checkbox" data-index="${i}" checked onchange="toggleColumn(this)"> ${col.replace(/_/g," ").toUpperCase()}</label>`
-      ).join(" ");
-    }
-    function toggleColumn(el){table.column(Number(el.dataset.index)).visible(el.checked);}
-
-    // 🔹 Filters (auto)
+    // --------- Smart cascade + group & aggregate ----------
     function applyFilters(){
       const from=document.getElementById("dateFrom").value;
       const to=document.getElementById("dateTo").value;
       const fromDate=from?new Date(from):null;
       const toDate=to?new Date(to):null;
+
+      // Filter by date + checkboxes
       let filtered=fullData.filter(r=>{
         const cur=parseDateSmart(r.invoice_date_raw);
         if(fromDate&&cur<fromDate)return false;
@@ -213,32 +166,84 @@
         }
         return true;
       });
-      const aggregated=groupAndAggregate(filtered);
-      table.clear().rows.add(aggregated).draw();
+
+      // Smart cascade update
+      filters.forEach(f=>{
+        const options=document.querySelectorAll(`#${f}Options input`);
+        const validVals=new Set(filtered.map(r=>r[f]));
+        options.forEach(opt=>{
+          opt.parentElement.style.display=validVals.has(opt.value)?'block':'none';
+        });
+      });
+
+      // Group and aggregate
+      const groupCols=[...document.getElementById("groupBy").selectedOptions].map(o=>o.value);
+      const grouped=groupAndAggregate(filtered,groupCols);
+      initTable(grouped);
     }
 
-    // 🔹 Reset + default columns
-    function setDefaultColumns(){
-      table.columns().visible(false);
-      ["state","party_name","item_name","invoice_date","bill_amount"].forEach(c=>{
-        const idx=columns.indexOf(c);
-        if(idx>=0)table.column(idx).visible(true);
+    // --------- Group by dynamic columns ----------
+    function groupAndAggregate(rows,groupCols){
+      const map=new Map();
+      rows.forEach(r=>{
+        const key=groupCols.map(c=>r[c]).join("|");
+        if(!map.has(key)){
+          map.set(key,{...r});
+        }else{
+          const obj=map.get(key);
+          obj.quantity_kg+=r.quantity_kg||0;
+          obj.bill_amount+=r.bill_amount||0;
+          obj.quantity_cs+=r.quantity_cs||0;
+        }
+      });
+      return Array.from(map.values()).map(r=>({
+        state:r.state,
+        party_name:r.party_name,
+        item_name:r.item_name,
+        invoice_date:r.invoice_date,
+        invoice_month:r.invoice_month,
+        bill_number:r.bill_number,
+        quantity_kg:Math.round(r.quantity_kg),
+        bill_amount:Math.round(r.bill_amount),
+        quantity_cs:Math.round(r.quantity_cs)
+      }));
+    }
+
+    // --------- Initialize table ----------
+    function initTable(data){
+      if(table)table.destroy();
+      const foot=document.querySelector("#erpTable tfoot tr");
+      foot.innerHTML=columns.map(()=>"<th></th>").join("");
+      table=$("#erpTable").DataTable({
+        data,
+        columns:columns.map(c=>({data:c,title:c.replace(/_/g," ").toUpperCase()})),
+        pageLength:100,
+        scrollX:true,
+        footerCallback:function(row,data){
+          const api=this.api();
+          const totalKG=api.column(6).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
+          const totalBill=api.column(7).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
+          const totalCS=api.column(8).data().reduce((a,b)=>a+(parseFloat(b)||0),0);
+          $(api.column(6).footer()).html(totalKG.toLocaleString());
+          $(api.column(7).footer()).html(totalBill.toLocaleString());
+          $(api.column(8).footer()).html(totalCS.toLocaleString());
+        }
       });
     }
 
-    document.getElementById("dateFrom").addEventListener("change",applyFilters);
-    document.getElementById("dateTo").addEventListener("change",applyFilters);
+    // --------- Reset filters ----------
     document.getElementById("resetFilters").addEventListener("click",()=>{
       document.querySelectorAll(".filter-options input").forEach(i=>i.checked=false);
       document.getElementById("dateFrom").value="";
       document.getElementById("dateTo").value="";
-      const aggregated=groupAndAggregate(fullData);
-      table.clear().rows.add(aggregated).draw();
-      setDefaultColumns();
+      applyFilters();
     });
 
+    document.getElementById("groupBy").addEventListener("change",applyFilters);
+    document.getElementById("dateFrom").addEventListener("change",applyFilters);
+    document.getElementById("dateTo").addEventListener("change",applyFilters);
+
     window.applyFilters=applyFilters;
-    window.toggleColumn=toggleColumn;
     loadData();
   </script>
 </body>
