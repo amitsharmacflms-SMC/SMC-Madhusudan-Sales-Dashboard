@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ERP — Plant → Depot / Direct</title>
+
+  <!-- ✅ Fix favicon 404 -->
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
   <!-- ExcelJS + FileSaver + axios -->
@@ -28,12 +30,12 @@
     table{border-collapse:collapse;width:100%;min-width:980px}
     thead th{position:sticky;top:0;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));color:#fff;padding:8px;border:1px solid rgba(255,255,255,0.06);font-weight:800}
     td,th{padding:8px;border:1px solid #c7d2fe;text-align:center;vertical-align:middle;font-weight:700}
-    .subtotal-row td{background:#f3e8ff;color:#2b154f}
     .grandtotal-row td{background:#e0f2fe;color:#083344;font-weight:900}
     .controls-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px}
     @media(max-width:920px){ .filter-box{min-width:unset} table{font-size:13px} }
   </style>
 </head>
+
 <body>
   <header>
     <div style="display:flex;align-items:center;gap:12px">
@@ -59,7 +61,6 @@
         </div>
         <div><small id="recordsInfo" style="color:#6b7280"></small></div>
       </div>
-
       <div id="filtersContainer" style="display:flex;gap:10px;overflow:auto"></div>
     </div>
 
@@ -74,43 +75,46 @@
     </div>
   </main>
 
+  <footer style="text-align:center;padding:8px;margin-top:12px">
+    <small>© {{ current_year }} — Amit Sharma</small>
+  </footer>
+
 <script>
 const API_ENDPOINT = "/get_data/lighthouse_sales";
 let rawData = [];
 const TEXT_COLS = ["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE"];
-const STORAGE_KEY = "lighthouse_saved_filters_final";
+const STORAGE_KEY = "lighthouse_saved_filters_v2";
 
 /* ---------- Helpers ---------- */
 function num(v){ return Number(v)||0; }
 function debounce(fn,ms=220){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+
+/* ✅ Robust date parser for DD-MM-YYYY, YYYY-MM-DD, and GMT strings */
 function parseDDMMYYYY(s) {
   if (!s) return null;
   s = String(s).trim();
 
-  // ✅ Case 1: DD-MM-YYYY
   const ddmmyyyy = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
   if (ddmmyyyy) {
     const [_, d, m, y] = ddmmyyyy;
     return new Date(+y, +m - 1, +d);
   }
 
-  // ✅ Case 2: YYYY-MM-DD (ISO)
   const yyyymmdd = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (yyyymmdd) {
     const [_, y, m, d] = yyyymmdd;
     return new Date(+y, +m - 1, +d);
   }
 
-  // ✅ Case 3: RFC / GMT (e.g., "Mon, 08 Sep 2025 00:00:00 GMT")
   if (s.includes("GMT") || s.includes("UTC")) {
     const d = new Date(s);
     if (!isNaN(d.getTime())) return d;
   }
 
-  // fallback
-  const fallback = new Date(s);
-  return isNaN(fallback.getTime()) ? null : fallback;
+  const d2 = new Date(s);
+  return isNaN(d2.getTime()) ? null : d2;
 }
+
 function monthLabel(s){
   const d=parseDDMMYYYY(s); if(!d)return""; 
   return d.toLocaleString('default',{month:'short',year:'numeric'});
@@ -197,8 +201,9 @@ function cascadeAndAggregate(s){
   });
   const map=new Map();
   f.forEach(r=>{
-    const key=[r.state,r.party_name,r.item_name].join("|");
-    if(!map.has(key))map.set(key,{STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_DATE:formatDate(r.invoice_date),
+    const key=[r.state,r.party_name,r.item_name,r.invoice_date].join("|");
+    if(!map.has(key))map.set(key,{
+      STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_DATE:formatDate(r.invoice_date),
       SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs});
     else{const o=map.get(key);o.SUM_QUANTITY_KG+=r.quantity_kg;o.SUM_BILL_AMOUNT+=r.bill_amount;o.SUM_QUANTITY_CS+=r.quantity_cs;}
   });
@@ -211,18 +216,14 @@ function renderTable(rows,s){
   const show=s["SHOW COLUMNS"].length?s["SHOW COLUMNS"]:TEXT_COLS;
   const header=[...show,"SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
   th.innerHTML="<tr>"+header.map(h=>`<th>${h.replace(/_/g," ")}</th>`).join("")+"</tr>";
-  let html="";
-  rows.forEach(r=>{
-    html+="<tr>"+header.map(c=>{
-      if(c==="SUM_QUANTITY_KG")return`<td>${r.SUM_QUANTITY_KG.toLocaleString()}</td>`;
-      if(c==="SUM_BILL_AMOUNT")return`<td>${r.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
-      if(c==="SUM_QUANTITY_CS")return`<td>${r.SUM_QUANTITY_CS.toLocaleString()}</td>`;
-      return`<td>${r[c]??""}</td>`;
-    }).join("")+"</tr>";
-  });
-  tb.innerHTML=html||`<tr><td colspan="${header.length}">No data</td></tr>`;
+  tb.innerHTML=rows.map(r=>"<tr>"+header.map(c=>{
+    if(c==="SUM_QUANTITY_KG")return`<td>${r.SUM_QUANTITY_KG.toLocaleString()}</td>`;
+    if(c==="SUM_BILL_AMOUNT")return`<td>${r.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
+    if(c==="SUM_QUANTITY_CS")return`<td>${r.SUM_QUANTITY_CS.toLocaleString()}</td>`;
+    return`<td>${r[c]??""}</td>`;
+  }).join("")+"</tr>").join("")||`<tr><td colspan="${header.length}">No data</td></tr>`;
 
-  // Show totals only if TOTAL filter checked
+  // Totals only when TOTAL filter checked
   const totalCols=s["TOTAL"]||[];
   if(totalCols.length){
     const totals={SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0};
@@ -231,7 +232,7 @@ function renderTable(rows,s){
       if(c==="SUM_QUANTITY_KG")return`<td>${totals.SUM_QUANTITY_KG.toLocaleString()}</td>`;
       if(c==="SUM_BILL_AMOUNT")return`<td>${totals.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
       if(c==="SUM_QUANTITY_CS")return`<td>${totals.SUM_QUANTITY_CS.toLocaleString()}</td>`;
-      if(c===header[0])return`<td><b>GRAND TOTAL</b></td>`; return`<td></td>`;
+      if(c===header[0])return`<td><b>GRAND TOTAL</b></td>`;return`<td></td>`;
     }).join("")}</tr>`;
   } else tf.innerHTML="";
   document.getElementById("recordsInfo").textContent=`Rows: ${rows.length}`;
