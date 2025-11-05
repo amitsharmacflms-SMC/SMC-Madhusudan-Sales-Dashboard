@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ERP — Plant → Depot / Direct</title>
+  <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
   <!-- ExcelJS + FileSaver + axios -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
@@ -82,13 +83,33 @@ const STORAGE_KEY = "lighthouse_saved_filters_final";
 /* ---------- Helpers ---------- */
 function num(v){ return Number(v)||0; }
 function debounce(fn,ms=220){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
-function parseDDMMYYYY(s){
-  if(!s) return null;
-  const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if(m){ const [_,d,mo,y]=m; return new Date(+y,+mo-1,+d); }
-  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(iso){ const [_,y,mo,d]=iso; return new Date(+y,+mo-1,+d); }
-  return null;
+function parseDDMMYYYY(s) {
+  if (!s) return null;
+  s = String(s).trim();
+
+  // ✅ Case 1: DD-MM-YYYY
+  const ddmmyyyy = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (ddmmyyyy) {
+    const [_, d, m, y] = ddmmyyyy;
+    return new Date(+y, +m - 1, +d);
+  }
+
+  // ✅ Case 2: YYYY-MM-DD (ISO)
+  const yyyymmdd = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (yyyymmdd) {
+    const [_, y, m, d] = yyyymmdd;
+    return new Date(+y, +m - 1, +d);
+  }
+
+  // ✅ Case 3: RFC / GMT (e.g., "Mon, 08 Sep 2025 00:00:00 GMT")
+  if (s.includes("GMT") || s.includes("UTC")) {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // fallback
+  const fallback = new Date(s);
+  return isNaN(fallback.getTime()) ? null : fallback;
 }
 function monthLabel(s){
   const d=parseDDMMYYYY(s); if(!d)return""; 
