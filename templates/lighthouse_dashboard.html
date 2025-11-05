@@ -19,7 +19,7 @@
     header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
     header h1{margin:0;color:var(--navy);font-weight:800}
     .toolbar{display:flex;gap:8px}
-    .btn{border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700}
+    .btn{border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
     .btn-blue{background:linear-gradient(90deg,var(--accent-2),var(--accent-1));color:#fff}
     .btn-gray{background:#f3f4f6;color:#0f172a;border:1px solid #e6eef9}
     .card{background:#fff;border-radius:12px;padding:12px;box-shadow:0 8px 30px rgba(2,6,23,0.04);margin-bottom:12px}
@@ -31,7 +31,9 @@
     thead th{position:sticky;top:0;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));color:#fff;padding:8px;border:1px solid rgba(255,255,255,0.06);font-weight:800}
     td,th{padding:8px;border:1px solid #c7d2fe;text-align:center;vertical-align:middle;font-weight:700}
     .grandtotal-row td{background:#e0f2fe;color:#083344;font-weight:900}
+    .subtotal-row td{background:#f8fafc;font-weight:900}
     .controls-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px}
+    .quick-date { margin-left:8px; }
     @media(max-width:920px){ .filter-box{min-width:unset} table{font-size:13px} }
   </style>
 </head>
@@ -44,7 +46,8 @@
     </div>
 
     <div class="toolbar">
-      <a href="sales_levels.html"><button class="btn btn-gray">⬅ Back</button></a>
+      <!-- fixed: use anchor directly so navigation works -->
+      <a href="sales_levels.html" class="btn btn-gray">⬅ Back</a>
       <button id="exportBtn" class="btn btn-blue">Export</button>
       <button id="clearBtn" class="btn btn-gray">Clear Filters</button>
       <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
@@ -57,6 +60,7 @@
         <div>
           From: <input type="date" id="dateFrom">
           To: <input type="date" id="dateTo">
+          <button id="yesterdayBtn" class="btn btn-gray quick-date" title="Set both From & To to yesterday">Yesterday</button>
           Invoice Month: <select id="monthQuick"><option value="">--All--</option></select>
         </div>
         <div><small id="recordsInfo" style="color:#6b7280"></small></div>
@@ -64,7 +68,7 @@
       <div id="filtersContainer" style="display:flex;gap:10px;overflow:auto"></div>
     </div>
 
-    <div id="loader" class="card" style="text-align:center">Loading data…</div>
+    <!-- loader removed as requested -->
 
     <div class="card" style="overflow:auto;max-height:70vh">
       <table id="dataTable" aria-label="ERP aggregated table">
@@ -89,7 +93,6 @@ const STORAGE_KEY = "lighthouse_saved_filters_v2";
 function num(v){ return Number(v)||0; }
 function debounce(fn,ms=220){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
 
-/* ✅ Robust date parser for DD-MM-YYYY, YYYY-MM-DD, and GMT strings */
 function parseDDMMYYYY(s) {
   if (!s) return null;
   s = String(s).trim();
@@ -127,9 +130,9 @@ function formatDate(s){
 /* ---------- Build Filters ---------- */
 function buildFiltersUI(){
   const c=document.getElementById("filtersContainer"); c.innerHTML="";
+  // Removed INVOICE_MONTH from the boxes to avoid duplicate "Invoice Month"
   const boxes=[
     {key:"SHOW COLUMNS",vals:TEXT_COLS},
-    {key:"INVOICE_MONTH",vals:[...new Set(rawData.map(r=>monthLabel(r.invoice_date)).filter(Boolean))].sort((a,b)=>new Date(a)-new Date(b))},
     {key:"STATE",vals:[...new Set(rawData.map(r=>r.state).filter(Boolean))].sort()},
     {key:"PARTY_NAME",vals:[...new Set(rawData.map(r=>r.party_name).filter(Boolean))].sort()},
     {key:"ITEM_NAME",vals:[...new Set(rawData.map(r=>r.item_name).filter(Boolean))].sort()},
@@ -151,22 +154,25 @@ function buildFiltersUI(){
 
 /* ---------- Load Data ---------- */
 async function loadData(){
-  document.getElementById("loader").classList.remove("hidden");
-  const res=await axios.get(API_ENDPOINT);
-  rawData=(Array.isArray(res.data)?res.data:[]).map(r=>({
-    state:r.state||r.STATE||"",
-    party_name:r.party_name||r.PARTY_NAME||"",
-    item_name:r.item_name||r.ITEM_NAME||"",
-    invoice_date:(r.invoice_date||r.Invoice_Date||"").trim(),
-    quantity_kg:num(r.quantity_kg||r.Quantity_KG),
-    bill_amount:num(r.bill_amount||r.Bill_Amount),
-    quantity_cs:num(r.quantity_cs||r.Quantity_CS)
-  }));
-  const months=[...new Set(rawData.map(r=>monthLabel(r.invoice_date)).filter(Boolean))].sort((a,b)=>new Date(a)-new Date(b));
-  document.getElementById("monthQuick").innerHTML=`<option value="">--All--</option>`+months.map(m=>`<option value="${m}">${m}</option>`).join("");
-  buildFiltersUI();
-  debounceApply();
-  document.getElementById("loader").classList.add("hidden");
+  try{
+    const res=await axios.get(API_ENDPOINT);
+    rawData=(Array.isArray(res.data)?res.data:[]).map(r=>({
+      state:r.state||r.STATE||"",
+      party_name:r.party_name||r.PARTY_NAME||"",
+      item_name:r.item_name||r.ITEM_NAME||"",
+      invoice_date:(r.invoice_date||r.Invoice_Date||"").trim(),
+      quantity_kg:num(r.quantity_kg||r.Quantity_KG),
+      bill_amount:num(r.bill_amount||r.Bill_Amount),
+      quantity_cs:num(r.quantity_cs||r.Quantity_CS)
+    }));
+    const months=[...new Set(rawData.map(r=>monthLabel(r.invoice_date)).filter(Boolean))].sort((a,b)=>new Date(a)-new Date(b));
+    document.getElementById("monthQuick").innerHTML=`<option value="">--All--</option>`+months.map(m=>`<option value="${m}">${m}</option>`).join("");
+    buildFiltersUI();
+    debounceApply();
+  }catch(err){
+    console.error("Failed to load data",err);
+    document.getElementById("tableBody").innerHTML=`<tr><td colspan="8">Error loading data</td></tr>`;
+  }
 }
 
 /* ---------- Get Selected ---------- */
@@ -182,59 +188,200 @@ function getSelected(){
   return s;
 }
 
-/* ---------- Cascade + Aggregate ---------- */
+/* ---------- Cascade + Aggregate with Subtotals ---------- */
 function cascadeAndAggregate(s){
   let f=[...rawData];
   const from=s.__from?new Date(s.__from):null,to=s.__to?new Date(s.__to):null;
-  if(s.__monthQuick)f=f.filter(r=>monthLabel(r.invoice_date)===s.__monthQuick);
-  else if(from||to)f=f.filter(r=>{const d=parseDDMMYYYY(r.invoice_date);if(!d)return false;if(from&&d<from)return false;if(to&&d>to)return false;return true;});
-  ["STATE","PARTY_NAME","ITEM_NAME","INVOICE_MONTH"].forEach(k=>{
-    const vals=s[k]||[]; if(!vals.length)return;
-    if(k==="INVOICE_MONTH")f=f.filter(r=>vals.includes(monthLabel(r.invoice_date)));
-    else f=f.filter(r=>vals.includes(r[k.toLowerCase()]));
+  if(s.__monthQuick) f = f.filter(r=> monthLabel(r.invoice_date) === s.__monthQuick);
+  else if(from||to) f = f.filter(r=>{
+    const d=parseDDMMYYYY(r.invoice_date);
+    if(!d) return false;
+    if(from && d < from) return false;
+    if(to && d > to) return false;
+    return true;
   });
+
+  ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
+    const vals=s[k]||[]; if(!vals.length) return;
+    f = f.filter(r => vals.includes(r[k.toLowerCase()]));
+  });
+
+  // Hide filter options that are no longer present
   const sets={STATE:new Set(f.map(r=>r.state)),PARTY_NAME:new Set(f.map(r=>r.party_name)),ITEM_NAME:new Set(f.map(r=>r.item_name))};
   ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
     document.querySelectorAll(`input[name='${k}']`).forEach(cb=>{
       const lab=cb.closest("label"); if(!sets[k].has(cb.value)){lab.style.display="none";cb.checked=false;} else lab.style.display="";
     });
   });
+
+  // base aggregation per unique combination (state,party,item,invoice_date)
   const map=new Map();
   f.forEach(r=>{
     const key=[r.state,r.party_name,r.item_name,r.invoice_date].join("|");
-    if(!map.has(key))map.set(key,{
+    if(!map.has(key)) map.set(key,{
       STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_DATE:formatDate(r.invoice_date),
-      SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs});
-    else{const o=map.get(key);o.SUM_QUANTITY_KG+=r.quantity_kg;o.SUM_BILL_AMOUNT+=r.bill_amount;o.SUM_QUANTITY_CS+=r.quantity_cs;}
+      SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs
+    });
+    else {
+      const o=map.get(key);
+      o.SUM_QUANTITY_KG += r.quantity_kg;
+      o.SUM_BILL_AMOUNT += r.bill_amount;
+      o.SUM_QUANTITY_CS += r.quantity_cs;
+    }
   });
-  return [...map.values()];
+
+  // Convert map to nested grouping state -> party -> item -> rows (rows are invoice_date-level entries)
+  const rows = [...map.values()];
+  rows.sort((a,b)=>{
+    return (a.STATE||"").localeCompare(b.STATE||"") || (a.PARTY_NAME||"").localeCompare(b.PARTY_NAME||"") || (a.ITEM_NAME||"").localeCompare(b.ITEM_NAME||"") || (a.INVOICE_DATE||"").localeCompare(b.INVOICE_DATE||"");
+  });
+
+  const grouped = new Map();
+  for(const r of rows){
+    if(!grouped.has(r.STATE)) grouped.set(r.STATE, new Map());
+    const parties = grouped.get(r.STATE);
+    if(!parties.has(r.PARTY_NAME)) parties.set(r.PARTY_NAME, new Map());
+    const items = parties.get(r.PARTY_NAME);
+    if(!items.has(r.ITEM_NAME)) items.set(r.ITEM_NAME, []);
+    items.get(r.ITEM_NAME).push(r);
+  }
+
+  // Build output with optional subtotal rows. Insert subtotals inline when corresponding TOTAL checkbox is checked.
+  const totalCols = s["TOTAL"] || [];
+  const output = [];
+  const grand = {SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0};
+
+  function sumRows(list){
+    return list.reduce((acc,r)=>{
+      acc.SUM_QUANTITY_KG += r.SUM_QUANTITY_KG;
+      acc.SUM_BILL_AMOUNT += r.SUM_BILL_AMOUNT;
+      acc.SUM_QUANTITY_CS += r.SUM_QUANTITY_CS;
+      return acc;
+    }, {SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0});
+  }
+
+  for(const [state, parties] of grouped.entries()){
+    // iterate parties
+    for(const [party, items] of parties.entries()){
+      for(const [item, itemRows] of items.entries()){
+        // push the invoice-level rows (already aggregated to invoice date)
+        itemRows.forEach(r=> output.push(r));
+        // item subtotal
+        if(totalCols.includes("ITEM_NAME")){
+          const st = sumRows(itemRows);
+          output.push({
+            __subtotal_level: 'ITEM_NAME',
+            __subtotal_for: item,
+            STATE: state,
+            PARTY_NAME: party,
+            ITEM_NAME: item,
+            INVOICE_DATE: '',
+            SUM_QUANTITY_KG: st.SUM_QUANTITY_KG,
+            SUM_BILL_AMOUNT: st.SUM_BILL_AMOUNT,
+            SUM_QUANTITY_CS: st.SUM_QUANTITY_CS
+          });
+        }
+      }
+      // party subtotal
+      if(totalCols.includes("PARTY_NAME")){
+        // collect all rows under this party
+        const allUnderParty = [];
+        for(const itemList of items.values()) allUnderParty.push(...itemList);
+        const st = sumRows(allUnderParty);
+        output.push({
+          __subtotal_level: 'PARTY_NAME',
+          __subtotal_for: party,
+          STATE: state,
+          PARTY_NAME: party,
+          ITEM_NAME: '',
+          INVOICE_DATE: '',
+          SUM_QUANTITY_KG: st.SUM_QUANTITY_KG,
+          SUM_BILL_AMOUNT: st.SUM_BILL_AMOUNT,
+          SUM_QUANTITY_CS: st.SUM_QUANTITY_CS
+        });
+      }
+    }
+    // state subtotal
+    if(totalCols.includes("STATE")){
+      const allUnderState = [];
+      for(const partiesMap of parties.values()){
+        for(const itemList of partiesMap.values()) allUnderState.push(...itemList);
+      }
+      const st = sumRows(allUnderState);
+      output.push({
+        __subtotal_level: 'STATE',
+        __subtotal_for: state,
+        STATE: state,
+        PARTY_NAME: '',
+        ITEM_NAME: '',
+        INVOICE_DATE: '',
+        SUM_QUANTITY_KG: st.SUM_QUANTITY_KG,
+        SUM_BILL_AMOUNT: st.SUM_BILL_AMOUNT,
+        SUM_QUANTITY_CS: st.SUM_QUANTITY_CS
+      });
+    }
+  }
+
+  // compute grand total
+  output.forEach(r=>{
+    grand.SUM_QUANTITY_KG += r.SUM_QUANTITY_KG || 0;
+    grand.SUM_BILL_AMOUNT += r.SUM_BILL_AMOUNT || 0;
+    grand.SUM_QUANTITY_CS += r.SUM_QUANTITY_CS || 0;
+  });
+
+  // store grand totals to return too
+  return {rows: output, grand};
 }
 
-/* ---------- Render Table ---------- */
-function renderTable(rows,s){
+/* ---------- Render Table (supports subtotal rows) ---------- */
+function renderTable(resultObj, s){
+  const rows = resultObj.rows || [];
+  const grand = resultObj.grand || {SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0};
   const th=document.getElementById("tableHead"),tb=document.getElementById("tableBody"),tf=document.getElementById("tableFoot");
   const show=s["SHOW COLUMNS"].length?s["SHOW COLUMNS"]:TEXT_COLS;
   const header=[...show,"SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
   th.innerHTML="<tr>"+header.map(h=>`<th>${h.replace(/_/g," ")}</th>`).join("")+"</tr>";
-  tb.innerHTML=rows.map(r=>"<tr>"+header.map(c=>{
-    if(c==="SUM_QUANTITY_KG")return`<td>${r.SUM_QUANTITY_KG.toLocaleString()}</td>`;
-    if(c==="SUM_BILL_AMOUNT")return`<td>${r.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
-    if(c==="SUM_QUANTITY_CS")return`<td>${r.SUM_QUANTITY_CS.toLocaleString()}</td>`;
-    return`<td>${r[c]??""}</td>`;
-  }).join("")+"</tr>").join("")||`<tr><td colspan="${header.length}">No data</td></tr>`;
 
-  // Totals only when TOTAL filter checked
-  const totalCols=s["TOTAL"]||[];
+  // find index of a field (uppercase keys)
+  function colIndexFor(key){
+    const idx = header.findIndex(h=>h.toUpperCase()===key);
+    return idx >= 0 ? idx : 0;
+  }
+
+  tb.innerHTML = rows.map(r=>{
+    const isSubtotal = !!r.__subtotal_level;
+    const cells = header.map((c,ci)=>{
+      if(isSubtotal){
+        // put subtotal label in the corresponding column for the subtotal level
+        if(ci === colIndexFor(r.__subtotal_level)){
+          return `<td class="subtotal-row">${r.__subtotal_level.replace(/_/g," ")} SUBTOTAL — ${r.__subtotal_for}</td>`;
+        }
+        if(c==="SUM_QUANTITY_KG") return `<td class="subtotal-row">${(r.SUM_QUANTITY_KG||0).toLocaleString()}</td>`;
+        if(c==="SUM_BILL_AMOUNT") return `<td class="subtotal-row">${(r.SUM_BILL_AMOUNT||0).toLocaleString()}</td>`;
+        if(c==="SUM_QUANTITY_CS") return `<td class="subtotal-row">${(r.SUM_QUANTITY_CS||0).toLocaleString()}</td>`;
+        return `<td class="subtotal-row"></td>`;
+      } else {
+        if(c==="SUM_QUANTITY_KG") return `<td>${(r.SUM_QUANTITY_KG||0).toLocaleString()}</td>`;
+        if(c==="SUM_BILL_AMOUNT") return `<td>${(r.SUM_BILL_AMOUNT||0).toLocaleString()}</td>`;
+        if(c==="SUM_QUANTITY_CS") return `<td>${(r.SUM_QUANTITY_CS||0).toLocaleString()}</td>`;
+        return `<td>${r[c]??""}</td>`;
+      }
+    });
+    return `<tr>${cells.join("")}</tr>`;
+  }).join("") || `<tr><td colspan="${header.length}">No data</td></tr>`;
+
+  // Grand totals only when TOTAL filter checked (any)
+  const totalCols = s["TOTAL"]||[];
   if(totalCols.length){
-    const totals={SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0};
-    rows.forEach(r=>{totals.SUM_QUANTITY_KG+=r.SUM_QUANTITY_KG;totals.SUM_BILL_AMOUNT+=r.SUM_BILL_AMOUNT;totals.SUM_QUANTITY_CS+=r.SUM_QUANTITY_CS;});
-    tf.innerHTML=`<tr class='grandtotal-row'>${header.map(c=>{
-      if(c==="SUM_QUANTITY_KG")return`<td>${totals.SUM_QUANTITY_KG.toLocaleString()}</td>`;
-      if(c==="SUM_BILL_AMOUNT")return`<td>${totals.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
-      if(c==="SUM_QUANTITY_CS")return`<td>${totals.SUM_QUANTITY_CS.toLocaleString()}</td>`;
-      if(c===header[0])return`<td><b>GRAND TOTAL</b></td>`;return`<td></td>`;
+    tf.innerHTML=`<tr class='grandtotal-row'>${header.map((c,ci)=>{
+      if(c==="SUM_QUANTITY_KG") return `<td>${grand.SUM_QUANTITY_KG.toLocaleString()}</td>`;
+      if(c==="SUM_BILL_AMOUNT") return `<td>${grand.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
+      if(c==="SUM_QUANTITY_CS") return `<td>${grand.SUM_QUANTITY_CS.toLocaleString()}</td>`;
+      if(ci===0) return `<td><b>GRAND TOTAL</b></td>`;
+      return `<td></td>`;
     }).join("")}</tr>`;
   } else tf.innerHTML="";
+
   document.getElementById("recordsInfo").textContent=`Rows: ${rows.length}`;
 }
 
@@ -245,6 +392,16 @@ const debounceApply=debounce(()=>{const s=getSelected();const d=cascadeAndAggreg
 document.getElementById("dateFrom").addEventListener("change",debounceApply);
 document.getElementById("dateTo").addEventListener("change",debounceApply);
 document.getElementById("monthQuick").addEventListener("change",debounceApply);
+
+document.getElementById("yesterdayBtn").addEventListener("click",()=>{
+  const t = new Date();
+  t.setDate(t.getDate()-1);
+  const iso = t.toISOString().slice(0,10);
+  document.getElementById("dateFrom").value = iso;
+  document.getElementById("dateTo").value = iso;
+  debounceApply();
+});
+
 document.getElementById("clearBtn").addEventListener("click",()=>{
   document.querySelectorAll("input[type=checkbox]").forEach(c=>c.checked=false);
   document.getElementById("dateFrom").value="";document.getElementById("dateTo").value="";document.getElementById("monthQuick").value="";
