@@ -322,7 +322,7 @@ async function loadData(){
     buildFiltersUI();
 
     // initial apply
-    applyFilters(false);
+    debounceApply();
   }catch(err){
     console.error("Load failed", err);
     showLoader("Failed to load ERP data (see console).");
