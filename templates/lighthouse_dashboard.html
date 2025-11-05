@@ -11,49 +11,111 @@
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
   <style>
-    :root{
-      --navy:#1e3a8a; --accent-1:#2563eb; --accent-2:#9333ea; --card:#ffffff;
-      --muted:#6b7280; --success:#16a34a; --danger:#ef4444;
+    :root {
+      --navy: #1e3a8a;
+      --accent-1: #2563eb;
+      --accent-2: #9333ea;
+      --card: #ffffff;
+      --muted: #6b7280;
     }
-    body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial; margin:0; padding:18px; background:linear-gradient(135deg,#eef2f3,#f7f8fc); color:#0f172a;}
-    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
-    header .left{display:flex;align-items:center;gap:12px}
-    header img{height:44px}
-    header h1{font-size:1.05rem;margin:0;color:var(--navy); font-weight:800}
-    .toolbar{display:flex;gap:8px;align-items:center}
-    .btn{border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700}
-    .btn-blue{background:linear-gradient(90deg,var(--accent-2),var(--accent-1)); color:#fff}
-    .btn-gray{background:#f3f4f6;color:#0f172a;border:1px solid #e6eef9}
-    main{max-width:1400px;margin:0 auto}
-    .card{background:var(--card);border-radius:12px;padding:12px;box-shadow:0 8px 30px rgba(2,6,23,0.04); margin-bottom:12px}
-    #filtersWrapper{overflow:hidden;transition:all .25s ease}
-    #filtersContainer{display:flex;gap:10px;align-items:flex-start;overflow:auto;padding:10px}
-    .filter-box{min-width:170px;border:2px solid var(--navy);border-radius:10px;padding:8px;background:#fff;box-shadow:0 2px 10px rgba(2,6,23,0.04)}
-    .filter-box strong{display:block;text-align:center;margin-bottom:6px;font-weight:800;color:var(--navy);font-size:12px}
-    .filter-box .options{max-height:220px;overflow:auto;padding-right:6px}
-    .filter-box label{display:inline-block;margin:3px 6px;padding:3px 6px;border-radius:6px;background:#f8fafc; cursor:pointer; font-size:13px}
-    .filter-box input[type="checkbox"]{margin-right:6px}
-    .table-wrapper{background:#fff;border-radius:10px;padding:8px;box-shadow:0 6px 18px rgba(2,6,23,0.04);overflow:auto;max-height:70vh}
-    table{border-collapse:collapse;width:100%;min-width:980px}
-    thead th{position:sticky;top:0;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));color:#fff;padding:8px;border:1px solid rgba(255,255,255,0.06);font-weight:800}
-    tbody td, thead th, tfoot td{padding:8px;border:1px solid #c7d2fe; text-align:center; vertical-align:middle; font-weight:700}
-    tbody tr.subtotal-row td{background:#f3e8ff;color:#2b154f}
-    tfoot tr.grandtotal-row td{background:#e0f2fe;color:#083344;font-weight:900}
-    td.numeric{text-align:center}
-    .hidden{display:none}
-    .controls-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap; justify-content:space-between;margin-bottom:8px}
-    .controls-left{display:flex;gap:8px;align-items:center}
+    body {
+      font-family: Inter, system-ui, Segoe UI, Roboto, Arial;
+      margin: 0;
+      padding: 18px;
+      background: linear-gradient(135deg, #eef2f3, #f7f8fc);
+      color: #0f172a;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    header img {
+      height: 44px;
+    }
+    header h1 {
+      font-size: 1.05rem;
+      margin: 0;
+      color: var(--navy);
+      font-weight: 800;
+    }
+    .btn {
+      border: 0;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .btn-blue {
+      background: linear-gradient(90deg, var(--accent-2), var(--accent-1));
+      color: #fff;
+    }
+    .btn-gray {
+      background: #f3f4f6;
+      color: #0f172a;
+      border: 1px solid #e6eef9;
+    }
+    .filter-box {
+      min-width: 170px;
+      border: 2px solid var(--navy);
+      border-radius: 10px;
+      padding: 8px;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(2, 6, 23, 0.04);
+    }
+    .filter-box strong {
+      display: block;
+      text-align: center;
+      margin-bottom: 6px;
+      font-weight: 800;
+      color: var(--navy);
+      font-size: 12px;
+    }
+    .filter-box label {
+      display: inline-block;
+      margin: 3px 6px;
+      padding: 3px 6px;
+      border-radius: 6px;
+      background: #f8fafc;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 980px;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+      color: #fff;
+      padding: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-weight: 800;
+    }
+    td, th {
+      padding: 8px;
+      border: 1px solid #c7d2fe;
+      text-align: center;
+      vertical-align: middle;
+      font-weight: 700;
+    }
+    .subtotal-row td { background: #f3e8ff; color: #2b154f; }
+    .grandtotal-row td { background: #e0f2fe; color: #083344; font-weight: 900; }
   </style>
 </head>
 
 <body>
   <header>
-    <div class="left">
+    <div style="display:flex;align-items:center;gap:12px;">
       <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo">
       <h1>SMC — ERP (Plant → Depot / Direct)</h1>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar" style="display:flex;gap:8px;">
       <button id="exportBtn" class="btn btn-blue">Export</button>
       <button id="clearBtn" class="btn btn-gray">Clear Filters</button>
       <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
@@ -63,24 +125,20 @@
 
   <main>
     <div class="card" id="filtersWrapper">
-      <div class="controls-row">
-        <div class="controls-left">
-          <label>From: <input type="date" id="dateFrom"></label>
-          <label>To: <input type="date" id="dateTo"></label>
-          <label>Invoice Month: 
-            <select id="monthQuick"><option value="">--Select--</option></select>
-          </label>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div>
+          From: <input type="date" id="dateFrom"> 
+          To: <input type="date" id="dateTo"> 
+          Invoice Month: <select id="monthQuick"><option value="">--Select--</option></select>
         </div>
-        <div style="text-align:right">
-          <small id="recordsInfo" style="color:var(--muted)"></small>
-        </div>
+        <small id="recordsInfo" style="color:var(--muted)"></small>
       </div>
-      <div id="filtersContainer"></div>
+      <div id="filtersContainer" style="display:flex;gap:10px;overflow:auto;"></div>
     </div>
 
     <div id="loader" class="card" style="text-align:center">Loading data…</div>
 
-    <div class="table-wrapper card">
+    <div class="card" style="overflow:auto;max-height:70vh;">
       <table id="dataTable">
         <thead id="tableHead"></thead>
         <tbody id="tableBody"></tbody>
@@ -89,95 +147,83 @@
     </div>
   </main>
 
-  <footer style="text-align:center;padding:8px;margin-top:12px">
-    <small>© {{ current_year }} — Amit Sharma</small>
-  </footer>
-
 <script>
-/* ---------- CONFIG ---------- */
 const API_ENDPOINT = "/get_data/lighthouse_sales";
-let rawData = [], aggregatedRows = [];
-const TEXT_COLS = ["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE"];
+let rawData = [];
+const TEXT_COLS = ["STATE", "PARTY_NAME", "ITEM_NAME", "INVOICE_DATE"];
 const STORAGE_KEY = "lighthouse_saved_filters_v2";
 
-/* ---------- UTILITIES ---------- */
-function num(v){ return Number(v)||0; }
-function monthLabel(d){
-  if(!d) return "";
-  const dt = new Date(d);
-  if(!isNaN(dt)) return dt.toLocaleString('default',{month:'short',year:'numeric'});
-  const parts = String(d).split("-");
-  if(parts.length===3){
-    const [a,b,c] = parts;
-    if(c.length===4) return new Date(c,b-1,a).toLocaleString('default',{month:'short',year:'numeric'});
-  }
-  return "";
-}
+/* ---------- Helper Functions ---------- */
+function num(v){return Number(v)||0;}
 function formatDate(d){
-  const dt = new Date(d);
-  if(!isNaN(dt)) return `${String(dt.getDate()).padStart(2,"0")}-${dt.toLocaleString('default',{month:'short'})}-${dt.getFullYear()}`;
-  const p = String(d).split("-");
-  if(p.length===3){
-    const [a,b,c]=p; if(c.length===4) return `${a}-${b}-${c}`;
-  }
+  if(!d)return"";
+  const dt=new Date(d);
+  if(!isNaN(dt))return `${String(dt.getDate()).padStart(2,"0")}-${dt.toLocaleString('default',{month:'short'})}-${dt.getFullYear()}`;
+  const p=String(d).split("-");
+  if(p.length===3){const [a,b,c]=p;if(c.length===4)return`${a}-${b}-${c}`;}
   return d;
 }
-function debounce(fn,ms=250){ let t; return (...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)};}
+function monthLabel(d){
+  if(!d)return"";
+  const dt=new Date(d);
+  if(!isNaN(dt))return dt.toLocaleString('default',{month:'short',year:'numeric'});
+  const p=String(d).split("-");
+  if(p.length===3){const [a,b,c]=p;if(c.length===4)return new Date(c,b-1,a).toLocaleString('default',{month:'short',year:'numeric'});}
+  return"";
+}
+function debounce(fn,ms=250){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);}}
 
-/* ---------- FILTER UI ---------- */
+/* ---------- Build Filters ---------- */
 function buildFiltersUI(){
-  const container=document.getElementById("filtersContainer");
-  container.innerHTML="";
+  const f=document.getElementById("filtersContainer");
+  f.innerHTML="";
   const boxes=[
-    {key:"SHOW COLUMNS",values:TEXT_COLS},
-    {key:"INVOICE_MONTH",values:[...new Set(rawData.map(r=>monthLabel(r.invoice_date)).filter(Boolean))].sort((a,b)=>new Date(a)-new Date(b))},
-    {key:"STATE",values:[...new Set(rawData.map(r=>r.state).filter(Boolean))].sort()},
-    {key:"PARTY_NAME",values:[...new Set(rawData.map(r=>r.party_name).filter(Boolean))].sort()},
-    {key:"ITEM_NAME",values:[...new Set(rawData.map(r=>r.item_name).filter(Boolean))].sort()},
-    {key:"TOTAL",values:TEXT_COLS}
+    {key:"SHOW COLUMNS",vals:TEXT_COLS},
+    {key:"INVOICE_MONTH",vals:[...new Set(rawData.map(r=>monthLabel(r.invoice_date)).filter(Boolean))].sort((a,b)=>new Date(a)-new Date(b))},
+    {key:"STATE",vals:[...new Set(rawData.map(r=>r.state).filter(Boolean))].sort()},
+    {key:"PARTY_NAME",vals:[...new Set(rawData.map(r=>r.party_name).filter(Boolean))].sort()},
+    {key:"ITEM_NAME",vals:[...new Set(rawData.map(r=>r.item_name).filter(Boolean))].sort()},
+    {key:"TOTAL",vals:TEXT_COLS}
   ];
   boxes.forEach(b=>{
     const div=document.createElement("div");
     div.className="filter-box";
     div.innerHTML=`<strong>${b.key}</strong>
       <label><input type="checkbox" data-all="${b.key}"> All</label>
-      <div class="options">${b.values.map(v=>`<label><input type="checkbox" name="${b.key}" value="${v}"> ${v}</label>`).join("")}</div>`;
-    container.appendChild(div);
+      <div class="options">${b.vals.map(v=>`<label><input type="checkbox" name="${b.key}" value="${v}"> ${v}</label>`).join("")}</div>`;
+    f.appendChild(div);
   });
-  container.querySelectorAll("input[data-all]").forEach(cb=>{
+  f.querySelectorAll("input[data-all]").forEach(cb=>{
     cb.addEventListener("change",e=>{
       const key=e.target.dataset.all;
-      const checked=e.target.checked;
-      container.querySelectorAll(`input[name='${key}']`).forEach(i=>i.checked=checked);
+      f.querySelectorAll(`input[name='${key}']`).forEach(i=>i.checked=e.target.checked);
       debounceApply();
     });
   });
-  container.addEventListener("change",debounceApply);
+  f.addEventListener("change",debounceApply);
 }
 
-/* ---------- LOAD DATA ---------- */
+/* ---------- Load Data ---------- */
 async function loadData(){
   document.getElementById("loader").classList.remove("hidden");
-  try{
-    const res=await axios.get(API_ENDPOINT);
-    rawData=res.data.map(r=>({
-      state:r.state||r.STATE||"",
-      party_name:r.party_name||r.PARTY_NAME||"",
-      item_name:r.item_name||r.ITEM_NAME||"",
-      invoice_date:formatDate(r.invoice_date||r.Invoice_Date||""),
-      bill_number:r.bill_number||r.BILL_NUMBER||"",
-      quantity_kg:num(r.quantity_kg||r.Quantity_KG),
-      bill_amount:num(r.bill_amount||r.Bill_Amount),
-      quantity_cs:num(r.quantity_cs||r.Quantity_CS)
-    }));
-    document.getElementById("recordsInfo").textContent=`Rows loaded: ${rawData.length}`;
-    buildFiltersUI();
-    debounceApply();
-  }catch(e){console.error(e);}
-  finally{document.getElementById("loader").classList.add("hidden");}
+  const res=await axios.get(API_ENDPOINT);
+  rawData=res.data.map(r=>({
+    state:r.state||r.STATE||"",
+    party_name:r.party_name||r.PARTY_NAME||"",
+    item_name:r.item_name||r.ITEM_NAME||"",
+    invoice_date:formatDate(r.invoice_date||r.Invoice_Date||""),
+    bill_number:r.bill_number||r.BILL_NUMBER||"",
+    quantity_kg:num(r.quantity_kg||r.Quantity_KG),
+    bill_amount:num(r.bill_amount||r.Bill_Amount),
+    quantity_cs:num(r.quantity_cs||r.Quantity_CS)
+  }));
+  document.getElementById("recordsInfo").textContent=`Rows loaded: ${rawData.length}`;
+  buildFiltersUI();
+  debounceApply();
+  document.getElementById("loader").classList.add("hidden");
 }
 
-/* ---------- APPLY FILTERS + AGGREGATION ---------- */
+/* ---------- Cascade + Aggregate ---------- */
 function getSelected(){
   const s={};
   document.querySelectorAll(".filter-box").forEach(b=>{
@@ -192,38 +238,27 @@ function getSelected(){
 }
 
 function cascadeAndAggregate(sel){
-  let filtered=[...rawData];
+  let f=[...rawData];
   const from=sel.__from?new Date(sel.__from):null,to=sel.__to?new Date(sel.__to):null;
-  if(sel.__month){filtered=filtered.filter(r=>monthLabel(r.invoice_date)===sel.__month);}
-  else if(from||to){
-    filtered=filtered.filter(r=>{
-      const d=new Date(r.invoice_date);
-      if(isNaN(d))return false;
-      if(from&&d<from)return false;
-      if(to&&d>to)return false;
-      return true;
-    });
-  }
+  if(sel.__month)f=f.filter(r=>monthLabel(r.invoice_date)===sel.__month);
+  else if(from||to)f=f.filter(r=>{const d=new Date(r.invoice_date);if(isNaN(d))return false;if(from&&d<from)return false;if(to&&d>to)return false;return true;});
   ["STATE","PARTY_NAME","ITEM_NAME","INVOICE_MONTH"].forEach(k=>{
     const vals=sel[k]||[];
     if(vals.length){
-      if(k==="INVOICE_MONTH") filtered=filtered.filter(r=>vals.includes(monthLabel(r.invoice_date)));
-      else filtered=filtered.filter(r=>vals.includes(r[k.toLowerCase()]));
+      if(k==="INVOICE_MONTH")f=f.filter(r=>vals.includes(monthLabel(r.invoice_date)));
+      else f=f.filter(r=>vals.includes(r[k.toLowerCase()]));
     }
   });
   const map=new Map();
-  filtered.forEach(r=>{
+  f.forEach(r=>{
     const key=[r.state,r.party_name,r.item_name,r.invoice_date].join("|");
-    if(!map.has(key)) map.set(key,{STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_DATE:r.invoice_date,
-      SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs});
-    else{
-      const o=map.get(key);
-      o.SUM_QUANTITY_KG+=r.quantity_kg;o.SUM_BILL_AMOUNT+=r.bill_amount;o.SUM_QUANTITY_CS+=r.quantity_cs;
-    }
+    if(!map.has(key))map.set(key,{STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_DATE:r.invoice_date,SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs});
+    else{const o=map.get(key);o.SUM_QUANTITY_KG+=r.quantity_kg;o.SUM_BILL_AMOUNT+=r.bill_amount;o.SUM_QUANTITY_CS+=r.quantity_cs;}
   });
   return [...map.values()];
 }
 
+/* ---------- Render Table ---------- */
 function renderTable(rows,sel){
   const th=document.getElementById("tableHead"),tb=document.getElementById("tableBody"),tf=document.getElementById("tableFoot");
   const show=sel["SHOW COLUMNS"].length?sel["SHOW COLUMNS"]:TEXT_COLS;
@@ -231,24 +266,25 @@ function renderTable(rows,sel){
   th.innerHTML="<tr>"+header.map(h=>`<th>${h.replace(/_/g," ")}</th>`).join("")+"</tr>";
   tb.innerHTML=rows.map(r=>"<tr>"+header.map(h=>`<td>${r[h]??r[h.toLowerCase()]??""}</td>`).join("")+"</tr>").join("")||
     `<tr><td colspan="${header.length}">No data</td></tr>`;
-  const grand={SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0};
-  rows.forEach(r=>{grand.SUM_QUANTITY_KG+=num(r.SUM_QUANTITY_KG);grand.SUM_BILL_AMOUNT+=num(r.SUM_BILL_AMOUNT);grand.SUM_QUANTITY_CS+=num(r.SUM_QUANTITY_CS);});
-  tf.innerHTML="<tr class='grandtotal-row'>"+header.map(h=>{
-    if(h==="SUM_QUANTITY_KG")return`<td>${grand.SUM_QUANTITY_KG.toLocaleString()}</td>`;
-    if(h==="SUM_BILL_AMOUNT")return`<td>${grand.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
-    if(h==="SUM_QUANTITY_CS")return`<td>${grand.SUM_QUANTITY_CS.toLocaleString()}</td>`;
+  const g={SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0};
+  rows.forEach(r=>{g.SUM_QUANTITY_KG+=num(r.SUM_QUANTITY_KG);g.SUM_BILL_AMOUNT+=num(r.SUM_BILL_AMOUNT);g.SUM_QUANTITY_CS+=num(r.SUM_QUANTITY_CS);});
+  tf.innerHTML=`<tr class='grandtotal-row'>${header.map(h=>{
+    if(h==="SUM_QUANTITY_KG")return`<td>${g.SUM_QUANTITY_KG.toLocaleString()}</td>`;
+    if(h==="SUM_BILL_AMOUNT")return`<td>${g.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
+    if(h==="SUM_QUANTITY_CS")return`<td>${g.SUM_QUANTITY_CS.toLocaleString()}</td>`;
     if(h===header[0])return`<td><b>GRAND TOTAL</b></td>`;
     return"<td></td>";
-  }).join("")+"</tr>";
+  }).join("")}</tr>`;
 }
 
+/* ---------- Debounced Apply ---------- */
 const debounceApply=debounce(()=>{
-  const sel=getSelected();
-  const data=cascadeAndAggregate(sel);
-  renderTable(data,sel);
-},300);
+  const s=getSelected();
+  const data=cascadeAndAggregate(s);
+  renderTable(data,s);
+},250);
 
-/* ---------- EVENTS ---------- */
+/* ---------- Events ---------- */
 document.getElementById("dateFrom").addEventListener("change",debounceApply);
 document.getElementById("dateTo").addEventListener("change",debounceApply);
 document.getElementById("monthQuick").addEventListener("change",debounceApply);
@@ -266,9 +302,6 @@ document.getElementById("exportBtn").addEventListener("click",async()=>{
   rows.forEach(r=>ws.addRow(r));
   ws.eachRow((r,i)=>{if(i===1)r.font={bold:true};});
   const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`ERP_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
-});
-document.getElementById("themeToggle").addEventListener("click",()=>{
-  document.body.classList.toggle("dark-mode");
 });
 loadData();
 </script>
