@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ERP — Plant → Depot / Direct</title>
+  <title>SMC Madhusudan Lighthouse Sales</title>
 
+  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
   <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
@@ -12,60 +13,67 @@
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
   <style>
-    :root { --navy:#1e3a8a; --accent-1:#2563eb; --accent-2:#9333ea; }
-    body { font-family: Inter, system-ui, Arial; margin:0; padding:18px; background:#f6f9fc; color:#0f172a; }
-    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-    header h1{margin:0;color:var(--navy);font-weight:800}
-    .toolbar{display:flex;gap:8px}
-    .btn{border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
-    .btn-blue{background:linear-gradient(90deg,var(--accent-2),var(--accent-1));color:#fff}
-    .btn-gray{background:#f3f4f6;color:#0f172a;border:1px solid #e6eef9}
-    .card{background:#fff;border-radius:12px;padding:12px;box-shadow:0 8px 30px rgba(2,6,23,0.04);margin-bottom:12px}
-    .filter-box{min-width:160px;border:2px solid var(--navy);border-radius:10px;padding:8px;background:#fff}
-    .filter-box strong{display:block;text-align:center;margin-bottom:6px;font-weight:800;color:var(--navy);font-size:12px}
-    .filter-box .options{max-height:220px;overflow:auto;padding-right:6px}
-    .filter-box label{display:inline-block;margin:3px 6px;padding:3px 6px;border-radius:6px;background:#f8fafc;cursor:pointer;font-size:13px}
-    table{border-collapse:collapse;width:100%;min-width:980px}
-    thead th{position:sticky;top:0;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));color:#fff;padding:8px;border:1px solid rgba(255,255,255,0.06);font-weight:800}
-    td,th{padding:8px;border:1px solid #c7d2fe;text-align:center;vertical-align:middle;font-weight:700}
-    .grandtotal-row td{background:#e0f2fe;color:#083344;font-weight:900}
-    .controls-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px}
-    .quick-date { margin-left:8px; }
-    @media(max-width:920px){ .filter-box{min-width:unset} table{font-size:13px} }
+    /* Table & layout styles */
+    body { font-family: Inter, system-ui; background:#f9fafb; color:#000; margin:0; padding:0; }
+    header, footer { background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+    header { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; }
+    header img { height:42px; }
+    header h1 { color:#1e3a8a; font-weight:800; font-size:1rem; margin-left:8px; }
+
+    .toolbar button { border:none; border-radius:6px; padding:6px 10px; font-weight:700; cursor:pointer; }
+    .btn-blue { background:linear-gradient(90deg,#2563eb,#4f46e5); color:#fff; }
+    .btn-gray { background:#f3f4f6; border:1px solid #e2e8f0; color:#111827; }
+
+    #filtersContainer { display:flex; gap:10px; overflow-x:auto; padding:10px; background:#fff; border-radius:10px; }
+    .filter-box { border:2px solid #1e3a8a; border-radius:10px; padding:6px 10px; min-width:160px; background:#fff; }
+    .filter-box strong { display:block; color:#1e3a8a; border-bottom:1px solid #e5e7eb; margin-bottom:4px; text-align:center; font-size:0.85rem; font-weight:800; }
+    .filter-box label { display:block; font-size:0.8rem; padding:2px 4px; }
+    table { border-collapse:collapse; width:100%; min-width:1000px; }
+    thead th { position:sticky; top:0; background:linear-gradient(90deg,#eef2ff,#e0e7ff); padding:8px; border:1px solid #c7d2fe; }
+    td { padding:6px 8px; border:1px solid #cbd5e1; text-align:center; font-weight:600; }
+    .grandtotal-row td { background:#e0f2fe; font-weight:800; }
+    .table-wrapper { background:#fff; border-radius:10px; box-shadow:0 6px 18px rgba(4,8,15,0.05); overflow:auto; max-height:75vh; margin-top:10px; }
+
+    .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.7); z-index:999; font-weight:800; font-size:1rem; color:#1e3a8a; display:none; }
+    .overlay.show { display:flex; }
+
+    footer { text-align:center; padding:10px; font-size:0.85rem; }
+
+    @media(max-width:768px){
+      .filter-box{ min-width:100%; }
+      header, .toolbar{ flex-wrap:wrap; text-align:center; gap:6px; justify-content:center; }
+    }
   </style>
 </head>
 
 <body>
   <header>
-    <div style="display:flex;align-items:center;gap:12px">
-      <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" style="height:44px">
-      <h1>SMC — ERP (Plant → Depot / Direct)</h1>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo">
+      <h1>SMC Madhusudan Lighthouse Sales</h1>
     </div>
-
     <div class="toolbar">
-      <a href="sales_levels.html" class="btn btn-gray">⬅ Back</a>
-      <button id="exportBtn" class="btn btn-blue">Export</button>
-      <button id="clearBtn" class="btn btn-gray">Clear Filters</button>
-      <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
+      <button id="exportBtn" class="btn-blue">Export</button>
+      <button id="clearBtn" class="btn-gray">Clear Filters</button>
+      <button id="toggleFiltersBtn" class="btn-gray">Hide Filters</button>
+      <button id="themeToggle" class="btn-gray">Dark Mode</button>
     </div>
   </header>
 
-  <main style="max-width:1400px;margin:0 auto">
-    <div class="card" id="filtersWrapper">
-      <div class="controls-row">
-        <div>
-          From: <input type="date" id="dateFrom">
-          To: <input type="date" id="dateTo">
-          <button id="yesterdayBtn" class="btn btn-gray quick-date">Yesterday</button>
-          Invoice Month: <select id="monthQuick"><option value="">--All--</option></select>
-        </div>
-        <div><small id="recordsInfo" style="color:#6b7280"></small></div>
+  <main style="max-width:1500px;margin:10px auto;padding:0 10px;">
+    <div id="filtersWrapper">
+      <div style="margin-bottom:8px;">
+        From: <input type="date" id="dateFrom"> 
+        To: <input type="date" id="dateTo"> 
+        <button id="yesterdayBtn" class="btn-gray">Yesterday</button>
+        Invoice Month: <select id="monthQuick"></select>
+        <span id="recordsInfo" style="margin-left:10px;font-size:0.85rem;color:#6b7280"></span>
       </div>
-      <div id="filtersContainer" style="display:flex;gap:10px;overflow:auto"></div>
+      <div id="filtersContainer"></div>
     </div>
 
-    <div class="card" style="overflow:auto;max-height:70vh">
-      <table id="dataTable" aria-label="ERP aggregated table">
+    <div class="table-wrapper">
+      <table id="dataTable">
         <thead id="tableHead"></thead>
         <tbody id="tableBody"></tbody>
         <tfoot id="tableFoot"></tfoot>
@@ -73,241 +81,171 @@
     </div>
   </main>
 
-  <footer style="text-align:center;padding:8px;margin-top:12px">
-    <small>© {{ current_year }} — Amit Sharma</small>
-  </footer>
+  <div id="overlay" class="overlay">Processing...</div>
+
+  <footer>© {{ current_year }} | Created & Hosted by <strong>Amit Sharma</strong></footer>
 
 <script>
-const API_ENDPOINT = "/get_data/lighthouse_sales";
+const API_URL = "/get_data/lighthouse_sales";
 let rawData = [];
-const TEXT_COLS = ["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE"];
-const STORAGE_KEY = "lighthouse_saved_filters_v2";
 
-function num(v){ return Number(v)||0; }
-function debounce(fn,ms=220){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+/* ---------- Date helpers ---------- */
+function parseDate(s){const d=new Date(s);return isNaN(d)?null:d;}
+function monthLabel(s){const d=parseDate(s);return !d?"":d.toLocaleString("default",{month:"short",year:"numeric"});}
+function formatDate(s){const d=parseDate(s);return !d?s:`${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;}
 
-/* simple date parse — handles ISO and yyyy-mm-dd strings */
-function parseDDMMYYYY(s) {
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
-}
-function monthLabel(s){
-  const d = parseDDMMYYYY(s); if(!d) return ""; 
-  return d.toLocaleString('default',{month:'short',year:'numeric'});
-}
-function formatDate(s){
-  const d = parseDDMMYYYY(s); if(!d) return s;
-  return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
-}
+/* ---------- UI Loaders ---------- */
+function showOverlay(){document.getElementById("overlay").classList.add("show");}
+function hideOverlay(){document.getElementById("overlay").classList.remove("show");}
 
-/* Build the filter boxes */
-function buildFiltersUI(){
-  const c=document.getElementById("filtersContainer"); c.innerHTML="";
+/* ---------- Build Filters ---------- */
+function buildFilters(){
+  const c=document.getElementById("filtersContainer");
+  c.innerHTML="";
   const boxes=[
-    {key:"SHOW COLUMNS",vals:TEXT_COLS},
-    {key:"STATE",vals:[...new Set(rawData.map(r=>r.state).filter(Boolean))].sort()},
-    {key:"PARTY_NAME",vals:[...new Set(rawData.map(r=>r.party_name).filter(Boolean))].sort()},
-    {key:"ITEM_NAME",vals:[...new Set(rawData.map(r=>r.item_name).filter(Boolean))].sort()},
-    {key:"TOTAL",vals:TEXT_COLS}
+    {key:"SHOW COLUMNS",vals:["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE"]},
+    {key:"STATE",vals:[...new Set(rawData.map(r=>r.state))].filter(Boolean).sort()},
+    {key:"PARTY_NAME",vals:[...new Set(rawData.map(r=>r.party_name))].filter(Boolean).sort()},
+    {key:"ITEM_NAME",vals:[...new Set(rawData.map(r=>r.item_name))].filter(Boolean).sort()},
+    {key:"TOTAL",vals:["STATE","PARTY_NAME","ITEM_NAME"]}
   ];
   boxes.forEach(b=>{
-    const div=document.createElement("div"); div.className="filter-box";
-    div.innerHTML=`<strong>${b.key}</strong><label><input type="checkbox" data-all="${b.key}"> All</label>
+    const div=document.createElement("div");
+    div.className="filter-box";
+    div.innerHTML=`<strong>${b.key}</strong>
+      <label><input type="checkbox" data-all="${b.key}"> All</label>
       <div class="options">${b.vals.map(v=>`<label><input type="checkbox" name="${b.key}" value="${v}"> ${v}</label>`).join("")}</div>`;
     c.appendChild(div);
   });
+
   c.querySelectorAll("input[data-all]").forEach(cb=>{
     cb.addEventListener("change",e=>{
-      const k=e.target.dataset.all; c.querySelectorAll(`input[name='${k}']`).forEach(i=>i.checked=e.target.checked); debounceApply();
+      const key=e.target.dataset.all;
+      c.querySelectorAll(`input[name='${key}']`).forEach(i=>i.checked=e.target.checked);
+      applyFilters();
     });
   });
-  c.addEventListener("change",debounceApply);
+  c.addEventListener("change",()=>applyFilters());
 }
 
-/* Load data from API and prepare months */
+/* ---------- Fetch Data ---------- */
 async function loadData(){
-  try{
-    const res = await axios.get(API_ENDPOINT);
-    rawData = (Array.isArray(res.data) ? res.data : []).map(r=>({
-      state: r.state || r.STATE || "",
-      party_name: r.party_name || r.PARTY_NAME || "",
-      item_name: r.item_name || r.ITEM_NAME || "",
-      invoice_date: (r.invoice_date || r.Invoice_Date || "").trim(),
-      quantity_kg: num(r.quantity_kg || r.Quantity_KG),
-      bill_amount: num(r.bill_amount || r.Bill_Amount),
-      quantity_cs: num(r.quantity_cs || r.Quantity_CS)
-    }));
-    const months=[...new Set(rawData.map(r=>monthLabel(r.invoice_date)).filter(Boolean))].sort((a,b)=>new Date(a)-new Date(b));
-    document.getElementById("monthQuick").innerHTML=`<option value="">--All--</option>`+months.map(m=>`<option value="${m}">${m}</option>`).join("");
-    buildFiltersUI();
-    debounceApply();
-  }catch(err){
-    console.error("loadData error",err);
-    document.getElementById("tableBody").innerHTML=`<tr><td colspan="6">Failed to load data</td></tr>`;
-  }
+  showOverlay();
+  const res=await fetch(API_URL);
+  const data=await res.json();
+  rawData=data.map(r=>({
+    state:r.state,party_name:r.party_name,item_name:r.item_name,
+    invoice_date:r.invoice_date,quantity_kg:+r.quantity_kg||0,
+    bill_amount:+r.bill_amount||0,quantity_cs:+r.quantity_cs||0
+  }));
+  const months=[...new Set(rawData.map(r=>monthLabel(r.invoice_date)))].filter(Boolean);
+  document.getElementById("monthQuick").innerHTML=`<option value="">--All--</option>`+months.map(m=>`<option>${m}</option>`).join("");
+  buildFilters();
+  applyFilters();
+  hideOverlay();
 }
 
-/* Read UI selections */
-function getSelected(){
-  const s={};
-  document.querySelectorAll(".filter-box").forEach(b=>{
-    const t=b.querySelector("strong").textContent.trim();
-    s[t]=[...b.querySelectorAll("input[name]")].filter(i=>i.checked).map(i=>i.value);
-  });
-  s.__from=document.getElementById("dateFrom").value;
-  s.__to=document.getElementById("dateTo").value;
-  s.__monthQuick=document.getElementById("monthQuick").value;
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(s));
-  return s;
-}
+/* ---------- Aggregation ---------- */
+function cascadeAndAggregate(selected){
+  let f=[...rawData];
+  const from=document.getElementById("dateFrom").value?new Date(document.getElementById("dateFrom").value):null;
+  const to=document.getElementById("dateTo").value?new Date(document.getElementById("dateTo").value):null;
+  const monthQ=document.getElementById("monthQuick").value;
 
-function cascadeAndAggregate(s) {
-  let f = [...rawData];
-  const from = s.__from ? new Date(s.__from) : null;
-  const to = s.__to ? new Date(s.__to) : null;
-
-  if (s.__monthQuick) {
-    f = f.filter(r => monthLabel(r.invoice_date) === s.__monthQuick);
-  } else if (from || to) {
-    f = f.filter(r => {
-      const d = parseDDMMYYYY(r.invoice_date);
-      if (!d) return false;
-      if (from && d < from) return false;
-      if (to && d > to) return false;
+  if(monthQ) f=f.filter(r=>monthLabel(r.invoice_date)===monthQ);
+  else if(from||to){
+    f=f.filter(r=>{
+      const d=parseDate(r.invoice_date);
+      if(!d) return false;
+      if(from && d<from) return false;
+      if(to && d>to) return false;
       return true;
     });
   }
 
   ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
-    const vals = s[k] || [];
-    if (!vals.length) return;
-    f = f.filter(r => vals.includes(r[k.toLowerCase()]));
+    const vals=selected[k]||[];
+    if(vals.length) f=f.filter(r=>vals.includes(r[k.toLowerCase()]));
   });
 
-  // Hide unavailable filters dynamically
-  const sets = {
-    STATE: new Set(f.map(r => r.state)),
-    PARTY_NAME: new Set(f.map(r => r.party_name)),
-    ITEM_NAME: new Set(f.map(r => r.item_name))
-  };
-  ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
-    document.querySelectorAll(`input[name='${k}']`).forEach(cb=>{
-      const lab = cb.closest("label");
-      if (!sets[k].has(cb.value)) {
-        lab.style.display="none";
-        cb.checked=false;
-      } else {
-        lab.style.display="";
-      }
-    });
-  });
+  const totals=selected["TOTAL"]||[];
+  let keyFields=[];
+  if(totals.includes("STATE")) keyFields.push("state");
+  if(totals.includes("PARTY_NAME")) keyFields.push("party_name");
+  if(totals.includes("ITEM_NAME")) keyFields.push("item_name");
+  if(!keyFields.length) keyFields=["state","party_name","item_name","invoice_date"];
 
-  // ✅ Dynamically determine grouping keys
-  const totals = s["TOTAL"] || [];
-  let keyFields = [];
-  if (totals.includes("STATE")) keyFields.push("state");
-  if (totals.includes("PARTY_NAME")) keyFields.push("party_name");
-  if (totals.includes("ITEM_NAME")) keyFields.push("item_name");
-  if (keyFields.length === 0) keyFields = ["state","party_name","item_name","invoice_date"];
-
-  // Aggregate
-  const map = new Map();
-  f.forEach(r => {
-    const key = keyFields.map(k => r[k] ?? "").join("|");
-    if (!map.has(key)) {
-      map.set(key, {
-        STATE: r.state,
-        PARTY_NAME: r.party_name,
-        ITEM_NAME: r.item_name,
-        INVOICE_DATE: keyFields.includes("invoice_date") ? formatDate(r.invoice_date) : "",
-        SUM_QUANTITY_KG: r.quantity_kg,
-        SUM_BILL_AMOUNT: r.bill_amount,
-        SUM_QUANTITY_CS: r.quantity_cs
-      });
-    } else {
-      const o = map.get(key);
-      o.SUM_QUANTITY_KG += r.quantity_kg;
-      o.SUM_BILL_AMOUNT += r.bill_amount;
-      o.SUM_QUANTITY_CS += r.quantity_cs;
+  const map=new Map();
+  f.forEach(r=>{
+    const key=keyFields.map(k=>r[k]).join("|");
+    if(!map.has(key)){
+      map.set(key,{STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,
+        INVOICE_DATE:keyFields.includes("invoice_date")?formatDate(r.invoice_date):"",
+        SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs});
+    }else{
+      const o=map.get(key);
+      o.SUM_QUANTITY_KG+=r.quantity_kg;
+      o.SUM_BILL_AMOUNT+=r.bill_amount;
+      o.SUM_QUANTITY_CS+=r.quantity_cs;
     }
   });
+  const rows=[...map.values()];
+  rows.sort((a,b)=>(a.STATE||"").localeCompare(b.STATE||"")||(a.PARTY_NAME||"").localeCompare(b.PARTY_NAME||"")||(a.ITEM_NAME||"").localeCompare(b.ITEM_NAME||""));
+  const grand=rows.reduce((a,r)=>({SUM_QUANTITY_KG:a.SUM_QUANTITY_KG+r.SUM_QUANTITY_KG,SUM_BILL_AMOUNT:a.SUM_BILL_AMOUNT+r.SUM_BILL_AMOUNT,SUM_QUANTITY_CS:a.SUM_QUANTITY_CS+r.SUM_QUANTITY_CS}),{SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0});
+  return {rows,grand};
+}
 
-  const rows = [...map.values()];
-  rows.sort((a,b) =>
-    (a.STATE||"").localeCompare(b.STATE||"") ||
-    (a.PARTY_NAME||"").localeCompare(b.PARTY_NAME||"") ||
-    (a.ITEM_NAME||"").localeCompare(b.ITEM_NAME||"")
-  );
+/* ---------- Apply Filters ---------- */
+function getSelected(){
+  const sel={};
+  document.querySelectorAll(".filter-box").forEach(b=>{
+    const t=b.querySelector("strong").textContent.trim();
+    sel[t]=[...b.querySelectorAll("input[name='"+t+"']:checked")].map(i=>i.value);
+  });
+  return sel;
+}
 
-  const grand = rows.reduce((acc,r)=>{
-    acc.SUM_QUANTITY_KG += r.SUM_QUANTITY_KG || 0;
-    acc.SUM_BILL_AMOUNT += r.SUM_BILL_AMOUNT || 0;
-    acc.SUM_QUANTITY_CS += r.SUM_QUANTITY_CS || 0;
-    return acc;
-  }, {SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0});
-
-  return { rows, grand };
+function applyFilters(){
+  const s=getSelected();
+  const result=cascadeAndAggregate(s);
+  renderTable(result,s);
 }
 
 /* ---------- Render ---------- */
-function renderTable(resultObj, s){
-  const rows = resultObj.rows || [];
-  const grand = resultObj.grand || {SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0};
-  const th=document.getElementById("tableHead"), tb=document.getElementById("tableBody"), tf=document.getElementById("tableFoot");
-  const show = s["SHOW COLUMNS"].length ? s["SHOW COLUMNS"] : TEXT_COLS;
-  const header = [...show, "SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
-  th.innerHTML = "<tr>"+header.map(h=>`<th>${h.replace(/_/g," ")}</th>`).join("")+"</tr>";
-
-  tb.innerHTML = rows.map(r => "<tr>" + header.map(c=>{
-    if (c === "SUM_QUANTITY_KG") return `<td>${(r.SUM_QUANTITY_KG||0).toLocaleString()}</td>`;
-    if (c === "SUM_BILL_AMOUNT") return `<td>${(r.SUM_BILL_AMOUNT||0).toLocaleString()}</td>`;
-    if (c === "SUM_QUANTITY_CS") return `<td>${(r.SUM_QUANTITY_CS||0).toLocaleString()}</td>`;
-    return `<td>${r[c] ?? ""}</td>`;
-  }).join("") + "</tr>").join("") || `<tr><td colspan="${header.length}">No data</td></tr>`;
-
-  const totalCols = s["TOTAL"] || [];
-  if (totalCols.length) {
-    tf.innerHTML = `<tr class='grandtotal-row'>${header.map((c,ci)=>{
-      if (c==="SUM_QUANTITY_KG") return `<td>${grand.SUM_QUANTITY_KG.toLocaleString()}</td>`;
-      if (c==="SUM_BILL_AMOUNT") return `<td>${grand.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
-      if (c==="SUM_QUANTITY_CS") return `<td>${grand.SUM_QUANTITY_CS.toLocaleString()}</td>`;
-      if (ci===0) return `<td><b>GRAND TOTAL</b></td>`;
-      return `<td></td>`;
-    }).join("")}</tr>`;
-  } else tf.innerHTML = "";
-
-  document.getElementById("recordsInfo").textContent = `Rows: ${rows.length}`;
+function renderTable(result,s){
+  const head=document.getElementById("tableHead"),body=document.getElementById("tableBody"),foot=document.getElementById("tableFoot");
+  const show=s["SHOW COLUMNS"].length?s["SHOW COLUMNS"]:["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE"];
+  const header=[...show,"SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
+  head.innerHTML="<tr>"+header.map(h=>`<th>${h.replace(/_/g," ")}</th>`).join("")+"</tr>";
+  body.innerHTML=result.rows.map(r=>"<tr>"+header.map(c=>{
+    if(c==="SUM_QUANTITY_KG")return`<td>${r.SUM_QUANTITY_KG.toLocaleString()}</td>`;
+    if(c==="SUM_BILL_AMOUNT")return`<td>${r.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
+    if(c==="SUM_QUANTITY_CS")return`<td>${r.SUM_QUANTITY_CS.toLocaleString()}</td>`;
+    return`<td>${r[c]||""}</td>`;
+  }).join("")+"</tr>").join("");
+  foot.innerHTML=`<tr class='grandtotal-row'>${header.map((c,i)=>{
+    if(c==="SUM_QUANTITY_KG")return`<td>${result.grand.SUM_QUANTITY_KG.toLocaleString()}</td>`;
+    if(c==="SUM_BILL_AMOUNT")return`<td>${result.grand.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
+    if(c==="SUM_QUANTITY_CS")return`<td>${result.grand.SUM_QUANTITY_CS.toLocaleString()}</td>`;
+    return i===0?`<td><b>GRAND TOTAL</b></td>`:`<td></td>`;
+  }).join("")}</tr>`;
+  document.getElementById("recordsInfo").textContent=`Rows: ${result.rows.length}`;
 }
 
-/* ---------- Controls & events ---------- */
-const debounceApply = debounce(()=>{ const s = getSelected(); const r = cascadeAndAggregate(s); renderTable(r,s); }, 200);
-
-document.getElementById("dateFrom").addEventListener("change", debounceApply);
-document.getElementById("dateTo").addEventListener("change", debounceApply);
-document.getElementById("monthQuick").addEventListener("change", debounceApply);
-
-document.getElementById("yesterdayBtn").addEventListener("click", ()=>{
-  const t = new Date(); t.setDate(t.getDate()-1); const iso = t.toISOString().slice(0,10);
-  document.getElementById("dateFrom").value = iso; document.getElementById("dateTo").value = iso; debounceApply();
+/* ---------- Export ---------- */
+document.getElementById("exportBtn").addEventListener("click",async()=>{
+  const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet("Lighthouse");
+  const rows=[...document.querySelectorAll("#dataTable tr")].map(tr=>[...tr.children].map(td=>td.innerText));
+  rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0){row.font={bold:true};row.fill={type:"pattern",pattern:"solid",fgColor:{argb:"E0E7FF"}};row.alignment={horizontal:"center"};}}); 
+  const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`lighthouse_${new Date().toISOString().slice(0,10)}.xlsx`);
 });
 
-document.getElementById("clearBtn").addEventListener("click", ()=>{
-  document.querySelectorAll("input[type=checkbox]").forEach(c=>c.checked=false);
-  document.getElementById("dateFrom").value=""; document.getElementById("dateTo").value=""; document.getElementById("monthQuick").value="";
-  localStorage.removeItem(STORAGE_KEY); debounceApply();
-});
+/* ---------- Events ---------- */
+document.getElementById("clearBtn").onclick=()=>{document.querySelectorAll("input[type=checkbox]").forEach(c=>c.checked=false);document.getElementById("dateFrom").value="";document.getElementById("dateTo").value="";document.getElementById("monthQuick").value="";applyFilters();};
+document.getElementById("yesterdayBtn").onclick=()=>{const d=new Date();d.setDate(d.getDate()-1);const s=d.toISOString().slice(0,10);document.getElementById("dateFrom").value=s;document.getElementById("dateTo").value=s;applyFilters();};
+document.getElementById("themeToggle").onclick=()=>{document.body.classList.toggle("dark-mode");};
 
-document.getElementById("exportBtn").addEventListener("click", async ()=>{
-  const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet("ERP Export");
-  const rows = [...document.querySelectorAll("#dataTable tr")].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
-  rows.forEach(r=>ws.addRow(r)); ws.eachRow((r,i)=>{ if(i===1) r.font={bold:true}; });
-  const buf = await wb.xlsx.writeBuffer(); saveAs(new Blob([buf]), `ERP_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
-});
-
-document.getElementById("toggleFiltersBtn").addEventListener("click", ()=>{ const w=document.getElementById("filtersWrapper"); if(w.style.display==="none"){w.style.display="block"; document.getElementById("toggleFiltersBtn").textContent="Hide Filters";} else { w.style.display="none"; document.getElementById("toggleFiltersBtn").textContent="Show Filters"; } });
-
-/* INIT */
+/* ---------- Init ---------- */
 loadData();
 </script>
 </body>
