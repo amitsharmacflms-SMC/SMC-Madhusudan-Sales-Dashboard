@@ -7,11 +7,11 @@
 
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
-  <!-- ✅ TomSelect (modern multi-select) -->
+  <!-- ✅ TomSelect (for ITEM_NAME multi-select) -->
   <link href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/tom-select/dist/js/tom-select.complete.min.js"></script>
 
-  <!-- ExcelJS + FileSaver -->
+  <!-- ✅ Excel Export Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -33,6 +33,7 @@
       padding: 10px 16px;
       box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
     }
+
     header img { height: 42px; }
     header h1 { font-size: 1.1rem; font-weight: 800; margin-left: 10px; }
 
@@ -43,6 +44,7 @@
       cursor: pointer;
       font-weight: 700;
     }
+
     .btn-blue { background: #fff; color: #1e3a8a; }
     .btn-gray { background: #e5e7eb; color: #111827; }
 
@@ -55,6 +57,7 @@
       gap: 16px;
       margin-bottom: 12px;
     }
+
     .filter-box {
       background: linear-gradient(180deg, #ffffff, #f0f4ff);
       border: 2px solid #1e3a8a;
@@ -64,7 +67,9 @@
       box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15);
       transition: transform 0.2s ease;
     }
+
     .filter-box:hover { transform: translateY(-2px); }
+
     .filter-box strong {
       display: block;
       text-align: center;
@@ -74,6 +79,7 @@
       border-bottom: 2px solid #c7d2fe;
       padding-bottom: 4px;
     }
+
     .filter-box label {
       display: inline-block;
       background: #f8fafc;
@@ -85,7 +91,7 @@
       font-weight: 600;
     }
 
-    /* Table styling */
+    /* Table Styling */
     .table-wrapper {
       background: #fff;
       border-radius: 10px;
@@ -93,18 +99,22 @@
       overflow: auto;
       max-height: 74vh;
     }
+
     table {
       border-collapse: collapse;
       width: 100%;
       min-width: 1100px;
     }
+
     th, td {
       border: 1.5px solid #9ca3af;
-      padding: 10px 6px;
+      padding: 4px 4px;
       text-align: center;
       font-weight: 700;
-      height: 38px;
+      height: 20px;
+      line-height: 1.2;
     }
+
     thead th {
       position: sticky;
       top: 0;
@@ -112,6 +122,7 @@
       color: #1e3a8a;
       z-index: 5;
     }
+
     tr.subtotal-row td { background: #fff7cc; font-weight: 800; }
     tr.grandtotal-row td { background: #bae6fd; font-weight: 900; }
 
@@ -127,6 +138,7 @@
       color: #1e3a8a;
       z-index: 2000;
     }
+
     .overlay.show { display: flex; }
 
     @media (max-width: 768px) {
@@ -178,10 +190,23 @@
 const API_URL = "/get_data/lighthouse_sales";
 let rawData = [];
 
-function parseDate(s){ if(!s)return null; const d=new Date(s); return isNaN(d)?null:d; }
-function formatDate(d){ return d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`:''; }
-function toNum(v){ return Number(v)||0; }
-function invoiceMonth(s){ const d=parseDate(s); if(!d)return""; return d.toLocaleString('default',{month:'short',year:'numeric'}); }
+function parseDate(s){
+  if(!s)return null;
+  const d=new Date(s);
+  if(!isNaN(d))return d;
+  const m=s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  if(m)return new Date(m[3],m[2]-1,m[1]);
+  return null;
+}
+
+function formatDate(input){
+  const d=typeof input==="string"?parseDate(input):input;
+  if(!d)return"";
+  return`${String(d.getDate()).padStart(2,"0")}-${String(d.getMonth()+1).padStart(2,"0")}-${d.getFullYear()}`;
+}
+
+function toNum(v){return Number(v)||0;}
+function invoiceMonth(s){const d=parseDate(s);if(!d)return"";return d.toLocaleString('default',{month:'short',year:'numeric'});}
 function showOverlay(){document.getElementById('overlay').classList.add('show');}
 function hideOverlay(){document.getElementById('overlay').classList.remove('show');}
 
@@ -191,15 +216,17 @@ async function loadData(){
   const res = await axios.get(API_URL);
   rawData = res.data.map(r=>({
     state:r.state, party_name:r.party_name, item_name:r.item_name,
-    invoice_date:r.invoice_date, invoice_month:invoiceMonth(r.invoice_date),
-    quantity_kg:toNum(r.quantity_kg), bill_amount:toNum(r.bill_amount), quantity_cs:toNum(r.quantity_cs)
+    invoice_date:formatDate(r.invoice_date),
+    invoice_month:invoiceMonth(r.invoice_date),
+    quantity_kg:toNum(r.quantity_kg),
+    bill_amount:toNum(r.bill_amount),
+    quantity_cs:toNum(r.quantity_cs)
   }));
 
   const months=[...new Set(rawData.map(r=>r.invoice_month).filter(Boolean))];
   const sel=document.getElementById("monthQuick");
   sel.innerHTML=`<option value="">--All--</option>`+months.map(m=>`<option value="${m}">${m}</option>`).join("");
 
-  // Default: current month
   const now=new Date(), first=new Date(now.getFullYear(), now.getMonth(),1), last=new Date(now.getFullYear(), now.getMonth()+1,0);
   const curMonthLabel=now.toLocaleString('default',{month:'short',year:'numeric'});
   if(months.includes(curMonthLabel)) sel.value=curMonthLabel;
@@ -231,7 +258,6 @@ function buildFilters(){
     fc.appendChild(box);
   });
 
-  // ✅ ITEM_NAME modern multi-select
   const itemBox=document.createElement("div");
   itemBox.className="filter-box";
   itemBox.innerHTML=`<strong>ITEM_NAME</strong><select id="itemSelect" multiple placeholder="Select Items"></select>`;
@@ -251,7 +277,7 @@ function buildFilters(){
   fc.addEventListener("change",()=>setTimeout(applyFilters,200));
 }
 
-/* ---------------- Filter + Aggregate ---------------- */
+/* ---------------- Apply Filters (Smart Cascade) ---------------- */
 function applyFilters(){
   showOverlay();
   setTimeout(()=>{
@@ -262,12 +288,35 @@ function applyFilters(){
     });
     s.ITEM_NAME=Array.from(document.getElementById("itemSelect")?.options||[]).filter(o=>o.selected).map(o=>o.value);
 
+    /* Smart Cascade Filtering */
+    const cascadeKeys=["STATE","PARTY_NAME","ITEM_NAME"];
+    let filteredPreview=[...rawData];
+    cascadeKeys.forEach(k=>{
+      const vals=s[k]||[];
+      if(k==="ITEM_NAME"&&vals.length)filteredPreview=filteredPreview.filter(r=>vals.includes(r.item_name));
+      else if(vals.length)filteredPreview=filteredPreview.filter(r=>vals.includes(r[k.toLowerCase()]));
+    });
+    cascadeKeys.forEach(k=>{
+      const validVals=new Set(filteredPreview.map(r=>r[k.toLowerCase()]).filter(Boolean));
+      document.querySelectorAll(`input[name='${k}']`).forEach(cb=>{
+        const lbl=cb.closest("label");
+        if(validVals.has(cb.value))lbl.style.display="";
+        else lbl.style.display="none";
+      });
+    });
+
     let f=[...rawData];
-    const from=document.getElementById("dateFrom").value?new Date(document.getElementById("dateFrom").value):null;
-    const to=document.getElementById("dateTo").value?new Date(document.getElementById("dateTo").value):null;
+    const from=parseDate(document.getElementById("dateFrom").value);
+    const to=parseDate(document.getElementById("dateTo").value);
     const monthSel=document.getElementById("monthQuick").value;
-    if(monthSel) f=f.filter(r=>r.invoice_month===monthSel);
-    else if(from||to) f=f.filter(r=>{const d=parseDate(r.invoice_date);if(!d)return false;if(from&&d<from)return false;if(to&&d>to)return false;return true;});
+    if(monthSel)f=f.filter(r=>r.invoice_month===monthSel);
+    else if(from||to)f=f.filter(r=>{
+      const d=parseDate(r.invoice_date);
+      if(!d)return false;
+      if(from&&d<from)return false;
+      if(to&&d>to)return false;
+      return true;
+    });
 
     ["STATE","PARTY_NAME"].forEach(k=>{const vals=s[k]||[];if(vals.length)f=f.filter(r=>vals.includes(r[k.toLowerCase()]));});
     if(s.ITEM_NAME.length)f=f.filter(r=>s.ITEM_NAME.includes(r.item_name));
@@ -356,9 +405,9 @@ document.getElementById("yesterdayBtn").addEventListener("click",()=>{
   document.getElementById("monthQuick").value="";
   applyFilters();
 });
-document.getElementById("dateFrom").addEventListener("change",()=>{document.getElementById("monthQuick").value="";applyFilters();});
-document.getElementById("dateTo").addEventListener("change",()=>{document.getElementById("monthQuick").value="";applyFilters();});
-document.getElementById("monthQuick").addEventListener("change",()=>{document.getElementById("dateFrom").value="";document.getElementById("dateTo").value="";applyFilters();});
+document.getElementById("dateFrom").addEventListener("change",applyFilters);
+document.getElementById("dateTo").addEventListener("change",applyFilters);
+document.getElementById("monthQuick").addEventListener("change",applyFilters);
 
 /* Export */
 document.getElementById("exportBtn").addEventListener("click",async()=>{
