@@ -188,7 +188,6 @@ function getSelected(){
   return s;
 }
 
-/* ---------- Cascade + Aggregate with Subtotals ---------- */
 function cascadeAndAggregate(s){
   let f=[...rawData];
   const from=s.__from?new Date(s.__from):null,to=s.__to?new Date(s.__to):null;
@@ -206,7 +205,6 @@ function cascadeAndAggregate(s){
     f = f.filter(r => vals.includes(r[k.toLowerCase()]));
   });
 
-  // Hide filter options that are no longer present
   const sets={STATE:new Set(f.map(r=>r.state)),PARTY_NAME:new Set(f.map(r=>r.party_name)),ITEM_NAME:new Set(f.map(r=>r.item_name))};
   ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
     document.querySelectorAll(`input[name='${k}']`).forEach(cb=>{
@@ -214,13 +212,23 @@ function cascadeAndAggregate(s){
     });
   });
 
-  // base aggregation per unique combination (state,party,item,invoice_date)
+  /* --- 🧠 Dynamic aggregation key --- */
+  const totals = s["TOTAL"] || [];
+  let keyFields = ["state","party_name","item_name","invoice_date"];
+  // If TOTAL includes STATE/PARTY_NAME/ITEM_NAME → remove invoice_date from grouping
+  if (totals.length) keyFields = ["state","party_name","item_name"];
+
   const map=new Map();
   f.forEach(r=>{
-    const key=[r.state,r.party_name,r.item_name,r.invoice_date].join("|");
+    const key = keyFields.map(k=>r[k]).join("|");
     if(!map.has(key)) map.set(key,{
-      STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_DATE:formatDate(r.invoice_date),
-      SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs
+      STATE:r.state,
+      PARTY_NAME:r.party_name,
+      ITEM_NAME:r.item_name,
+      INVOICE_DATE: totals.length ? "" : formatDate(r.invoice_date),
+      SUM_QUANTITY_KG:r.quantity_kg,
+      SUM_BILL_AMOUNT:r.bill_amount,
+      SUM_QUANTITY_CS:r.quantity_cs
     });
     else {
       const o=map.get(key);
@@ -230,107 +238,22 @@ function cascadeAndAggregate(s){
     }
   });
 
-  // Convert map to nested grouping state -> party -> item -> rows (rows are invoice_date-level entries)
   const rows = [...map.values()];
-  rows.sort((a,b)=>{
-    return (a.STATE||"").localeCompare(b.STATE||"") || (a.PARTY_NAME||"").localeCompare(b.PARTY_NAME||"") || (a.ITEM_NAME||"").localeCompare(b.ITEM_NAME||"") || (a.INVOICE_DATE||"").localeCompare(b.INVOICE_DATE||"");
-  });
+  rows.sort((a,b)=>
+    (a.STATE||"").localeCompare(b.STATE||"") ||
+    (a.PARTY_NAME||"").localeCompare(b.PARTY_NAME||"") ||
+    (a.ITEM_NAME||"").localeCompare(b.ITEM_NAME||"")
+  );
 
-  const grouped = new Map();
-  for(const r of rows){
-    if(!grouped.has(r.STATE)) grouped.set(r.STATE, new Map());
-    const parties = grouped.get(r.STATE);
-    if(!parties.has(r.PARTY_NAME)) parties.set(r.PARTY_NAME, new Map());
-    const items = parties.get(r.PARTY_NAME);
-    if(!items.has(r.ITEM_NAME)) items.set(r.ITEM_NAME, []);
-    items.get(r.ITEM_NAME).push(r);
-  }
+  // Compute grand total
+  const grand = rows.reduce((acc,r)=>{
+    acc.SUM_QUANTITY_KG += r.SUM_QUANTITY_KG;
+    acc.SUM_BILL_AMOUNT += r.SUM_BILL_AMOUNT;
+    acc.SUM_QUANTITY_CS += r.SUM_QUANTITY_CS;
+    return acc;
+  },{SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0});
 
-  // Build output with optional subtotal rows. Insert subtotals inline when corresponding TOTAL checkbox is checked.
-  const totalCols = s["TOTAL"] || [];
-  const output = [];
-  const grand = {SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0};
-
-  function sumRows(list){
-    return list.reduce((acc,r)=>{
-      acc.SUM_QUANTITY_KG += r.SUM_QUANTITY_KG;
-      acc.SUM_BILL_AMOUNT += r.SUM_BILL_AMOUNT;
-      acc.SUM_QUANTITY_CS += r.SUM_QUANTITY_CS;
-      return acc;
-    }, {SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0});
-  }
-
-  for(const [state, parties] of grouped.entries()){
-    // iterate parties
-    for(const [party, items] of parties.entries()){
-      for(const [item, itemRows] of items.entries()){
-        // push the invoice-level rows (already aggregated to invoice date)
-        itemRows.forEach(r=> output.push(r));
-        // item subtotal
-        if(totalCols.includes("ITEM_NAME")){
-          const st = sumRows(itemRows);
-          output.push({
-            __subtotal_level: 'ITEM_NAME',
-            __subtotal_for: item,
-            STATE: state,
-            PARTY_NAME: party,
-            ITEM_NAME: item,
-            INVOICE_DATE: '',
-            SUM_QUANTITY_KG: st.SUM_QUANTITY_KG,
-            SUM_BILL_AMOUNT: st.SUM_BILL_AMOUNT,
-            SUM_QUANTITY_CS: st.SUM_QUANTITY_CS
-          });
-        }
-      }
-      // party subtotal
-      if(totalCols.includes("PARTY_NAME")){
-        // collect all rows under this party
-        const allUnderParty = [];
-        for(const itemList of items.values()) allUnderParty.push(...itemList);
-        const st = sumRows(allUnderParty);
-        output.push({
-          __subtotal_level: 'PARTY_NAME',
-          __subtotal_for: party,
-          STATE: state,
-          PARTY_NAME: party,
-          ITEM_NAME: '',
-          INVOICE_DATE: '',
-          SUM_QUANTITY_KG: st.SUM_QUANTITY_KG,
-          SUM_BILL_AMOUNT: st.SUM_BILL_AMOUNT,
-          SUM_QUANTITY_CS: st.SUM_QUANTITY_CS
-        });
-      }
-    }
-    // state subtotal
-    if(totalCols.includes("STATE")){
-      const allUnderState = [];
-      for(const partiesMap of parties.values()){
-        for(const itemList of partiesMap.values()) allUnderState.push(...itemList);
-      }
-      const st = sumRows(allUnderState);
-      output.push({
-        __subtotal_level: 'STATE',
-        __subtotal_for: state,
-        STATE: state,
-        PARTY_NAME: '',
-        ITEM_NAME: '',
-        INVOICE_DATE: '',
-        SUM_QUANTITY_KG: st.SUM_QUANTITY_KG,
-        SUM_BILL_AMOUNT: st.SUM_BILL_AMOUNT,
-        SUM_QUANTITY_CS: st.SUM_QUANTITY_CS
-      });
-    }
-  }
-
-  // compute grand total
-  output.forEach(r=>{
-    grand.SUM_QUANTITY_KG += r.SUM_QUANTITY_KG || 0;
-    grand.SUM_BILL_AMOUNT += r.SUM_BILL_AMOUNT || 0;
-    grand.SUM_QUANTITY_CS += r.SUM_QUANTITY_CS || 0;
-  });
-
-  // store grand totals to return too
-  return {rows: output, grand};
+  return {rows, grand};
 }
 
 /* ---------- Render Table (supports subtotal rows) ---------- */
