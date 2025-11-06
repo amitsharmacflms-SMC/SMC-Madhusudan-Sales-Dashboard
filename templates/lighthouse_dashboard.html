@@ -31,7 +31,6 @@
     thead th{position:sticky;top:0;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));color:#fff;padding:8px;border:1px solid rgba(255,255,255,0.06);font-weight:800}
     td,th{padding:8px;border:1px solid #c7d2fe;text-align:center;vertical-align:middle;font-weight:700}
     .grandtotal-row td{background:#e0f2fe;color:#083344;font-weight:900}
-    .subtotal-row td{background:#f8fafc;font-weight:900}
     .controls-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px}
     .quick-date { margin-left:8px; }
     @media(max-width:920px){ .filter-box{min-width:unset} table{font-size:13px} }
@@ -46,7 +45,7 @@
     </div>
 
     <div class="toolbar">
-      <!-- fixed: use anchor directly so navigation works -->
+      <!-- Fixed navigation -->
       <a href="sales_levels.html" class="btn btn-gray">⬅ Back</a>
       <button id="exportBtn" class="btn btn-blue">Export</button>
       <button id="clearBtn" class="btn btn-gray">Clear Filters</button>
@@ -60,7 +59,7 @@
         <div>
           From: <input type="date" id="dateFrom">
           To: <input type="date" id="dateTo">
-          <button id="yesterdayBtn" class="btn btn-gray quick-date" title="Set both From & To to yesterday">Yesterday</button>
+          <button id="yesterdayBtn" class="btn btn-gray quick-date">Yesterday</button>
           Invoice Month: <select id="monthQuick"><option value="">--All--</option></select>
         </div>
         <div><small id="recordsInfo" style="color:#6b7280"></small></div>
@@ -96,41 +95,18 @@ function debounce(fn,ms=220){ let t; return (...a)=>{ clearTimeout(t); t=setTime
 function parseDDMMYYYY(s) {
   if (!s) return null;
   s = String(s).trim();
-
   const ddmmyyyy = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (ddmmyyyy) {
-    const [_, d, m, y] = ddmmyyyy;
-    return new Date(+y, +m - 1, +d);
-  }
-
+  if (ddmmyyyy) { const [_, d, m, y] = ddmmyyyy; return new Date(+y, +m - 1, +d); }
   const yyyymmdd = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (yyyymmdd) {
-    const [_, y, m, d] = yyyymmdd;
-    return new Date(+y, +m - 1, +d);
-  }
-
-  if (s.includes("GMT") || s.includes("UTC")) {
-    const d = new Date(s);
-    if (!isNaN(d.getTime())) return d;
-  }
-
-  const d2 = new Date(s);
-  return isNaN(d2.getTime()) ? null : d2;
+  if (yyyymmdd) { const [_, y, m, d] = yyyymmdd; return new Date(+y, +m - 1, +d); }
+  const d = new Date(s); return isNaN(d.getTime()) ? null : d;
 }
-
-function monthLabel(s){
-  const d=parseDDMMYYYY(s); if(!d)return""; 
-  return d.toLocaleString('default',{month:'short',year:'numeric'});
-}
-function formatDate(s){
-  const d=parseDDMMYYYY(s); if(!d)return s;
-  return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
-}
+function monthLabel(s){ const d=parseDDMMYYYY(s); if(!d)return""; return d.toLocaleString('default',{month:'short',year:'numeric'}); }
+function formatDate(s){ const d=parseDDMMYYYY(s); if(!d)return s; return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`; }
 
 /* ---------- Build Filters ---------- */
 function buildFiltersUI(){
   const c=document.getElementById("filtersContainer"); c.innerHTML="";
-  // Removed INVOICE_MONTH from the boxes to avoid duplicate "Invoice Month"
   const boxes=[
     {key:"SHOW COLUMNS",vals:TEXT_COLS},
     {key:"STATE",vals:[...new Set(rawData.map(r=>r.state).filter(Boolean))].sort()},
@@ -171,7 +147,6 @@ async function loadData(){
     debounceApply();
   }catch(err){
     console.error("Failed to load data",err);
-    document.getElementById("tableBody").innerHTML=`<tr><td colspan="8">Error loading data</td></tr>`;
   }
 }
 
@@ -188,21 +163,15 @@ function getSelected(){
   return s;
 }
 
+/* ---------- Cascade + Aggregate (Fixed for Duplicates) ---------- */
 function cascadeAndAggregate(s){
   let f=[...rawData];
   const from=s.__from?new Date(s.__from):null,to=s.__to?new Date(s.__to):null;
-  if(s.__monthQuick) f = f.filter(r=> monthLabel(r.invoice_date) === s.__monthQuick);
-  else if(from||to) f = f.filter(r=>{
-    const d=parseDDMMYYYY(r.invoice_date);
-    if(!d) return false;
-    if(from && d < from) return false;
-    if(to && d > to) return false;
-    return true;
-  });
-
+  if(s.__monthQuick) f=f.filter(r=>monthLabel(r.invoice_date)===s.__monthQuick);
+  else if(from||to) f=f.filter(r=>{const d=parseDDMMYYYY(r.invoice_date);if(!d)return false;if(from&&d<from)return false;if(to&&d>to)return false;return true;});
   ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
-    const vals=s[k]||[]; if(!vals.length) return;
-    f = f.filter(r => vals.includes(r[k.toLowerCase()]));
+    const vals=s[k]||[]; if(!vals.length)return;
+    f=f.filter(r=>vals.includes(r[k.toLowerCase()]));
   });
 
   const sets={STATE:new Set(f.map(r=>r.state)),PARTY_NAME:new Set(f.map(r=>r.party_name)),ITEM_NAME:new Set(f.map(r=>r.item_name))};
@@ -212,99 +181,54 @@ function cascadeAndAggregate(s){
     });
   });
 
-  /* --- 🧠 Dynamic aggregation key --- */
   const totals = s["TOTAL"] || [];
   let keyFields = ["state","party_name","item_name","invoice_date"];
-  // If TOTAL includes STATE/PARTY_NAME/ITEM_NAME → remove invoice_date from grouping
   if (totals.length) keyFields = ["state","party_name","item_name"];
 
   const map=new Map();
   f.forEach(r=>{
     const key = keyFields.map(k=>r[k]).join("|");
     if(!map.has(key)) map.set(key,{
-      STATE:r.state,
-      PARTY_NAME:r.party_name,
-      ITEM_NAME:r.item_name,
+      STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,
       INVOICE_DATE: totals.length ? "" : formatDate(r.invoice_date),
-      SUM_QUANTITY_KG:r.quantity_kg,
-      SUM_BILL_AMOUNT:r.bill_amount,
-      SUM_QUANTITY_CS:r.quantity_cs
+      SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs
     });
     else {
       const o=map.get(key);
-      o.SUM_QUANTITY_KG += r.quantity_kg;
-      o.SUM_BILL_AMOUNT += r.bill_amount;
-      o.SUM_QUANTITY_CS += r.quantity_cs;
+      o.SUM_QUANTITY_KG+=r.quantity_kg; o.SUM_BILL_AMOUNT+=r.bill_amount; o.SUM_QUANTITY_CS+=r.quantity_cs;
     }
   });
 
-  const rows = [...map.values()];
-  rows.sort((a,b)=>
-    (a.STATE||"").localeCompare(b.STATE||"") ||
-    (a.PARTY_NAME||"").localeCompare(b.PARTY_NAME||"") ||
-    (a.ITEM_NAME||"").localeCompare(b.ITEM_NAME||"")
-  );
-
-  // Compute grand total
-  const grand = rows.reduce((acc,r)=>{
-    acc.SUM_QUANTITY_KG += r.SUM_QUANTITY_KG;
-    acc.SUM_BILL_AMOUNT += r.SUM_BILL_AMOUNT;
-    acc.SUM_QUANTITY_CS += r.SUM_QUANTITY_CS;
-    return acc;
-  },{SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0});
-
-  return {rows, grand};
+  const rows=[...map.values()];
+  rows.sort((a,b)=> (a.STATE||"").localeCompare(b.STATE||"") || (a.PARTY_NAME||"").localeCompare(b.PARTY_NAME||"") || (a.ITEM_NAME||"").localeCompare(b.ITEM_NAME||""));
+  const grand=rows.reduce((acc,r)=>{acc.SUM_QUANTITY_KG+=r.SUM_QUANTITY_KG;acc.SUM_BILL_AMOUNT+=r.SUM_BILL_AMOUNT;acc.SUM_QUANTITY_CS+=r.SUM_QUANTITY_CS;return acc;},{SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0});
+  return {rows,grand};
 }
 
-/* ---------- Render Table (supports subtotal rows) ---------- */
+/* ---------- Render Table ---------- */
 function renderTable(resultObj, s){
-  const rows = resultObj.rows || [];
-  const grand = resultObj.grand || {SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0};
+  const rows=resultObj.rows||[], grand=resultObj.grand||{SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0};
   const th=document.getElementById("tableHead"),tb=document.getElementById("tableBody"),tf=document.getElementById("tableFoot");
   const show=s["SHOW COLUMNS"].length?s["SHOW COLUMNS"]:TEXT_COLS;
   const header=[...show,"SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
   th.innerHTML="<tr>"+header.map(h=>`<th>${h.replace(/_/g," ")}</th>`).join("")+"</tr>";
 
-  // find index of a field (uppercase keys)
-  function colIndexFor(key){
-    const idx = header.findIndex(h=>h.toUpperCase()===key);
-    return idx >= 0 ? idx : 0;
-  }
+  tb.innerHTML=rows.map(r=>"<tr>"+header.map(c=>{
+    if(c==="SUM_QUANTITY_KG")return`<td>${r.SUM_QUANTITY_KG.toLocaleString()}</td>`;
+    if(c==="SUM_BILL_AMOUNT")return`<td>${r.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
+    if(c==="SUM_QUANTITY_CS")return`<td>${r.SUM_QUANTITY_CS.toLocaleString()}</td>`;
+    return`<td>${r[c]??""}</td>`;
+  }).join("")+"</tr>").join("")||`<tr><td colspan="${header.length}">No data</td></tr>`;
 
-  tb.innerHTML = rows.map(r=>{
-    const isSubtotal = !!r.__subtotal_level;
-    const cells = header.map((c,ci)=>{
-      if(isSubtotal){
-        // put subtotal label in the corresponding column for the subtotal level
-        if(ci === colIndexFor(r.__subtotal_level)){
-          return `<td class="subtotal-row">${r.__subtotal_level.replace(/_/g," ")} SUBTOTAL — ${r.__subtotal_for}</td>`;
-        }
-        if(c==="SUM_QUANTITY_KG") return `<td class="subtotal-row">${(r.SUM_QUANTITY_KG||0).toLocaleString()}</td>`;
-        if(c==="SUM_BILL_AMOUNT") return `<td class="subtotal-row">${(r.SUM_BILL_AMOUNT||0).toLocaleString()}</td>`;
-        if(c==="SUM_QUANTITY_CS") return `<td class="subtotal-row">${(r.SUM_QUANTITY_CS||0).toLocaleString()}</td>`;
-        return `<td class="subtotal-row"></td>`;
-      } else {
-        if(c==="SUM_QUANTITY_KG") return `<td>${(r.SUM_QUANTITY_KG||0).toLocaleString()}</td>`;
-        if(c==="SUM_BILL_AMOUNT") return `<td>${(r.SUM_BILL_AMOUNT||0).toLocaleString()}</td>`;
-        if(c==="SUM_QUANTITY_CS") return `<td>${(r.SUM_QUANTITY_CS||0).toLocaleString()}</td>`;
-        return `<td>${r[c]??""}</td>`;
-      }
-    });
-    return `<tr>${cells.join("")}</tr>`;
-  }).join("") || `<tr><td colspan="${header.length}">No data</td></tr>`;
-
-  // Grand totals only when TOTAL filter checked (any)
-  const totalCols = s["TOTAL"]||[];
+  const totalCols=s["TOTAL"]||[];
   if(totalCols.length){
     tf.innerHTML=`<tr class='grandtotal-row'>${header.map((c,ci)=>{
-      if(c==="SUM_QUANTITY_KG") return `<td>${grand.SUM_QUANTITY_KG.toLocaleString()}</td>`;
-      if(c==="SUM_BILL_AMOUNT") return `<td>${grand.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
-      if(c==="SUM_QUANTITY_CS") return `<td>${grand.SUM_QUANTITY_CS.toLocaleString()}</td>`;
-      if(ci===0) return `<td><b>GRAND TOTAL</b></td>`;
-      return `<td></td>`;
+      if(c==="SUM_QUANTITY_KG")return`<td>${grand.SUM_QUANTITY_KG.toLocaleString()}</td>`;
+      if(c==="SUM_BILL_AMOUNT")return`<td>${grand.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
+      if(c==="SUM_QUANTITY_CS")return`<td>${grand.SUM_QUANTITY_CS.toLocaleString()}</td>`;
+      if(ci===0)return`<td><b>GRAND TOTAL</b></td>`;return`<td></td>`;
     }).join("")}</tr>`;
   } else tf.innerHTML="";
-
   document.getElementById("recordsInfo").textContent=`Rows: ${rows.length}`;
 }
 
@@ -317,8 +241,7 @@ document.getElementById("dateTo").addEventListener("change",debounceApply);
 document.getElementById("monthQuick").addEventListener("change",debounceApply);
 
 document.getElementById("yesterdayBtn").addEventListener("click",()=>{
-  const t = new Date();
-  t.setDate(t.getDate()-1);
+  const t = new Date(); t.setDate(t.getDate()-1);
   const iso = t.toISOString().slice(0,10);
   document.getElementById("dateFrom").value = iso;
   document.getElementById("dateTo").value = iso;
@@ -330,12 +253,14 @@ document.getElementById("clearBtn").addEventListener("click",()=>{
   document.getElementById("dateFrom").value="";document.getElementById("dateTo").value="";document.getElementById("monthQuick").value="";
   localStorage.removeItem(STORAGE_KEY);debounceApply();
 });
+
 document.getElementById("exportBtn").addEventListener("click",async()=>{
   const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet("ERP Export");
   const rows=[...document.querySelectorAll("#dataTable tr")].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
   rows.forEach(r=>ws.addRow(r));ws.eachRow((r,i)=>{if(i===1)r.font={bold:true};});
   const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`ERP_Export_${new Date().toISOString().slice(0,10)}.xlsx`);
 });
+
 document.getElementById("toggleFiltersBtn").addEventListener("click",()=>{
   const w=document.getElementById("filtersWrapper");
   if(w.style.display==="none"){w.style.display="block";document.getElementById("toggleFiltersBtn").textContent="Hide Filters";}
