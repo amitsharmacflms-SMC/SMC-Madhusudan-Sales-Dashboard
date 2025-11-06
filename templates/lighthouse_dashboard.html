@@ -28,6 +28,7 @@
     table{border-collapse:collapse;width:100%;min-width:1000px;}
     th,td{padding:6px 8px;border:1px solid #cbd5e1;text-align:center;font-weight:600;}
     thead th{position:sticky;top:0;background:linear-gradient(90deg,#eef2ff,#e0e7ff);}
+    .subtotal-row td{background:#fef9c3;font-weight:700;}
     .grandtotal-row td{background:#e0f2fe;font-weight:800;}
     .table-wrapper{background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(4,8,15,0.05);overflow:auto;max-height:75vh;margin-top:10px;}
     .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.6);font-weight:800;font-size:1rem;color:#1e3a8a;z-index:999;}
@@ -75,14 +76,12 @@
 const API_URL="/get_data/lighthouse_sales";
 let rawData=[];
 
-/* --- Helpers --- */
 function parseDate(s){const d=new Date(s);return isNaN(d)?null:d;}
 function monthLabel(s){const d=parseDate(s);return !d?"":d.toLocaleString("default",{month:"short",year:"numeric"});}
 function formatDate(s){const d=parseDate(s);return !d?s:`${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;}
 function showOverlay(){document.getElementById("overlay").classList.add("show");}
 function hideOverlay(){document.getElementById("overlay").classList.remove("show");}
 
-/* --- Load Data --- */
 async function loadData(){
   showOverlay();
   const res=await fetch(API_URL);
@@ -98,7 +97,6 @@ async function loadData(){
   hideOverlay();
 }
 
-/* --- Build Filters --- */
 function buildFilters(){
   const c=document.getElementById("filtersContainer");
   c.innerHTML="";
@@ -127,7 +125,6 @@ function buildFilters(){
   c.addEventListener("change",()=>applyFilters());
 }
 
-/* --- Smart Cascade & Aggregation --- */
 function cascadeAndAggregate(sel){
   let f=[...rawData];
   const from=document.getElementById("dateFrom").value?new Date(document.getElementById("dateFrom").value):null;
@@ -135,14 +132,13 @@ function cascadeAndAggregate(sel){
   const monthQ=document.getElementById("monthQuick").value;
 
   if(monthQ)f=f.filter(r=>monthLabel(r.invoice_date)===monthQ);
-  else if(from||to){f=f.filter(r=>{const d=parseDate(r.invoice_date);if(!d)return false;if(from&&d<from)return false;if(to&&d>to)return false;return true;});}
+  else if(from||to)f=f.filter(r=>{const d=parseDate(r.invoice_date);if(!d)return false;if(from&&d<from)return false;if(to&&d>to)return false;return true;});
 
   ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
     const vals=sel[k]||[];
     if(vals.length)f=f.filter(r=>vals.includes(r[k.toLowerCase()]));
   });
 
-  // --- Smart cascade: hide unavailable ---
   const sets={STATE:new Set(f.map(r=>r.state)),PARTY_NAME:new Set(f.map(r=>r.party_name)),ITEM_NAME:new Set(f.map(r=>r.item_name))};
   ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
     document.querySelectorAll(`input[name='${k}']`).forEach(cb=>{
@@ -151,35 +147,15 @@ function cascadeAndAggregate(sel){
     });
   });
 
-  // --- Aggregation logic ---
-  const totals=sel["TOTAL"]||[];
-  let keyFields=[];
-  if(totals.includes("STATE"))keyFields.push("state");
-  if(totals.includes("PARTY_NAME"))keyFields.push("party_name");
-  if(totals.includes("ITEM_NAME"))keyFields.push("item_name");
-  if(totals.includes("INVOICE_DATE"))keyFields.push("invoice_date");
-  if(!keyFields.length)keyFields=["state","party_name","item_name","invoice_date"];
-
-  const map=new Map();
-  f.forEach(r=>{
-    const key=keyFields.map(k=>r[k]).join("|");
-    if(!map.has(key)){
-      map.set(key,{STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,
-        INVOICE_DATE:keyFields.includes("invoice_date")?formatDate(r.invoice_date):"",
-        SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs});
-    }else{
-      const o=map.get(key);
-      o.SUM_QUANTITY_KG+=r.quantity_kg;
-      o.SUM_BILL_AMOUNT+=r.bill_amount;
-      o.SUM_QUANTITY_CS+=r.quantity_cs;
-    }
-  });
-  const rows=[...map.values()];
-  const grand=rows.reduce((a,r)=>({SUM_QUANTITY_KG:a.SUM_QUANTITY_KG+r.SUM_QUANTITY_KG,SUM_BILL_AMOUNT:a.SUM_BILL_AMOUNT+r.SUM_BILL_AMOUNT,SUM_QUANTITY_CS:a.SUM_QUANTITY_CS+r.SUM_QUANTITY_CS}),{SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0});
-  return {rows,grand};
+  return f;
 }
 
-/* --- Filter retrieval --- */
+function applyFilters(){
+  const sel=getSelected();
+  const filtered=cascadeAndAggregate(sel);
+  renderTable(filtered,sel);
+}
+
 function getSelected(){
   const s={};
   document.querySelectorAll(".filter-box").forEach(b=>{
@@ -189,40 +165,71 @@ function getSelected(){
   return s;
 }
 
-/* --- Render Table --- */
-function renderTable(result,sel){
+function renderTable(filtered,sel){
   const head=document.getElementById("tableHead"),body=document.getElementById("tableBody"),foot=document.getElementById("tableFoot");
   const show=sel["SHOW COLUMNS"].length?sel["SHOW COLUMNS"]:["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE"];
   const header=[...show,"SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
   head.innerHTML="<tr>"+header.map(h=>`<th>${h.replace(/_/g," ")}</th>`).join("")+"</tr>";
-  body.innerHTML=result.rows.map(r=>"<tr>"+header.map(c=>{
-    if(c==="SUM_QUANTITY_KG")return`<td>${r.SUM_QUANTITY_KG.toLocaleString()}</td>`;
-    if(c==="SUM_BILL_AMOUNT")return`<td>${r.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
-    if(c==="SUM_QUANTITY_CS")return`<td>${r.SUM_QUANTITY_CS.toLocaleString()}</td>`;
-    return`<td>${r[c]||""}</td>`;
-  }).join("")+"</tr>").join("");
-  foot.innerHTML=`<tr class='grandtotal-row'>${header.map((c,i)=>{
-    if(c==="SUM_QUANTITY_KG")return`<td>${result.grand.SUM_QUANTITY_KG.toLocaleString()}</td>`;
-    if(c==="SUM_BILL_AMOUNT")return`<td>${result.grand.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
-    if(c==="SUM_QUANTITY_CS")return`<td>${result.grand.SUM_QUANTITY_CS.toLocaleString()}</td>`;
+
+  // Group by TOTAL selections
+  const totals=sel["TOTAL"]||[];
+  let groupedRows=[];
+  if(totals.length){
+    const groups={};
+    filtered.forEach(r=>{
+      const key=totals.map(k=>r[k.toLowerCase()]).join("|");
+      if(!groups[key])groups[key]=[];
+      groups[key].push(r);
+    });
+
+    for(const [key,rows] of Object.entries(groups)){
+      rows.forEach(r=>{
+        const obj={STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_DATE:formatDate(r.invoice_date),
+          SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs};
+        groupedRows.push({type:"data",...obj});
+      });
+      const subtotal=rows.reduce((a,r)=>({kg:a.kg+r.quantity_kg,amt:a.amt+r.bill_amount,cs:a.cs+r.quantity_cs}),{kg:0,amt:0,cs:0});
+      groupedRows.push({type:"subtotal",key:key,SUM_QUANTITY_KG:subtotal.kg,SUM_BILL_AMOUNT:subtotal.amt,SUM_QUANTITY_CS:subtotal.cs});
+    }
+  } else {
+    groupedRows=filtered.map(r=>({type:"data",STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_DATE:formatDate(r.invoice_date),
+      SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs}));
+  }
+
+  body.innerHTML=groupedRows.map(r=>{
+    if(r.type==="subtotal"){
+      return `<tr class="subtotal-row">${header.map((c,i)=>{
+        if(c==="SUM_QUANTITY_KG")return`<td>${r.SUM_QUANTITY_KG.toLocaleString()}</td>`;
+        if(c==="SUM_BILL_AMOUNT")return`<td>${r.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
+        if(c==="SUM_QUANTITY_CS")return`<td>${r.SUM_QUANTITY_CS.toLocaleString()}</td>`;
+        return i===0?`<td><b>Subtotal</b></td>`:`<td></td>`;
+      }).join("")}</tr>`;
+    }
+    return `<tr>${header.map(c=>{
+      if(c==="SUM_QUANTITY_KG")return`<td>${r.SUM_QUANTITY_KG.toLocaleString()}</td>`;
+      if(c==="SUM_BILL_AMOUNT")return`<td>${r.SUM_BILL_AMOUNT.toLocaleString()}</td>`;
+      if(c==="SUM_QUANTITY_CS")return`<td>${r.SUM_QUANTITY_CS.toLocaleString()}</td>`;
+      return`<td>${r[c]||""}</td>`;
+    }).join("")}</tr>`;
+  }).join("");
+
+  const grand=filtered.reduce((a,r)=>({kg:a.kg+r.quantity_kg,amt:a.amt+r.bill_amount,cs:a.cs+r.quantity_cs}),{kg:0,amt:0,cs:0});
+  foot.innerHTML=`<tr class="grandtotal-row">${header.map((c,i)=>{
+    if(c==="SUM_QUANTITY_KG")return`<td>${grand.kg.toLocaleString()}</td>`;
+    if(c==="SUM_BILL_AMOUNT")return`<td>${grand.amt.toLocaleString()}</td>`;
+    if(c==="SUM_QUANTITY_CS")return`<td>${grand.cs.toLocaleString()}</td>`;
     return i===0?`<td><b>GRAND TOTAL</b></td>`:`<td></td>`;
   }).join("")}</tr>`;
-  document.getElementById("recordsInfo").textContent=`Rows: ${result.rows.length}`;
+
+  document.getElementById("recordsInfo").textContent=`Rows: ${filtered.length}`;
 }
 
-/* --- Apply Filters --- */
-function applyFilters(){
-  const s=getSelected();
-  const result=cascadeAndAggregate(s);
-  renderTable(result,s);
-}
-
-/* --- Buttons --- */
+/* Buttons */
 document.getElementById("clearBtn").onclick=()=>{document.querySelectorAll("input[type=checkbox]").forEach(c=>c.checked=false);document.getElementById("dateFrom").value="";document.getElementById("dateTo").value="";document.getElementById("monthQuick").value="";applyFilters();};
 document.getElementById("yesterdayBtn").onclick=()=>{const d=new Date();d.setDate(d.getDate()-1);const s=d.toISOString().slice(0,10);document.getElementById("dateFrom").value=s;document.getElementById("dateTo").value=s;applyFilters();};
 document.getElementById("toggleFiltersBtn").onclick=()=>{const fw=document.getElementById("filtersWrapper");fw.classList.toggle("hidden");document.getElementById("toggleFiltersBtn").textContent=fw.classList.contains("hidden")?"Show Filters":"Hide Filters";};
 
-/* --- Export --- */
+/* Export */
 document.getElementById("exportBtn").onclick=async()=>{
   const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet("Lighthouse");
   const rows=[...document.querySelectorAll("#dataTable tr")].map(tr=>[...tr.children].map(td=>td.innerText));
@@ -230,7 +237,7 @@ document.getElementById("exportBtn").onclick=async()=>{
   const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`lighthouse_${new Date().toISOString().slice(0,10)}.xlsx`);
 };
 
-/* --- Init --- */
+/* Init */
 loadData();
 </script>
 </body>
