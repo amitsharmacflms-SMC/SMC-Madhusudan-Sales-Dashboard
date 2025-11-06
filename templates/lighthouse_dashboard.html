@@ -3,60 +3,48 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SMC Madhusudan Lighthouse Sales</title>
+  <title>SMC Lighthouse Sales</title>
 
-  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
-
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
   <style>
-    /* Table & layout styles */
-    body { font-family: Inter, system-ui; background:#f9fafb; color:#000; margin:0; padding:0; }
-    header, footer { background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
-    header { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; }
-    header img { height:42px; }
-    header h1 { color:#1e3a8a; font-weight:800; font-size:1rem; margin-left:8px; }
+    body{font-family:Inter,system-ui;background:#f6f9fc;margin:0;padding:0;color:#111827;}
+    header{display:flex;justify-content:space-between;align-items:center;background:#fff;padding:10px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.05);}
+    header img{height:40px;}
+    header h1{font-size:1rem;color:#1e3a8a;font-weight:800;margin-left:8px;}
+    .toolbar button{border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-weight:700;}
+    .btn-blue{background:linear-gradient(90deg,#2563eb,#4f46e5);color:#fff;}
+    .btn-gray{background:#f3f4f6;color:#111827;border:1px solid #e2e8f0;}
 
-    .toolbar button { border:none; border-radius:6px; padding:6px 10px; font-weight:700; cursor:pointer; }
-    .btn-blue { background:linear-gradient(90deg,#2563eb,#4f46e5); color:#fff; }
-    .btn-gray { background:#f3f4f6; border:1px solid #e2e8f0; color:#111827; }
-
-    #filtersContainer { display:flex; gap:10px; overflow-x:auto; padding:10px; background:#fff; border-radius:10px; }
-    .filter-box { border:2px solid #1e3a8a; border-radius:10px; padding:6px 10px; min-width:160px; background:#fff; }
-    .filter-box strong { display:block; color:#1e3a8a; border-bottom:1px solid #e5e7eb; margin-bottom:4px; text-align:center; font-size:0.85rem; font-weight:800; }
-    .filter-box label { display:block; font-size:0.8rem; padding:2px 4px; }
-    table { border-collapse:collapse; width:100%; min-width:1000px; }
-    thead th { position:sticky; top:0; background:linear-gradient(90deg,#eef2ff,#e0e7ff); padding:8px; border:1px solid #c7d2fe; }
-    td { padding:6px 8px; border:1px solid #cbd5e1; text-align:center; font-weight:600; }
-    .grandtotal-row td { background:#e0f2fe; font-weight:800; }
-    .table-wrapper { background:#fff; border-radius:10px; box-shadow:0 6px 18px rgba(4,8,15,0.05); overflow:auto; max-height:75vh; margin-top:10px; }
-
-    .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.7); z-index:999; font-weight:800; font-size:1rem; color:#1e3a8a; display:none; }
-    .overlay.show { display:flex; }
-
-    footer { text-align:center; padding:10px; font-size:0.85rem; }
-
-    @media(max-width:768px){
-      .filter-box{ min-width:100%; }
-      header, .toolbar{ flex-wrap:wrap; text-align:center; gap:6px; justify-content:center; }
-    }
+    #filtersWrapper{transition:all .3s ease;overflow:hidden;}
+    #filtersWrapper.hidden{max-height:0;opacity:0;pointer-events:none;}
+    #filtersContainer{display:flex;gap:10px;overflow-x:auto;background:#fff;padding:10px;border-radius:10px;}
+    .filter-box{border:2px solid #1e3a8a;border-radius:10px;padding:6px 10px;min-width:160px;background:#fff;}
+    .filter-box strong{display:block;color:#1e3a8a;font-weight:800;text-align:center;margin-bottom:4px;border-bottom:1px solid #e5e7eb;}
+    .filter-box label{display:block;font-size:.8rem;padding:2px 4px;}
+    table{border-collapse:collapse;width:100%;min-width:1000px;}
+    th,td{padding:6px 8px;border:1px solid #cbd5e1;text-align:center;font-weight:600;}
+    thead th{position:sticky;top:0;background:linear-gradient(90deg,#eef2ff,#e0e7ff);}
+    .grandtotal-row td{background:#e0f2fe;font-weight:800;}
+    .table-wrapper{background:#fff;border-radius:10px;box-shadow:0 4px 16px rgba(4,8,15,0.05);overflow:auto;max-height:75vh;margin-top:10px;}
+    .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.6);font-weight:800;font-size:1rem;color:#1e3a8a;z-index:999;}
+    .overlay.show{display:flex;}
   </style>
 </head>
 
 <body>
   <header>
-    <div style="display:flex;align-items:center;gap:10px;">
+    <div style="display:flex;align-items:center;">
       <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo">
-      <h1>SMC Madhusudan Lighthouse Sales</h1>
+      <h1>SMC Lighthouse Sales</h1>
     </div>
     <div class="toolbar">
       <button id="exportBtn" class="btn-blue">Export</button>
       <button id="clearBtn" class="btn-gray">Clear Filters</button>
       <button id="toggleFiltersBtn" class="btn-gray">Hide Filters</button>
-      <button id="themeToggle" class="btn-gray">Dark Mode</button>
     </div>
   </header>
 
@@ -67,7 +55,7 @@
         To: <input type="date" id="dateTo"> 
         <button id="yesterdayBtn" class="btn-gray">Yesterday</button>
         Invoice Month: <select id="monthQuick"></select>
-        <span id="recordsInfo" style="margin-left:10px;font-size:0.85rem;color:#6b7280"></span>
+        <span id="recordsInfo" style="margin-left:10px;font-size:.85rem;color:#6b7280"></span>
       </div>
       <div id="filtersContainer"></div>
     </div>
@@ -83,22 +71,34 @@
 
   <div id="overlay" class="overlay">Processing...</div>
 
-  <footer>© {{ current_year }} | Created & Hosted by <strong>Amit Sharma</strong></footer>
-
 <script>
-const API_URL = "/get_data/lighthouse_sales";
-let rawData = [];
+const API_URL="/get_data/lighthouse_sales";
+let rawData=[];
 
-/* ---------- Date helpers ---------- */
+/* --- Helpers --- */
 function parseDate(s){const d=new Date(s);return isNaN(d)?null:d;}
 function monthLabel(s){const d=parseDate(s);return !d?"":d.toLocaleString("default",{month:"short",year:"numeric"});}
 function formatDate(s){const d=parseDate(s);return !d?s:`${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;}
-
-/* ---------- UI Loaders ---------- */
 function showOverlay(){document.getElementById("overlay").classList.add("show");}
 function hideOverlay(){document.getElementById("overlay").classList.remove("show");}
 
-/* ---------- Build Filters ---------- */
+/* --- Load Data --- */
+async function loadData(){
+  showOverlay();
+  const res=await fetch(API_URL);
+  const data=await res.json();
+  rawData=data.map(r=>({
+    state:r.state,party_name:r.party_name,item_name:r.item_name,invoice_date:r.invoice_date,
+    quantity_kg:+r.quantity_kg||0,bill_amount:+r.bill_amount||0,quantity_cs:+r.quantity_cs||0
+  }));
+  const months=[...new Set(rawData.map(r=>monthLabel(r.invoice_date)))].filter(Boolean);
+  document.getElementById("monthQuick").innerHTML=`<option value="">--All--</option>`+months.map(m=>`<option>${m}</option>`).join("");
+  buildFilters();
+  applyFilters();
+  hideOverlay();
+}
+
+/* --- Build Filters --- */
 function buildFilters(){
   const c=document.getElementById("filtersContainer");
   c.innerHTML="";
@@ -107,17 +107,16 @@ function buildFilters(){
     {key:"STATE",vals:[...new Set(rawData.map(r=>r.state))].filter(Boolean).sort()},
     {key:"PARTY_NAME",vals:[...new Set(rawData.map(r=>r.party_name))].filter(Boolean).sort()},
     {key:"ITEM_NAME",vals:[...new Set(rawData.map(r=>r.item_name))].filter(Boolean).sort()},
-    {key:"TOTAL",vals:["STATE","PARTY_NAME","ITEM_NAME"]}
+    {key:"TOTAL",vals:["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE"]}
   ];
   boxes.forEach(b=>{
     const div=document.createElement("div");
     div.className="filter-box";
     div.innerHTML=`<strong>${b.key}</strong>
       <label><input type="checkbox" data-all="${b.key}"> All</label>
-      <div class="options">${b.vals.map(v=>`<label><input type="checkbox" name="${b.key}" value="${v}"> ${v}</label>`).join("")}</div>`;
+      <div>${b.vals.map(v=>`<label><input type="checkbox" name="${b.key}" value="${v}"> ${v}</label>`).join("")}</div>`;
     c.appendChild(div);
   });
-
   c.querySelectorAll("input[data-all]").forEach(cb=>{
     cb.addEventListener("change",e=>{
       const key=e.target.dataset.all;
@@ -128,52 +127,38 @@ function buildFilters(){
   c.addEventListener("change",()=>applyFilters());
 }
 
-/* ---------- Fetch Data ---------- */
-async function loadData(){
-  showOverlay();
-  const res=await fetch(API_URL);
-  const data=await res.json();
-  rawData=data.map(r=>({
-    state:r.state,party_name:r.party_name,item_name:r.item_name,
-    invoice_date:r.invoice_date,quantity_kg:+r.quantity_kg||0,
-    bill_amount:+r.bill_amount||0,quantity_cs:+r.quantity_cs||0
-  }));
-  const months=[...new Set(rawData.map(r=>monthLabel(r.invoice_date)))].filter(Boolean);
-  document.getElementById("monthQuick").innerHTML=`<option value="">--All--</option>`+months.map(m=>`<option>${m}</option>`).join("");
-  buildFilters();
-  applyFilters();
-  hideOverlay();
-}
-
-/* ---------- Aggregation ---------- */
-function cascadeAndAggregate(selected){
+/* --- Smart Cascade & Aggregation --- */
+function cascadeAndAggregate(sel){
   let f=[...rawData];
   const from=document.getElementById("dateFrom").value?new Date(document.getElementById("dateFrom").value):null;
   const to=document.getElementById("dateTo").value?new Date(document.getElementById("dateTo").value):null;
   const monthQ=document.getElementById("monthQuick").value;
 
-  if(monthQ) f=f.filter(r=>monthLabel(r.invoice_date)===monthQ);
-  else if(from||to){
-    f=f.filter(r=>{
-      const d=parseDate(r.invoice_date);
-      if(!d) return false;
-      if(from && d<from) return false;
-      if(to && d>to) return false;
-      return true;
-    });
-  }
+  if(monthQ)f=f.filter(r=>monthLabel(r.invoice_date)===monthQ);
+  else if(from||to){f=f.filter(r=>{const d=parseDate(r.invoice_date);if(!d)return false;if(from&&d<from)return false;if(to&&d>to)return false;return true;});}
 
   ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
-    const vals=selected[k]||[];
-    if(vals.length) f=f.filter(r=>vals.includes(r[k.toLowerCase()]));
+    const vals=sel[k]||[];
+    if(vals.length)f=f.filter(r=>vals.includes(r[k.toLowerCase()]));
   });
 
-  const totals=selected["TOTAL"]||[];
+  // --- Smart cascade: hide unavailable ---
+  const sets={STATE:new Set(f.map(r=>r.state)),PARTY_NAME:new Set(f.map(r=>r.party_name)),ITEM_NAME:new Set(f.map(r=>r.item_name))};
+  ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
+    document.querySelectorAll(`input[name='${k}']`).forEach(cb=>{
+      const lab=cb.closest("label");
+      if(!sets[k].has(cb.value)){lab.style.display="none";cb.checked=false;} else lab.style.display="";
+    });
+  });
+
+  // --- Aggregation logic ---
+  const totals=sel["TOTAL"]||[];
   let keyFields=[];
-  if(totals.includes("STATE")) keyFields.push("state");
-  if(totals.includes("PARTY_NAME")) keyFields.push("party_name");
-  if(totals.includes("ITEM_NAME")) keyFields.push("item_name");
-  if(!keyFields.length) keyFields=["state","party_name","item_name","invoice_date"];
+  if(totals.includes("STATE"))keyFields.push("state");
+  if(totals.includes("PARTY_NAME"))keyFields.push("party_name");
+  if(totals.includes("ITEM_NAME"))keyFields.push("item_name");
+  if(totals.includes("INVOICE_DATE"))keyFields.push("invoice_date");
+  if(!keyFields.length)keyFields=["state","party_name","item_name","invoice_date"];
 
   const map=new Map();
   f.forEach(r=>{
@@ -190,31 +175,24 @@ function cascadeAndAggregate(selected){
     }
   });
   const rows=[...map.values()];
-  rows.sort((a,b)=>(a.STATE||"").localeCompare(b.STATE||"")||(a.PARTY_NAME||"").localeCompare(b.PARTY_NAME||"")||(a.ITEM_NAME||"").localeCompare(b.ITEM_NAME||""));
   const grand=rows.reduce((a,r)=>({SUM_QUANTITY_KG:a.SUM_QUANTITY_KG+r.SUM_QUANTITY_KG,SUM_BILL_AMOUNT:a.SUM_BILL_AMOUNT+r.SUM_BILL_AMOUNT,SUM_QUANTITY_CS:a.SUM_QUANTITY_CS+r.SUM_QUANTITY_CS}),{SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0});
   return {rows,grand};
 }
 
-/* ---------- Apply Filters ---------- */
+/* --- Filter retrieval --- */
 function getSelected(){
-  const sel={};
+  const s={};
   document.querySelectorAll(".filter-box").forEach(b=>{
     const t=b.querySelector("strong").textContent.trim();
-    sel[t]=[...b.querySelectorAll("input[name='"+t+"']:checked")].map(i=>i.value);
+    s[t]=[...b.querySelectorAll(`input[name='${t}']:checked`)].map(i=>i.value);
   });
-  return sel;
+  return s;
 }
 
-function applyFilters(){
-  const s=getSelected();
-  const result=cascadeAndAggregate(s);
-  renderTable(result,s);
-}
-
-/* ---------- Render ---------- */
-function renderTable(result,s){
+/* --- Render Table --- */
+function renderTable(result,sel){
   const head=document.getElementById("tableHead"),body=document.getElementById("tableBody"),foot=document.getElementById("tableFoot");
-  const show=s["SHOW COLUMNS"].length?s["SHOW COLUMNS"]:["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE"];
+  const show=sel["SHOW COLUMNS"].length?sel["SHOW COLUMNS"]:["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE"];
   const header=[...show,"SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
   head.innerHTML="<tr>"+header.map(h=>`<th>${h.replace(/_/g," ")}</th>`).join("")+"</tr>";
   body.innerHTML=result.rows.map(r=>"<tr>"+header.map(c=>{
@@ -232,20 +210,27 @@ function renderTable(result,s){
   document.getElementById("recordsInfo").textContent=`Rows: ${result.rows.length}`;
 }
 
-/* ---------- Export ---------- */
-document.getElementById("exportBtn").addEventListener("click",async()=>{
-  const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet("Lighthouse");
-  const rows=[...document.querySelectorAll("#dataTable tr")].map(tr=>[...tr.children].map(td=>td.innerText));
-  rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0){row.font={bold:true};row.fill={type:"pattern",pattern:"solid",fgColor:{argb:"E0E7FF"}};row.alignment={horizontal:"center"};}}); 
-  const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`lighthouse_${new Date().toISOString().slice(0,10)}.xlsx`);
-});
+/* --- Apply Filters --- */
+function applyFilters(){
+  const s=getSelected();
+  const result=cascadeAndAggregate(s);
+  renderTable(result,s);
+}
 
-/* ---------- Events ---------- */
+/* --- Buttons --- */
 document.getElementById("clearBtn").onclick=()=>{document.querySelectorAll("input[type=checkbox]").forEach(c=>c.checked=false);document.getElementById("dateFrom").value="";document.getElementById("dateTo").value="";document.getElementById("monthQuick").value="";applyFilters();};
 document.getElementById("yesterdayBtn").onclick=()=>{const d=new Date();d.setDate(d.getDate()-1);const s=d.toISOString().slice(0,10);document.getElementById("dateFrom").value=s;document.getElementById("dateTo").value=s;applyFilters();};
-document.getElementById("themeToggle").onclick=()=>{document.body.classList.toggle("dark-mode");};
+document.getElementById("toggleFiltersBtn").onclick=()=>{const fw=document.getElementById("filtersWrapper");fw.classList.toggle("hidden");document.getElementById("toggleFiltersBtn").textContent=fw.classList.contains("hidden")?"Show Filters":"Hide Filters";};
 
-/* ---------- Init ---------- */
+/* --- Export --- */
+document.getElementById("exportBtn").onclick=async()=>{
+  const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet("Lighthouse");
+  const rows=[...document.querySelectorAll("#dataTable tr")].map(tr=>[...tr.children].map(td=>td.innerText));
+  rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0){row.font={bold:true};row.fill={type:"pattern",pattern:"solid",fgColor:{argb:"E0E7FF"}};}});
+  const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`lighthouse_${new Date().toISOString().slice(0,10)}.xlsx`);
+};
+
+/* --- Init --- */
 loadData();
 </script>
 </body>
