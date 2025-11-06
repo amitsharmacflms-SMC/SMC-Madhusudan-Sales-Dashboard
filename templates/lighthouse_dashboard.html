@@ -17,125 +17,61 @@
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
   <style>
-    body {
-      font-family: "Inter", system-ui, sans-serif;
-      background: #f6f9fc;
-      color: #111827;
-      margin: 0;
-    }
+    body { font-family: "Inter", system-ui, sans-serif; background:#f6f9fc; color:#111827; margin:0; }
 
     header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: linear-gradient(90deg, #2563eb, #4f46e5);
-      color: #fff;
-      padding: 10px 16px;
-      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+      display:flex; justify-content:space-between; align-items:center;
+      background:linear-gradient(90deg,#2563eb,#4f46e5);
+      color:#fff; padding:10px 16px; box-shadow:0 3px 12px rgba(0,0,0,.15);
     }
-    header img { height: 42px; }
-    header h1 { font-size: 1.1rem; font-weight: 800; margin-left: 10px; }
+    header img { height:42px; }
+    header h1 { font-size:1.1rem; font-weight:800; margin-left:10px; }
+    .toolbar button { border:none; border-radius:6px; padding:6px 10px; cursor:pointer; font-weight:700; }
+    .btn-blue { background:#fff; color:#1e3a8a; }
+    .btn-gray { background:#e5e7eb; color:#111827; }
 
-    .toolbar button {
-      border: none;
-      border-radius: 6px;
-      padding: 6px 10px;
-      cursor: pointer;
-      font-weight: 700;
-    }
-    .btn-blue { background: #fff; color: #1e3a8a; }
-    .btn-gray { background: #e5e7eb; color: #111827; }
-
-    main { max-width: 1500px; margin: 16px auto; padding: 0 12px; }
+    main { max-width:1500px; margin:16px auto; padding:0 12px; }
 
     /* Filters */
-    #filtersContainer {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      margin-bottom: 12px;
-    }
-
+    #filtersContainer { display:flex; flex-wrap:wrap; gap:16px; margin-bottom:12px; }
     .filter-box {
-      background: linear-gradient(180deg, #ffffff, #f0f4ff);
-      border: 2px solid #1e3a8a;
-      border-radius: 12px;
-      padding: 10px 12px;
-      flex: 1 1 220px;
-      box-shadow: 0 4px 12px rgba(30, 58, 138, 0.15);
-      transition: transform 0.2s ease;
+      background:linear-gradient(180deg,#ffffff,#f0f4ff);
+      border:2px solid #1e3a8a; border-radius:12px; padding:10px 12px;
+      flex:1 1 220px; box-shadow:0 4px 12px rgba(30,58,138,0.15); transition:transform 0.2s ease;
     }
-    .filter-box:hover { transform: translateY(-2px); }
+    .filter-box:hover { transform:translateY(-2px); }
     .filter-box strong {
-      display: block;
-      text-align: center;
-      color: #1e3a8a;
-      font-weight: 800;
-      margin-bottom: 6px;
-      border-bottom: 2px solid #c7d2fe;
-      padding-bottom: 4px;
+      display:block; text-align:center; color:#1e3a8a; font-weight:800; margin-bottom:6px;
+      border-bottom:2px solid #c7d2fe; padding-bottom:4px;
     }
-    .filter-box label {
-      display: inline-block;
-      background: #f8fafc;
-      border-radius: 6px;
-      padding: 4px 6px;
-      margin: 3px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
+    .filter-box label { display:inline-block; background:#f8fafc; border-radius:6px;
+      padding:4px 6px; margin:3px; cursor:pointer; font-size:13px; font-weight:600;
     }
 
     /* Table Styling */
-    .table-wrapper {
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 5px 20px rgba(4, 8, 15, 0.06);
-      overflow: auto;
-      max-height: 74vh;
+    .table-wrapper { background:#fff; border-radius:10px;
+      box-shadow:0 5px 20px rgba(4,8,15,0.06); overflow:auto; max-height:74vh;
     }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      min-width: 1100px;
-    }
-    th, td {
-      border: 1.5px solid #9ca3af;
-      padding: 4px 4px;
-      text-align: center;
-      font-weight: 700;
-      height: 20px;
-      line-height: 1.2;
+    table { border-collapse:collapse; width:100%; min-width:1100px; }
+    th,td {
+      border:1.5px solid #9ca3af; padding:4px 4px; text-align:center;
+      font-weight:700; height:20px; line-height:1.2;
     }
     thead th {
-      position: sticky;
-      top: 0;
-      background: linear-gradient(90deg, #e0e7ff, #c7d2fe);
-      color: #1e3a8a;
-      z-index: 5;
+      position:sticky; top:0; background:linear-gradient(90deg,#e0e7ff,#c7d2fe);
+      color:#1e3a8a; z-index:5;
     }
-    tr.subtotal-row td { background: #fff7cc; font-weight: 800; }
-    tr.grandtotal-row td { background: #bae6fd; font-weight: 900; }
+    tr.subtotal-row td { background:#fff7cc; font-weight:800; }
+    tr.grandtotal-row td { background:#bae6fd; font-weight:900; }
 
     .overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(255, 255, 255, 0.7);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 1.1rem;
-      color: #1e3a8a;
-      z-index: 2000;
+      position:fixed; inset:0; background:rgba(255,255,255,.7);
+      display:none; align-items:center; justify-content:center;
+      font-weight:800; font-size:1.1rem; color:#1e3a8a; z-index:2000;
     }
-    .overlay.show { display: flex; }
+    .overlay.show { display:flex; }
 
-    @media (max-width: 768px) {
-      .filter-box { flex: 1 1 100%; }
-      th, td { font-size: 0.8rem; }
-    }
+    @media(max-width:768px){ .filter-box{flex:1 1 100%;} th,td{font-size:.8rem;} }
   </style>
 </head>
 
@@ -162,9 +98,7 @@
       <small id="recordsInfo" style="margin-left:auto;color:#6b7280"></small>
     </div>
 
-    <div id="filtersWrapper">
-      <div id="filtersContainer"></div>
-    </div>
+    <div id="filtersWrapper"><div id="filtersContainer"></div></div>
 
     <div class="table-wrapper">
       <table id="dataTable">
@@ -178,29 +112,33 @@
   <div id="overlay" class="overlay">Processing...</div>
 
 <script>
-const API_URL = "/get_data/lighthouse_sales";
-let rawData = [];
+const API_URL="/get_data/lighthouse_sales";
+let rawData=[];
 
+/* ✅ Force correct parsing: DD-MM-YYYY format everywhere */
 function parseDate(s){
   if(!s)return null;
+  const parts=s.split(/[-/]/);
+  if(parts.length===3){
+    const [day,month,year]=parts.map(Number);
+    return new Date(year,month-1,day);
+  }
   const d=new Date(s);
-  if(!isNaN(d))return d;
-  const m=s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
-  if(m)return new Date(m[3],m[2]-1,m[1]);
-  return null;
+  return isNaN(d)?null:d;
 }
 
+/* ✅ Format for display: DDMMYYYY (no dash) */
 function formatDate(d){
   const dateObj=typeof d==="string"?parseDate(d):d;
   if(!dateObj)return"";
-  return`${String(dateObj.getDate()).padStart(2,"0")}-${String(dateObj.getMonth()+1).padStart(2,"0")}-${dateObj.getFullYear()}`;
+  return `${String(dateObj.getDate()).padStart(2,"0")}${String(dateObj.getMonth()+1).padStart(2,"0")}${dateObj.getFullYear()}`;
 }
 
-// ✅ For <input type="date">
+/* ✅ For <input type="date"> — always ISO (yyyy-MM-dd) */
 function formatDateInput(d){
   const dateObj=typeof d==="string"?parseDate(d):d;
   if(!dateObj)return"";
-  return`${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,"0")}-${String(dateObj.getDate()).padStart(2,"0")}`;
+  return `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,"0")}-${String(dateObj.getDate()).padStart(2,"0")}`;
 }
 
 function toNum(v){return Number(v)||0;}
@@ -211,30 +149,26 @@ function hideOverlay(){document.getElementById('overlay').classList.remove('show
 /* ---------------- Load Data ---------------- */
 async function loadData(){
   showOverlay();
-  const res = await axios.get(API_URL);
-  rawData = res.data.map(r=>({
+  const res=await axios.get(API_URL);
+  rawData=res.data.map(r=>({
     state:r.state, party_name:r.party_name, item_name:r.item_name,
-    invoice_date:formatDate(r.invoice_date),
+    invoice_date:formatDate(r.invoice_date),  // formatted to DDMMYYYY
     invoice_month:invoiceMonth(r.invoice_date),
-    quantity_kg:toNum(r.quantity_kg),
-    bill_amount:toNum(r.bill_amount),
-    quantity_cs:toNum(r.quantity_cs)
+    quantity_kg:toNum(r.quantity_kg), bill_amount:toNum(r.bill_amount), quantity_cs:toNum(r.quantity_cs)
   }));
 
   const months=[...new Set(rawData.map(r=>r.invoice_month).filter(Boolean))];
   const sel=document.getElementById("monthQuick");
   sel.innerHTML=`<option value="">--All--</option>`+months.map(m=>`<option value="${m}">${m}</option>`).join("");
 
-  const now=new Date(), first=new Date(now.getFullYear(), now.getMonth(),1), last=new Date(now.getFullYear(), now.getMonth()+1,0);
+  const now=new Date(), first=new Date(now.getFullYear(),now.getMonth(),1), last=new Date(now.getFullYear(),now.getMonth()+1,0);
   const curMonthLabel=now.toLocaleString('default',{month:'short',year:'numeric'});
-  if(months.includes(curMonthLabel)) sel.value=curMonthLabel;
+  if(months.includes(curMonthLabel))sel.value=curMonthLabel;
 
   document.getElementById("dateFrom").value=formatDateInput(first);
   document.getElementById("dateTo").value=formatDateInput(last);
 
-  buildFilters();
-  applyFilters();
-  hideOverlay();
+  buildFilters(); applyFilters(); hideOverlay();
 }
 
 /* ---------------- Build Filters ---------------- */
@@ -247,7 +181,6 @@ function buildFilters(){
     {key:"PARTY_NAME",vals:[...new Set(rawData.map(r=>r.party_name))].filter(Boolean).sort()},
     {key:"TOTAL",vals:["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE","INVOICE_MONTH"]}
   ];
-
   filters.forEach(f=>{
     const box=document.createElement("div");
     box.className="filter-box";
@@ -287,26 +220,10 @@ function applyFilters(){
     });
     s.ITEM_NAME=Array.from(document.getElementById("itemSelect")?.options||[]).filter(o=>o.selected).map(o=>o.value);
 
-    const cascadeKeys=["STATE","PARTY_NAME","ITEM_NAME"];
-    let filteredPreview=[...rawData];
-    cascadeKeys.forEach(k=>{
-      const vals=s[k]||[];
-      if(k==="ITEM_NAME"&&vals.length)filteredPreview=filteredPreview.filter(r=>vals.includes(r.item_name));
-      else if(vals.length)filteredPreview=filteredPreview.filter(r=>vals.includes(r[k.toLowerCase()]));
-    });
-    cascadeKeys.forEach(k=>{
-      const validVals=new Set(filteredPreview.map(r=>r[k.toLowerCase()]).filter(Boolean));
-      document.querySelectorAll(`input[name='${k}']`).forEach(cb=>{
-        const lbl=cb.closest("label");
-        if(validVals.has(cb.value))lbl.style.display="";
-        else lbl.style.display="none";
-      });
-    });
-
-    let f=[...rawData];
     const from=parseDate(document.getElementById("dateFrom").value);
     const to=parseDate(document.getElementById("dateTo").value);
     const monthSel=document.getElementById("monthQuick").value;
+    let f=[...rawData];
     if(monthSel)f=f.filter(r=>r.invoice_month===monthSel);
     else if(from||to)f=f.filter(r=>{
       const d=parseDate(r.invoice_date);
@@ -328,6 +245,7 @@ function applyFilters(){
         else groupKeys.push(t.toLowerCase());
       });
     } else groupKeys=["state","party_name","item_name"];
+
     const map=new Map();
     f.forEach(r=>{
       const key=groupKeys.map(k=>r[k]||"").join("|");
@@ -351,7 +269,6 @@ function applyFilters(){
 
     const defaultShow=["STATE","PARTY_NAME","ITEM_NAME","SUM_QUANTITY_KG","SUM_QUANTITY_CS"];
     const show=s["SHOW COLUMNS"].length?s["SHOW COLUMNS"]:defaultShow;
-
     const head=document.getElementById("tableHead"),body=document.getElementById("tableBody"),foot=document.getElementById("tableFoot");
     head.innerHTML="<tr>"+show.map(c=>`<th>${c.replace(/_/g,' ')}</th>`).join("")+"</tr>";
 
@@ -403,8 +320,6 @@ document.getElementById("yesterdayBtn").addEventListener("click",()=>{
   document.getElementById("monthQuick").value="";
   applyFilters();
 });
-document.getElementById("dateFrom").addEventListener("change",applyFilters);
-document.getElementById("dateTo").addEventListener("change",applyFilters);
 
 /* ✅ Sync From–To when Month changes */
 document.getElementById("monthQuick").addEventListener("change",e=>{
