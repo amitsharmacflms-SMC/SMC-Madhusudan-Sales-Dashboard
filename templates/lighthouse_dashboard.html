@@ -162,8 +162,7 @@ function getSelected(){
   return s;
 }
 
-/* ---------- Fixed grouping logic ---------- */
-function cascadeAndAggregate(s){
+function cascadeAndAggregate(s) {
   let f = [...rawData];
   const from = s.__from ? new Date(s.__from) : null;
   const to = s.__to ? new Date(s.__to) : null;
@@ -172,47 +171,50 @@ function cascadeAndAggregate(s){
     f = f.filter(r => monthLabel(r.invoice_date) === s.__monthQuick);
   } else if (from || to) {
     f = f.filter(r => {
-      const d = parseDDMMYYYY(r.invoice_date); if(!d) return false;
+      const d = parseDDMMYYYY(r.invoice_date);
+      if (!d) return false;
       if (from && d < from) return false;
       if (to && d > to) return false;
       return true;
     });
   }
 
-  // apply STATE/PARTY/ITEM filters if set
   ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
-    const vals = s[k] || []; if(!vals.length) return;
+    const vals = s[k] || [];
+    if (!vals.length) return;
     f = f.filter(r => vals.includes(r[k.toLowerCase()]));
   });
 
-  // hide unavailable filter options (keeps UI tidy)
-  const sets = { STATE:new Set(f.map(r=>r.state)), PARTY_NAME:new Set(f.map(r=>r.party_name)), ITEM_NAME:new Set(f.map(r=>r.item_name)) };
+  // Hide unavailable filters dynamically
+  const sets = {
+    STATE: new Set(f.map(r => r.state)),
+    PARTY_NAME: new Set(f.map(r => r.party_name)),
+    ITEM_NAME: new Set(f.map(r => r.item_name))
+  };
   ["STATE","PARTY_NAME","ITEM_NAME"].forEach(k=>{
     document.querySelectorAll(`input[name='${k}']`).forEach(cb=>{
       const lab = cb.closest("label");
-      if (!sets[k].has(cb.value)) { lab.style.display="none"; cb.checked=false; } else lab.style.display="";
+      if (!sets[k].has(cb.value)) {
+        lab.style.display="none";
+        cb.checked=false;
+      } else {
+        lab.style.display="";
+      }
     });
   });
 
-  // Determine grouping key exactly as requested:
-  // Priority: ITEM_NAME > PARTY_NAME > STATE
+  // ✅ Dynamically determine grouping keys
   const totals = s["TOTAL"] || [];
-  let keyFields;
-  if (totals.includes("ITEM_NAME")) {
-    keyFields = ["item_name"];
-  } else if (totals.includes("PARTY_NAME")) {
-    keyFields = ["party_name"];
-  } else if (totals.includes("STATE")) {
-    keyFields = ["state"];
-  } else {
-    // detailed rows (include invoice date)
-    keyFields = ["state","party_name","item_name","invoice_date"];
-  }
+  let keyFields = [];
+  if (totals.includes("STATE")) keyFields.push("state");
+  if (totals.includes("PARTY_NAME")) keyFields.push("party_name");
+  if (totals.includes("ITEM_NAME")) keyFields.push("item_name");
+  if (keyFields.length === 0) keyFields = ["state","party_name","item_name","invoice_date"];
 
   // Aggregate
   const map = new Map();
-  f.forEach(r=>{
-    const key = keyFields.map(k=>r[k] ?? "").join("|");
+  f.forEach(r => {
+    const key = keyFields.map(k => r[k] ?? "").join("|");
     if (!map.has(key)) {
       map.set(key, {
         STATE: r.state,
@@ -232,15 +234,11 @@ function cascadeAndAggregate(s){
   });
 
   const rows = [...map.values()];
-  // sort by the visible grouping fields so results are predictable
-  rows.sort((a,b)=>{
-    // if grouping by item alone, sort by item; by party -> party; etc.
-    if (keyFields.length === 1) {
-      const k = keyFields[0].toUpperCase();
-      return (a[k]||"").localeCompare(b[k]||"");
-    }
-    return (a.STATE||"").localeCompare(b.STATE||"") || (a.PARTY_NAME||"").localeCompare(b.PARTY_NAME||"") || (a.ITEM_NAME||"").localeCompare(b.ITEM_NAME||"");
-  });
+  rows.sort((a,b) =>
+    (a.STATE||"").localeCompare(b.STATE||"") ||
+    (a.PARTY_NAME||"").localeCompare(b.PARTY_NAME||"") ||
+    (a.ITEM_NAME||"").localeCompare(b.ITEM_NAME||"")
+  );
 
   const grand = rows.reduce((acc,r)=>{
     acc.SUM_QUANTITY_KG += r.SUM_QUANTITY_KG || 0;
