@@ -267,7 +267,7 @@ function applyFilters(){
     const toDate = toISO ? new Date(toISO + "T23:59:59") : null;
     const monthSel = document.getElementById("monthQuick").value;
 
-    // --- Start Building the Filtered Dataset for the TABLE ---
+    // Start Building the Filtered Dataset for the TABLE ---
     // Apply date/month filters first as they are often primary
     let filteredDataForTable = rawData.filter(r => {
       if (monthSel) return r.invoice_month === monthSel;
@@ -285,7 +285,7 @@ function applyFilters(){
     if (currentSelectedParties.length) filteredDataForTable = filteredDataForTable.filter(r => currentSelectedParties.includes(r.party_name));
     if (currentSelectedItems.length) filteredDataForTable = filteredDataForTable.filter(r => currentSelectedItems.includes(r.item_name));
 
-    // --- Now, determine VALID OPTIONS for the filters based on the `filteredDataForTable` ---
+    // Now, determine VALID OPTIONS for the filters based on the `filteredDataForTable` ---
     // This creates the cascading effect: options for a filter only show what's available
     // after other filters have been applied.
 
@@ -297,6 +297,11 @@ function applyFilters(){
       else { lbl.style.display = "none"; cb.checked = false; } // Uncheck if invalid
     });
     // Re-capture selected states after potentially unchecking invalid ones
+    // NOTE: This 'finalSelectedStates' is not used in the subsequent filtering,
+    // as 'selectedStates' (captured at the beginning) is used for the main data filter.
+    // If you intend for the table filter to react to the 'unchecking of invalid' states,
+    // you'd need to re-apply the state filter using 'finalSelectedStates' here,
+    // or restructure to derive table data later. For now, it's just a variable.
     const finalSelectedStates = [...document.querySelectorAll(`input[name='STATE']:checked`)].map(i=>i.value);
 
 
@@ -317,7 +322,7 @@ function applyFilters(){
     const itemsToSet = currentSelectedItems.filter(v => validItemsForOptions.includes(v));
     itemTS.setValue(itemsToSet);
 
-    // --- The `filteredDataForTable` is already the final dataset to be aggregated and displayed ---
+    // The `filteredDataForTable` is already the final dataset to be aggregated and displayed ---
     // This is the data that will be used to render the table.
 
     // Determine grouping keys (same logic as before)
@@ -424,7 +429,6 @@ function applyFilters(){
   }, 80); // Small delay to ensure overlay shows
   hideOverlay();
 }
-
 /* ---------------- UI events ---------------- */
 document.getElementById("toggleFiltersBtn").addEventListener("click", ()=>{
   const fw = document.getElementById("filtersWrapper");
