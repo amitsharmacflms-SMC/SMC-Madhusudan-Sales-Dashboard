@@ -95,145 +95,110 @@
 
 
 <script>
-/* ---------- Updated JS with: 
-   - TOTAL filter removed
-   - Drill-down + multi-selection cascade for PARTY_NAME & ITEM_NAME ---------- */
+/* ---------- JS for drilldown + TomSelect ---------- */
 
 const API_URL = "/get_data/lighthouse_sales";
 let rawData = [];
 let partyTS = null;
 let itemTS = null;
 
-/* --------- Date helpers (unchanged) --------- */
+/* --- date helpers --- */
 function parseDateFlexible(s){
   if(!s) return null;
-  s = String(s).trim();
-  if(/^\d{8}$/.test(s)){
-    const d = parseInt(s.slice(0,2),10), m = parseInt(s.slice(2,4),10), y = parseInt(s.slice(4,8),10);
-    return new Date(y,m-1,d);
-  }
-  let mMatch = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
-  if(mMatch) return new Date(parseInt(mMatch[3],10), parseInt(mMatch[2],10)-1, parseInt(mMatch[1],10));
-  mMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if(mMatch) return new Date(parseInt(mMatch[1],10), parseInt(mMatch[2],10)-1, parseInt(mMatch[3],10));
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
+  s=String(s).trim();
+  if(/^\d{8}$/.test(s)){const d=parseInt(s.slice(0,2)),m=parseInt(s.slice(2,4)),y=parseInt(s.slice(4,8));return new Date(y,m-1,d);}
+  let mMatch=s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);if(mMatch)return new Date(mMatch[3],mMatch[2]-1,mMatch[1]);
+  mMatch=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(mMatch)return new Date(mMatch[1],mMatch[2]-1,mMatch[3]);
+  const d=new Date(s);return isNaN(d)?null:d;
 }
-function formatDisplayDate(d){
-  const dt = typeof d === "string" ? parseDateFlexible(d) : d;
-  if(!dt) return "";
-  return `${String(dt.getDate()).padStart(2,'0')}${String(dt.getMonth()+1).padStart(2,'0')}${dt.getFullYear()}`; 
-}
-function formatDateInputISO(d){
-  const dt = typeof d === "string" ? parseDateFlexible(d) : d;
-  if(!dt) return "";
-  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-}
-function invoiceMonthLabel(s){
-  const dt = parseDateFlexible(s);
-  if(!dt) return "";
-  return dt.toLocaleString('default',{month:'short', year:'numeric'});
-}
-function toNum(v){ return Number(v)||0; }
-function showOverlay(){ document.getElementById("overlay").classList.add("show"); }
-function hideOverlay(){ document.getElementById("overlay").classList.remove("show"); }
+function formatDisplayDate(d){const dt=typeof d==="string"?parseDateFlexible(d):d;if(!dt)return"";return `${String(dt.getDate()).padStart(2,'0')}${String(dt.getMonth()+1).padStart(2,'0')}${dt.getFullYear()}`;}
+function formatDateInputISO(d){const dt=typeof d==="string"?parseDateFlexible(d):d;if(!dt)return"";return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;}
+function invoiceMonthLabel(s){const dt=parseDateFlexible(s);return dt?dt.toLocaleString('default',{month:'short',year:'numeric'}):"";}
+function toNum(v){return Number(v)||0;}
+function showOverlay(){document.getElementById("overlay").classList.add("show");}
+function hideOverlay(){document.getElementById("overlay").classList.remove("show");}
 
-/* --------- loadData --------- */
+/* --- load data --- */
 async function loadData(){
   showOverlay();
   try{
-    const res = await axios.get(API_URL);
-    const data = Array.isArray(res.data) ? res.data : [];
-    rawData = data.map(r=>{
-      const rawDate = (r.invoice_date || r.INVOICE_DATE || r.Invoice_Date || "").toString().trim();
-      const parsed = parseDateFlexible(rawDate);
+    const res=await axios.get(API_URL);
+    rawData=(Array.isArray(res.data)?res.data:[]).map(r=>{
+      const raw=(r.invoice_date||r.INVOICE_DATE||"").trim();
+      const dt=parseDateFlexible(raw);
       return {
-        state: (r.state || r.STATE || "").trim(),
-        party_name: (r.party_name || r.PARTY_NAME || "").trim(),
-        item_name: (r.item_name || r.ITEM_NAME || "").trim(),
-        invoice_date_raw: rawDate,
-        invoice_date_obj: parsed,
-        invoice_date: formatDisplayDate(parsed),
-        invoice_month: invoiceMonthLabel(rawDate),
-        quantity_kg: toNum(r.quantity_kg || r.Quantity_KG || 0),
-        bill_amount: toNum(r.bill_amount || r.Bill_Amount || 0),
-        quantity_cs: toNum(r.quantity_cs || r.Quantity_CS || 0)
+        state:(r.state||r.STATE||"").trim(),
+        party_name:(r.party_name||r.PARTY_NAME||"").trim(),
+        item_name:(r.item_name||r.ITEM_NAME||"").trim(),
+        invoice_date:formatDisplayDate(dt),
+        invoice_date_obj:dt,
+        invoice_month:invoiceMonthLabel(raw),
+        quantity_cs:toNum(r.quantity_cs||r.Quantity_CS||0),
+        quantity_kg:toNum(r.quantity_kg||r.Quantity_KG||0),
+        bill_amount:toNum(r.bill_amount||r.Bill_Amount||0)
       };
     });
 
-    // Populate month list
-    const months = [...new Set(rawData.map(r=>r.invoice_month).filter(Boolean))];
-    const monthQuick = document.getElementById("monthQuick");
-    monthQuick.innerHTML = `<option value="">--All--</option>` + months.map(m=>`<option value="${m}">${m}</option>`).join("");
-
-    const now = new Date();
-    const curMonthLabel = now.toLocaleString('default',{month:'short',year:'numeric'});
-    if(months.includes(curMonthLabel)) monthQuick.value = curMonthLabel;
-    const first = new Date(now.getFullYear(), now.getMonth(), 1);
-    const last = new Date(now.getFullYear(), now.getMonth()+1, 0);
-    document.getElementById("dateFrom").value = formatDateInputISO(first);
-    document.getElementById("dateTo").value = formatDateInputISO(last);
-
+    const months=[...new Set(rawData.map(r=>r.invoice_month).filter(Boolean))];
+    const mq=document.getElementById("monthQuick");
+    mq.innerHTML=`<option value="">--All--</option>`+months.map(m=>`<option>${m}</option>`).join("");
+    const now=new Date(),f=new Date(now.getFullYear(),now.getMonth(),1),l=new Date(now.getFullYear(),now.getMonth()+1,0);
+    document.getElementById("dateFrom").value=formatDateInputISO(f);
+    document.getElementById("dateTo").value=formatDateInputISO(l);
     buildFilters();
     applyFilters();
-  } finally { hideOverlay(); }
+  }catch(e){console.error(e);}finally{hideOverlay();}
 }
 
-/* --------- Build Filters (TOTAL removed) --------- */
+/* --- build filters (removed TOTAL) --- */
 function buildFilters(){
-  const fc = document.getElementById("filtersContainer");
-  fc.innerHTML = "";
-
-  const boxes = [
-    {key:"SHOW COLUMNS", vals:["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE","INVOICE_MONTH","SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"]},
-    {key:"STATE", vals:[...new Set(rawData.map(r=>r.state))].filter(Boolean).sort()}
+  const fc=document.getElementById("filtersContainer");fc.innerHTML="";
+  const boxes=[
+    {key:"SHOW COLUMNS",vals:["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE","INVOICE_MONTH","SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"]},
+    {key:"STATE",vals:[...new Set(rawData.map(r=>r.state))].filter(Boolean).sort()}
   ];
   boxes.forEach(b=>{
-    const div = document.createElement("div"); div.className="filter-box";
-    div.innerHTML = `<strong>${b.key}</strong>
+    const div=document.createElement("div");div.className="filter-box";
+    div.innerHTML=`<strong>${b.key}</strong>
       <label><input type="checkbox" data-all="${b.key}"> All</label>
-      <div class="options">${b.vals.map(v=>`<label><input type="checkbox" name="${b.key}" value="${v}"> ${v}</label>`).join("")}</div>`;
+      <div class="options">${b.vals.map(v=>`<label><input type="checkbox" name="${b.key}" value="${v}">${v}</label>`).join("")}</div>`;
     fc.appendChild(div);
   });
 
-  // PARTY_NAME multi select
-  const partyBox = document.createElement("div");
-  partyBox.className="filter-box";
-  partyBox.innerHTML = `<strong>PARTY_NAME</strong><select id="partySelect" multiple placeholder="Select Parties"></select>`;
-  fc.appendChild(partyBox);
-  const parties = [...new Set(rawData.map(r=>r.party_name))].filter(Boolean).sort();
-  const partySelect = document.getElementById("partySelect");
-  parties.forEach(p=>{ const o=document.createElement("option"); o.value=p; o.textContent=p; partySelect.appendChild(o); });
-  if(partyTS) { partyTS.destroy(); }
-  partyTS = new TomSelect(partySelect,{plugins:['remove_button'],create:false,maxOptions:1000});
+  // PARTY_NAME
+  const pb=document.createElement("div");pb.className="filter-box";
+  pb.innerHTML=`<strong>PARTY_NAME</strong><select id="partySelect" multiple placeholder="Select Parties"></select>`;
+  fc.appendChild(pb);
+  const parties=[...new Set(rawData.map(r=>r.party_name))].filter(Boolean).sort();
+  const ps=document.getElementById("partySelect");
+  parties.forEach(p=>{const o=document.createElement("option");o.value=p;o.textContent=p;ps.appendChild(o);});
+  if(partyTS){partyTS.destroy();}
+  partyTS=new TomSelect(ps,{plugins:['remove_button'],maxOptions:1000,create:false});
 
-  // ITEM_NAME multi select
-  const itemBox = document.createElement("div");
-  itemBox.className="filter-box";
-  itemBox.innerHTML = `<strong>ITEM_NAME</strong><select id="itemSelect" multiple placeholder="Select Items"></select>`;
-  fc.appendChild(itemBox);
-  const items = [...new Set(rawData.map(r=>r.item_name))].filter(Boolean).sort();
-  const itemSelect = document.getElementById("itemSelect");
-  items.forEach(i=>{ const o=document.createElement("option"); o.value=i; o.textContent=i; itemSelect.appendChild(o); });
-  if(itemTS) { itemTS.destroy(); }
-  itemTS = new TomSelect(itemSelect,{plugins:['remove_button'],create:false,maxOptions:1000});
+  // ITEM_NAME
+  const ib=document.createElement("div");ib.className="filter-box";
+  ib.innerHTML=`<strong>ITEM_NAME</strong><select id="itemSelect" multiple placeholder="Select Items"></select>`;
+  fc.appendChild(ib);
+  const items=[...new Set(rawData.map(r=>r.item_name))].filter(Boolean).sort();
+  const is=document.getElementById("itemSelect");
+  items.forEach(i=>{const o=document.createElement("option");o.value=i;o.textContent=i;is.appendChild(o);});
+  if(itemTS){itemTS.destroy();}
+  itemTS=new TomSelect(is,{plugins:['remove_button'],maxOptions:1000,create:false});
 
-  // "All" checkbox handling
+  // event wiring
   fc.querySelectorAll("input[data-all]").forEach(cb=>{
-    cb.addEventListener("change", e=>{
+    cb.addEventListener("change",e=>{
       const grp=e.target.dataset.all;
       fc.querySelectorAll(`input[name='${grp}']`).forEach(i=>i.checked=e.target.checked);
       applyFilters();
     });
   });
-
-  // On change listeners
-  fc.addEventListener("change", ()=> setTimeout(applyFilters,150));
-  partyTS.on('change', ()=> applyFilters());
-  itemTS.on('change', ()=> applyFilters());
+  fc.addEventListener("change",()=>setTimeout(applyFilters,120));
+  partyTS.on('change',applyFilters);
+  itemTS.on('change',applyFilters);
 }
 
-/* --------- Apply Filters + Drill-down logic --------- */
+/* --- apply filters (drilldown + cascade) --- */
 function applyFilters(){
   showOverlay();
   setTimeout(()=>{
@@ -242,122 +207,96 @@ function applyFilters(){
       const k=h.textContent.trim();
       sel[k]=[...document.querySelectorAll(`input[name='${k}']:checked`)].map(i=>i.value);
     });
-    const selectedStates=sel["STATE"]||[];
-    const selectedShowCols=sel["SHOW COLUMNS"]||[];
-    const selectedParties=partyTS.getValue();
-    const selectedItems=itemTS.getValue();
+    const sStates=sel["STATE"]||[],sCols=sel["SHOW COLUMNS"]||[];
+    const sParties=partyTS.getValue()||[],sItems=itemTS.getValue()||[];
 
-    const from=new Date(document.getElementById("dateFrom").value+"T00:00:00");
-    const to=new Date(document.getElementById("dateTo").value+"T23:59:59");
-    const monthSel=document.getElementById("monthQuick").value;
+    const fromIso=document.getElementById("dateFrom").value,toIso=document.getElementById("dateTo").value;
+    const from=fromIso?new Date(fromIso+"T00:00:00"):null,to=toIso?new Date(toIso+"T23:59:59"):null;
+    const mSel=document.getElementById("monthQuick").value;
 
-    // Preview subset for valid cascade values
-    let preview=[...rawData];
-    if(monthSel) preview=preview.filter(r=>r.invoice_month===monthSel);
-    else preview=preview.filter(r=>{
-      const d=r.invoice_date_obj;
-      if(!d) return false;
-      if(from && d<from) return false;
-      if(to && d>to) return false;
-      return true;
-    });
-
-    if(selectedStates.length) preview=preview.filter(r=>selectedStates.includes(r.state));
-    if(selectedParties.length) preview=preview.filter(r=>selectedParties.includes(r.party_name));
-    if(selectedItems.length) preview=preview.filter(r=>selectedItems.includes(r.item_name));
-
-    // valid lists
-    const validParties=[...new Set(preview.map(r=>r.party_name))].filter(Boolean).sort();
-    const validItems=[...new Set(preview.map(r=>r.item_name))].filter(Boolean).sort();
-
-    // drill-down updates
-    const keepP=partyTS.getValue().filter(v=>validParties.includes(v));
-    const keepI=itemTS.getValue().filter(v=>validItems.includes(v));
-
-    partyTS.clearOptions();
-    validParties.forEach(p=>partyTS.addOption({value:p,text:p}));
-    partyTS.setValue(keepP);
-    itemTS.clearOptions();
-    validItems.forEach(i=>itemTS.addOption({value:i,text:i}));
-    itemTS.setValue(keepI);
-
-    // actual data filter
     let filtered=[...rawData];
-    if(monthSel) filtered=filtered.filter(r=>r.invoice_month===monthSel);
-    else filtered=filtered.filter(r=>{
-      const d=r.invoice_date_obj;
-      if(!d) return false;
-      if(from && d<from) return false;
-      if(to && d>to) return false;
-      return true;
+    if(mSel)filtered=filtered.filter(r=>r.invoice_month===mSel);
+    else if(from||to)filtered=filtered.filter(r=>{
+      const d=r.invoice_date_obj;if(!d)return false;
+      if(from&&d<from)return false;if(to&&d>to)return false;return true;
     });
-    if(selectedStates.length) filtered=filtered.filter(r=>selectedStates.includes(r.state));
-    if(selectedParties.length) filtered=filtered.filter(r=>selectedParties.includes(r.party_name));
-    if(selectedItems.length) filtered=filtered.filter(r=>selectedItems.includes(r.item_name));
+    if(sStates.length)filtered=filtered.filter(r=>sStates.includes(r.state));
+    if(sParties.length)filtered=filtered.filter(r=>sParties.includes(r.party_name));
+    if(sItems.length)filtered=filtered.filter(r=>sItems.includes(r.item_name));
 
-    // Render same as before
-    renderTable(filtered,selectedShowCols);
-    hideOverlay();
-  },100);
+    // drill-down cascade
+    const validStates=[...new Set(filtered.map(r=>r.state))];
+    document.querySelectorAll("input[name='STATE']").forEach(cb=>{
+      cb.closest("label").style.display=validStates.includes(cb.value)?"":"none";
+      if(!validStates.includes(cb.value))cb.checked=false;
+    });
+    const validParties=[...new Set(filtered.map(r=>r.party_name))].sort();
+    const validItems=[...new Set(filtered.map(r=>r.item_name))].sort();
+
+    const keepP=partyTS.getValue().filter(v=>validParties.includes(v));
+    partyTS.clearOptions();validParties.forEach(p=>partyTS.addOption({value:p,text:p}));partyTS.clear(true);if(keepP.length)partyTS.setValue(keepP);
+    const keepI=itemTS.getValue().filter(v=>validItems.includes(v));
+    itemTS.clearOptions();validItems.forEach(i=>itemTS.addOption({value:i,text:i}));itemTS.clear(true);if(keepI.length)itemTS.setValue(keepI);
+
+    // aggregate & render
+    const map=new Map();
+    filtered.forEach(r=>{
+      const key=[r.state,r.party_name,r.item_name,r.invoice_date].join("|");
+      if(!map.has(key)){
+        map.set(key,{STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_DATE:r.invoice_date,
+          SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs});
+      }else{
+        const o=map.get(key);o.SUM_QUANTITY_KG+=r.quantity_kg;o.SUM_BILL_AMOUNT+=r.bill_amount;o.SUM_QUANTITY_CS+=r.quantity_cs;
+      }
+    });
+    const rows=[...map.values()];
+    const showCols=(sCols.length?sCols:["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE","SUM_QUANTITY_CS"]);
+    const thead=document.getElementById("tableHead"),tbody=document.getElementById("tableBody"),tfoot=document.getElementById("tableFoot");
+    thead.innerHTML="<tr>"+showCols.map(c=>`<th>${c.replace(/_/g," ")}</th>`).join("")+"</tr>";
+    tbody.innerHTML=rows.map(r=>"<tr>"+showCols.map(c=>{
+      if(c.startsWith("SUM_"))return `<td>${(r[c]||0).toLocaleString()}</td>`;
+      return `<td>${r[c]||""}</td>`;
+    }).join("")+"</tr>").join("")||( "<tr><td colspan='"+showCols.length+"'>No data</td></tr>");
+    const total=rows.reduce((a,r)=>{a.cs+=r.SUM_QUANTITY_CS||0;a.kg+=r.SUM_QUANTITY_KG||0;a.amt+=r.SUM_BILL_AMOUNT||0;return a;},{cs:0,kg:0,amt:0});
+    tfoot.innerHTML=`<tr class='grandtotal-row'><td><b>GRAND TOTAL</b></td><td colspan='${showCols.length-3}'></td>
+      <td>${total.kg.toLocaleString()}</td><td>${total.amt.toLocaleString()}</td><td>${total.cs.toLocaleString()}</td></tr>`;
+    document.getElementById("recordsInfo").textContent=`Rows: ${rows.length}`;
+  },60);
+  hideOverlay();
 }
 
-/* --------- Render Table (unchanged) --------- */
-function renderTable(filtered,selectedShowCols){
-  const showCols=(selectedShowCols.length?selectedShowCols:["STATE","PARTY_NAME","ITEM_NAME","SUM_QUANTITY_CS"]);
-  const map=new Map();
-  filtered.forEach(r=>{
-    const key=[r.state,r.party_name,r.item_name,r.invoice_date].join("|");
-    if(!map.has(key)){
-      map.set(key,{STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,
-        INVOICE_DATE:r.invoice_date,SUM_QUANTITY_CS:r.quantity_cs,SUM_BILL_AMOUNT:r.bill_amount});
-    }else{
-      const o=map.get(key);
-      o.SUM_QUANTITY_CS+=r.quantity_cs;
-      o.SUM_BILL_AMOUNT+=r.bill_amount;
-    }
-  });
-  const rows=[...map.values()];
-  const tbody=document.getElementById("tableBody");
-  const thead=document.getElementById("tableHead");
-  const tfoot=document.getElementById("tableFoot");
-  thead.innerHTML="<tr>"+showCols.map(c=>`<th>${c}</th>`).join("")+"</tr>";
-  tbody.innerHTML=rows.map(r=>"<tr>"+showCols.map(c=>`<td>${r[c]||""}</td>`).join("")+"</tr>").join("");
-  const totalCS=rows.reduce((s,r)=>s+toNum(r.SUM_QUANTITY_CS),0);
-  tfoot.innerHTML=`<tr class='grandtotal-row'><td><b>GRAND TOTAL</b></td><td colspan='${showCols.length-1}'>${totalCS.toLocaleString()}</td></tr>`;
-  document.getElementById("recordsInfo").textContent=`Rows: ${rows.length}`;
-}
-
-/* --------- Buttons / Events --------- */
+/* --- buttons --- */
 document.getElementById("toggleFiltersBtn").addEventListener("click",()=>{
   const fw=document.getElementById("filtersWrapper");
-  fw.style.display=(fw.style.display==="none")?"block":"none";
+  fw.style.display=fw.style.display==="none"?"block":"none";
 });
 document.getElementById("clearBtn").addEventListener("click",()=>{
   document.querySelectorAll("#filtersContainer input[type=checkbox]").forEach(cb=>cb.checked=false);
-  partyTS.clear(); itemTS.clear();
-  buildFilters(); applyFilters();
+  if(partyTS){partyTS.clear();partyTS.clearOptions();const p=[...new Set(rawData.map(r=>r.party_name))];p.forEach(v=>partyTS.addOption({value:v,text:v}));}
+  if(itemTS){itemTS.clear();itemTS.clearOptions();const i=[...new Set(rawData.map(r=>r.item_name))];i.forEach(v=>itemTS.addOption({value:v,text:v}));}
+  applyFilters();
 });
 document.getElementById("yesterdayBtn").addEventListener("click",()=>{
   const d=new Date();d.setDate(d.getDate()-1);
   document.getElementById("dateFrom").value=formatDateInputISO(d);
   document.getElementById("dateTo").value=formatDateInputISO(d);
+  document.getElementById("monthQuick").value="";
   applyFilters();
 });
 document.getElementById("dateFrom").addEventListener("change",applyFilters);
 document.getElementById("dateTo").addEventListener("change",applyFilters);
 document.getElementById("monthQuick").addEventListener("change",applyFilters);
 
-/* --------- Export --------- */
+/* --- export --- */
 document.getElementById("exportBtn").addEventListener("click",async()=>{
   const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet("Lighthouse");
   const rows=[...document.querySelectorAll("#dataTable tr")].map(tr=>[...tr.children].map(td=>td.innerText));
   rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0)row.font={bold:true};});
   ws.columns.forEach(c=>c.width=16);
-  const buf=await wb.xlsx.writeBuffer();
-  saveAs(new Blob([buf]),`lighthouse_${new Date().toISOString().slice(0,10)}.xlsx`);
+  const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`lighthouse_${new Date().toISOString().slice(0,10)}.xlsx`);
 });
 
-/* --------- Init --------- */
+/* --- init --- */
 loadData();
 </script>
 </body>
