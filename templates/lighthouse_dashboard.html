@@ -238,92 +238,89 @@ function buildFilters(){
   fc.addEventListener("change", ()=> setTimeout(applyFilters, 180));
 }
 
-/* ---------------- Core: Apply Filters + Smart Cascade ---------------- */
+
+
+
+
+
 function applyFilters(){
   showOverlay();
-  setTimeout(()=>{
-    // Read selections
+  setTimeout(()=>{ // Using setTimeout to allow overlay to show and defer heavy computation
+
+    // 1. Get ALL current selections from filters (before any updates)
     const selections = {};
     document.querySelectorAll(".filter-box strong").forEach(h=>{
       const k = h.textContent.trim();
-      // for checkboxes only (SHOW COLUMNS, STATE, TOTAL)
       selections[k] = [...document.querySelectorAll(`input[name='${k}']:checked`)].map(i=>i.value);
     });
+
     const selectedStates = selections["STATE"] || [];
     const selectedShowCols = selections["SHOW COLUMNS"] || [];
     const selectedTotals = selections["TOTAL"] || [];
-    const selectedParties = partyTS ? partyTS.getValue() : [];
-    const selectedItems = itemTS ? itemTS.getValue() : [];
+    const currentSelectedParties = partyTS ? partyTS.getValue() : []; // Capture current TomSelect selections
+    const currentSelectedItems = itemTS ? itemTS.getValue() : [];     // Capture current TomSelect selections
 
-    // parse date from inputs (ISO)
+    // Date/Month Filters
     const fromISO = document.getElementById("dateFrom").value;
     const toISO = document.getElementById("dateTo").value;
     const fromDate = fromISO ? new Date(fromISO + "T00:00:00") : null;
     const toDate = toISO ? new Date(toISO + "T23:59:59") : null;
     const monthSel = document.getElementById("monthQuick").value;
 
-    // Build filteredPreview for cascade based on current selections (apply selections as filters)
-    let preview = [...rawData];
-    if(selectedStates.length) preview = preview.filter(r => selectedStates.includes(r.state));
-    if(selectedParties.length) preview = preview.filter(r => selectedParties.includes(r.party_name));
-    if(selectedItems.length) preview = preview.filter(r => selectedItems.includes(r.item_name));
-    // date/month filter also influence preview options
-    if(monthSel) preview = preview.filter(r => r.invoice_month === monthSel);
-    else if(fromDate || toDate){
-      preview = preview.filter(r => {
+    // --- Start Building the Filtered Dataset for the TABLE ---
+    // Apply date/month filters first as they are often primary
+    let filteredDataForTable = rawData.filter(r => {
+      if (monthSel) return r.invoice_month === monthSel;
+      if (fromDate || toDate) {
         const d = r.invoice_date_obj;
-        if(!d) return false;
-        if(fromDate && d < fromDate) return false;
-        if(toDate && d > toDate) return false;
-        return true;
-      });
-    }
-
-    // Update STATE checkboxes visibility (hide invalid)
-    const validStates = new Set(preview.map(r=>r.state).filter(Boolean));
-    document.querySelectorAll("input[name='STATE']").forEach(cb=>{
-      const lbl = cb.closest("label");
-      if(validStates.has(cb.value)) { lbl.style.display = ""; }
-      else { lbl.style.display = "none"; cb.checked = false; }
+        if (!d) return false;
+        if (fromDate && d < fromDate) return false;
+        if (toDate && d > toDate) return false;
+      }
+      return true;
     });
 
-    // Update PARTY_NAME TomSelect options to only include valid parties from preview
-    const validParties = [...new Set(preview.map(r=>r.party_name).filter(Boolean))].sort();
-    // preserve selected parties that are still valid
-    const currentParties = partyTS ? partyTS.getValue() : [];
-    const keepParties = currentParties.filter(v => validParties.includes(v));
-    // rebuild party options
+    // Apply state, party, item filters to this intermediate data
+    if (selectedStates.length) filteredDataForTable = filteredDataForTable.filter(r => selectedStates.includes(r.state));
+    if (currentSelectedParties.length) filteredDataForTable = filteredDataForTable.filter(r => currentSelectedParties.includes(r.party_name));
+    if (currentSelectedItems.length) filteredDataForTable = filteredDataForTable.filter(r => currentSelectedItems.includes(r.item_name));
+
+    // --- Now, determine VALID OPTIONS for the filters based on the `filteredDataForTable` ---
+    // This creates the cascading effect: options for a filter only show what's available
+    // after other filters have been applied.
+
+    // Update STATE checkboxes visibility
+    const validStatesForOptions = new Set(filteredDataForTable.map(r=>r.state).filter(Boolean));
+    document.querySelectorAll("input[name='STATE']").forEach(cb=>{
+      const lbl = cb.closest("label");
+      if(validStatesForOptions.has(cb.value)) { lbl.style.display = ""; }
+      else { lbl.style.display = "none"; cb.checked = false; } // Uncheck if invalid
+    });
+    // Re-capture selected states after potentially unchecking invalid ones
+    const finalSelectedStates = [...document.querySelectorAll(`input[name='STATE']:checked`)].map(i=>i.value);
+
+
+    // Update PARTY_NAME TomSelect options
+    const validPartiesForOptions = [...new Set(filteredDataForTable.map(r=>r.party_name).filter(Boolean))].sort();
     partyTS.clearOptions();
-    validParties.forEach(p => partyTS.addOption({value:p, text:p}));
-    partyTS.clear(true);
-    if(keepParties.length) partyTS.setValue(keepParties);
+    validPartiesForOptions.forEach(p => partyTS.addOption({value:p, text:p}));
+    // Preserve only those previously selected parties that are still valid
+    const partiesToSet = currentSelectedParties.filter(v => validPartiesForOptions.includes(v));
+    partyTS.setValue(partiesToSet);
 
-    // Update ITEM_NAME TomSelect options to only include valid items from preview
-    const validItems = [...new Set(preview.map(r=>r.item_name).filter(Boolean))].sort();
-    const currentItems = itemTS ? itemTS.getValue() : [];
-    const keepItems = currentItems.filter(v => validItems.includes(v));
+
+    // Update ITEM_NAME TomSelect options
+    const validItemsForOptions = [...new Set(filteredDataForTable.map(r=>r.item_name).filter(Boolean))].sort();
     itemTS.clearOptions();
-    validItems.forEach(it => itemTS.addOption({value:it, text:it}));
-    itemTS.clear(true);
-    if(keepItems.length) itemTS.setValue(keepItems);
+    validItemsForOptions.forEach(it => itemTS.addOption({value:it, text:it}));
+    // Preserve only those previously selected items that are still valid
+    const itemsToSet = currentSelectedItems.filter(v => validItemsForOptions.includes(v));
+    itemTS.setValue(itemsToSet);
 
-    // Now apply filters to actual data set (same as preview but build final set)
-    let filtered = [...rawData];
-    if(monthSel) filtered = filtered.filter(r => r.invoice_month === monthSel);
-    else if(fromDate || toDate){
-      filtered = filtered.filter(r => {
-        const d = r.invoice_date_obj;
-        if(!d) return false;
-        if(fromDate && d < fromDate) return false;
-        if(toDate && d > toDate) return false;
-        return true;
-      });
-    }
-    if(selectedStates.length) filtered = filtered.filter(r => selectedStates.includes(r.state));
-    if(partyTS && partyTS.getValue().length) filtered = filtered.filter(r => partyTS.getValue().includes(r.party_name));
-    if(itemTS && itemTS.getValue().length) filtered = filtered.filter(r => itemTS.getValue().includes(r.item_name));
+    // --- The `filteredDataForTable` is already the final dataset to be aggregated and displayed ---
+    // This is the data that will be used to render the table.
 
-    // Determine grouping keys: TOTAL selections override else SHOW COLUMNS text keys
+    // Determine grouping keys (same logic as before)
     let groupKeys = [];
     if(selectedTotals.length){
       selectedTotals.forEach(t => {
@@ -343,7 +340,7 @@ function applyFilters(){
 
     // Aggregate: one row per unique groupKey combination
     const map = new Map();
-    filtered.forEach(r => {
+    filteredDataForTable.forEach(r => { // Use filteredDataForTable here
       const key = groupKeys.map(k => (r[k] ?? r[k.toUpperCase()] ?? "") ).join("|");
       if(!map.has(key)){
         map.set(key, {
@@ -365,7 +362,7 @@ function applyFilters(){
     });
     const rows = [...map.values()];
 
-    // Prepare groups for subtotals: by first group key
+    // Prepare groups for subtotals: by first group key (same logic)
     const topKey = groupKeys[0] || "state";
     const groupMap = new Map();
     rows.forEach(row => {
@@ -374,11 +371,11 @@ function applyFilters(){
       groupMap.get(topVal).push(row);
     });
 
-    // Columns to show
+    // Columns to show (same logic)
     const defaultShow = ["STATE","PARTY_NAME","ITEM_NAME","SUM_QUANTITY_KG","SUM_QUANTITY_CS"];
     const showCols = (selectedShowCols.length ? selectedShowCols : defaultShow);
 
-    // Render table
+    // Render table (same logic)
     const thead = document.getElementById("tableHead"), tbody = document.getElementById("tableBody"), tfoot = document.getElementById("tableFoot");
     thead.innerHTML = "<tr>" + showCols.map(c => `<th>${c.replace(/_/g,' ')}</th>`).join("") + "</tr>";
 
@@ -390,7 +387,7 @@ function applyFilters(){
           if(c === "INVOICE_DATE") return `<td>${r.INVOICE_DATE || ""}</td>`; // already DDMMYYYY
           if(c.startsWith("SUM_")) return `<td>${(r[c]||0).toLocaleString()}</td>`;
           return `<td>${r[c] ?? ""}</td>`;
-        }).join("") + "</tr>";
+        }).join("") + "</tr>`;
       });
       // subtotal row for this group
       const subtotal = arr.reduce((acc, x) => {
@@ -407,7 +404,7 @@ function applyFilters(){
       }).join("") + `</tr>`;
     });
 
-    // Grand total
+    // Grand total (same logic)
     const grand = rows.reduce((acc, r) => {
       acc.SUM_QUANTITY_KG += toNum(r.SUM_QUANTITY_KG);
       acc.SUM_BILL_AMOUNT += toNum(r.SUM_BILL_AMOUNT);
@@ -423,8 +420,8 @@ function applyFilters(){
 
     tbody.innerHTML = html || `<tr><td colspan="${showCols.length}">No data</td></tr>`;
     tfoot.innerHTML = grandHtml;
-    document.getElementById("recordsInfo").textContent = `Rows: ${rows.length} (filtered: ${filtered.length})`;
-  }, 80);
+    document.getElementById("recordsInfo").textContent = `Rows: ${rows.length} (filtered: ${filteredDataForTable.length})`;
+  }, 80); // Small delay to ensure overlay shows
   hideOverlay();
 }
 
