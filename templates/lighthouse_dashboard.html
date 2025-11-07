@@ -263,21 +263,43 @@ function applyFilters(){
       else { label.style.display = "none"; cb.checked = false; }
     });
 
-    // update PARTY_NAME options without destroying valid selections
-    const currentParties = [...document.querySelectorAll("input[name='PARTY_NAME']:checked")].map(i=>i.value);
-    // rebuild party options DOM (efficient way)
-    const partyContainer = document.querySelector(".filter-box strong:contains('PARTY_NAME')") || null;
-    // simpler approach: replace options innerHTML
-    document.querySelectorAll(".filter-box").forEach(box=>{
-      if(box.querySelector("strong") && box.querySelector("strong").textContent.trim()==="PARTY_NAME"){
-        const optionsDiv = box.querySelector(".options");
-        optionsDiv.innerHTML = validParties.map(v=>`<label><input type="checkbox" name="PARTY_NAME" value="${v}"> ${v}</label>`).join("");
-      }
-      if(box.querySelector("strong") && box.querySelector("strong").textContent.trim()==="ITEM_NAME"){
-        const optionsDiv = box.querySelector(".options");
-        optionsDiv.innerHTML = validItems.map(v=>`<label><input type="checkbox" name="ITEM_NAME" value="${v}"> ${v}</label>`).join("");
-      }
-    });
+    // update PARTY_NAME and ITEM_NAME options dynamically (no jQuery selectors)
+const currentParties = [...document.querySelectorAll("input[name='PARTY_NAME']:checked")].map(i=>i.value);
+const currentItems = [...document.querySelectorAll("input[name='ITEM_NAME']:checked")].map(i=>i.value);
+
+// update PARTY_NAME list
+document.querySelectorAll(".filter-box").forEach(box => {
+  const heading = box.querySelector("strong");
+  if (!heading) return;
+  const title = heading.textContent.trim();
+  if (title === "PARTY_NAME") {
+    const optionsDiv = box.querySelector(".options");
+    if (optionsDiv) {
+      optionsDiv.innerHTML = validParties.map(v =>
+        `<label><input type="checkbox" name="PARTY_NAME" value="${v}"> ${v}</label>`
+      ).join("");
+    }
+  }
+  if (title === "ITEM_NAME") {
+    const optionsDiv = box.querySelector(".options");
+    if (optionsDiv) {
+      optionsDiv.innerHTML = validItems.map(v =>
+        `<label><input type="checkbox" name="ITEM_NAME" value="${v}"> ${v}</label>`
+      ).join("");
+    }
+  }
+});
+
+// restore previous checked states if still valid
+currentParties.forEach(v => {
+  const el = document.querySelector(`input[name='PARTY_NAME'][value="${CSS.escape(v)}"]`);
+  if (el) el.checked = true;
+});
+currentItems.forEach(v => {
+  const el = document.querySelector(`input[name='ITEM_NAME'][value="${CSS.escape(v)}"]`);
+  if (el) el.checked = true;
+});
+
 
     // restore any previously checked parties/items if still valid
     currentParties.forEach(v=>{
