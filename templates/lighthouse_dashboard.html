@@ -301,16 +301,7 @@ currentItems.forEach(v => {
 });
 
 
-    // restore any previously checked parties/items if still valid
-    currentParties.forEach(v=>{
-      const el = document.querySelector(`input[name='PARTY_NAME'][value="${v.replace(/"/g,'\\"')}"]`);
-      if(el) el.checked = true;
-    });
-    const currentItems = [...document.querySelectorAll("input[name='ITEM_NAME']:checked")].map(i=>i.value);
-    currentItems.forEach(v=>{
-      const el = document.querySelector(`input[name='ITEM_NAME'][value="${v.replace(/"/g,'\\"')}"]`);
-      if(el) el.checked = true;
-    });
+    
 
     // Now apply filters to produce the final filtered dataset
     let filtered = [...rawData];
