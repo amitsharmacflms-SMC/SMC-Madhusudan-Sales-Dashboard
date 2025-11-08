@@ -153,15 +153,29 @@ function applyFilters(){
     if(selItem.length)filtered=filtered.filter(r=>selItem.includes(r.item_name));
 
     const groupCols=selShow.length?selShow:["STATE","PARTY_NAME","INVOICE_MONTH","SUM_QUANTITY_CS"];
-    const groupingKeys=groupCols.filter(k=>!k.startsWith("SUM_")&&k!=="INVOICE_DATE");
+    const groupingKeys=groupCols.filter(k=>!k.startsWith("SUM_"));
     const lastKey=groupingKeys[groupingKeys.length-1]||"STATE";
 
     const map=new Map();
     filtered.forEach(r=>{
-      const key=groupingKeys.map(k=>(r[k.toLowerCase()]||r[k])||"").join("|");
-      if(!map.has(key))map.set(key,{STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_MONTH:r.invoice_month,SUM_QUANTITY_CS:r.quantity_cs,SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount});
-      else{const o=map.get(key);o.SUM_QUANTITY_CS+=r.quantity_cs;o.SUM_QUANTITY_KG+=r.quantity_kg;o.SUM_BILL_AMOUNT+=r.bill_amount;}
+      const key=groupingKeys.map(k=>{
+        const lk=k.toLowerCase();
+        return r[lk]||r[k.toUpperCase()]||"";
+      }).join("|");
+      if(!map.has(key)){
+        map.set(key,{
+          STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,
+          INVOICE_DATE:r.invoice_date,INVOICE_MONTH:r.invoice_month,
+          SUM_QUANTITY_CS:r.quantity_cs,SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount
+        });
+      }else{
+        const o=map.get(key);
+        o.SUM_QUANTITY_CS+=r.quantity_cs;
+        o.SUM_QUANTITY_KG+=r.quantity_kg;
+        o.SUM_BILL_AMOUNT+=r.bill_amount;
+      }
     });
+
     const rows=[...map.values()];
     const groupMap=new Map();
     rows.forEach(r=>{const top=r[lastKey.toUpperCase()]||r[lastKey]||"";if(!groupMap.has(top))groupMap.set(top,[]);groupMap.get(top).push(r);});
