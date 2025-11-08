@@ -189,7 +189,7 @@ function applyFilters(){
     const map=new Map();
     filtered.forEach(r=>{const key=effectiveGroups.map(k=>(r[k]??"").toString().trim()).join("|");if(!map.has(key)){map.set(key,{STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,INVOICE_DATE:r.invoice_date,INVOICE_MONTH:r.invoice_month,SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount,SUM_QUANTITY_CS:r.quantity_cs});}else{const o=map.get(key);o.SUM_QUANTITY_KG+=r.quantity_kg;o.SUM_BILL_AMOUNT+=r.bill_amount;o.SUM_QUANTITY_CS+=r.quantity_cs;}});
     const rows=[...map.values()];
-    const topKey=effectiveGroups[0]||"state";
+    const topKey = effectiveGroups[effectiveGroups.length - 1] || "state";
     const groupMap=new Map();
     rows.forEach(r=>{const topVal=r[topKey.toUpperCase()]||r[topKey]||"";if(!groupMap.has(topVal))groupMap.set(topVal,[]);groupMap.get(topVal).push(r);});
     const numericCols=["SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
