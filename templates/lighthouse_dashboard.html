@@ -6,9 +6,9 @@
 <title>SMC Lighthouse Sales Dashboard</title>
 <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
-<script src="https://cdn.jsdelivr.npm/exceljs/dist/exceljs.min.js"></script>
-<script src="https://cdn.jsdelivr.npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-<script src="https://cdn.jsdelivr.npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
 <style>
 :root{--navy:#1e3a8a;--accent1:#2563eb;--accent2:#4f46e5}
@@ -56,7 +56,7 @@ tr.grandtotal-row td{background:#bae6fd;font-weight:900}
 
 <main>
   <div class="controls">
-    From: <input type="date" id="dateFrom">
+    From: <input type="date" id="dateFrom"> 
     To: <input type="date" id="dateTo">
     <button id="yesterdayBtn" class="btn btn-gray">Yesterday</button>
     Invoice Month: <select id="monthQuick"><option value="">--All--</option></select>
@@ -77,49 +77,8 @@ tr.grandtotal-row td{background:#bae6fd;font-weight:900}
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
-const API_URL = "/get_data/lighthouse_sales";
-
-// --- CONSTANTS FOR IMPROVED READABILITY ---
-const FILTER_KEYS = {
-  SHOW_COLUMNS: "SHOW_COLUMNS",
-  STATE: "STATE",
-  PARTY_NAME: "PARTY_NAME",
-  ITEM_NAME: "ITEM_NAME",
-};
-
-const COLUMN_DISPLAY_NAMES = {
-  STATE: "State",
-  PARTY_NAME: "Party Name",
-  ITEM_NAME: "Item Name",
-  INVOICE_DATE: "Invoice Date",
-  INVOICE_MONTH: "Invoice Month",
-  SUM_QUANTITY_CS: "Quantity (CS)",
-  SUM_QUANTITY_KG: "Quantity (KG)",
-  SUM_BILL_AMOUNT: "Bill Amount",
-};
-
-const DEFAULT_DISPLAY_COLUMNS = new Set([
-  COLUMN_DISPLAY_NAMES.STATE,
-  COLUMN_DISPLAY_NAMES.PARTY_NAME,
-  COLUMN_DISPLAY_NAMES.INVOICE_MONTH,
-  COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS,
-]);
-
-// All possible columns for the "SHOW COLUMNS" filter
-const ALL_SELECTABLE_COLUMNS = [
-  COLUMN_DISPLAY_NAMES.STATE,
-  COLUMN_DISPLAY_NAMES.PARTY_NAME,
-  COLUMN_DISPLAY_NAMES.ITEM_NAME,
-  COLUMN_DISPLAY_NAMES.INVOICE_DATE,
-  COLUMN_DISPLAY_NAMES.INVOICE_MONTH,
-  COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS,
-  COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG,
-  COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT,
-];
-// --- END CONSTANTS ---
-
-let rawData = [];
-let allStates = [], allParties = [], allItems = []; // Removed allPartyGroups
+const API_URL="/get_data/lighthouse_sales";
+let rawData=[],allStates=[],allParties=[],allItems=[];
 
 function parseDateFlexible(s){
   if(!s)return null;
@@ -130,349 +89,166 @@ function parseDateFlexible(s){
   const d=new Date(s);
   return isNaN(d)?null:d;
 }
-function invoiceMonthLabel(s){const dt=parseDateFlexible(s);if(!dt)return "";return dt.toLocaleString('default',{month:'short',year:'numeric'});}
+function invoiceMonthLabel(s){const dt=parseDateFlexible(s);if(!dt)return"";return dt.toLocaleString('default',{month:'short',year:'numeric'});}
 function formatDateInputISO(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function toNum(v){return Number(v)||0;}
 function showOverlay(){document.getElementById('overlay').classList.add('show');}
 function hideOverlay(){document.getElementById('overlay').classList.remove('show');}
 
-// Debounce utility function
-function debounce(func, delay) {
-  let timeout;
-  return function(...args) {
-    const context = this;
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(context, args), delay);
-  };
-}
-
-// --- Data Loading ---
 async function loadData(){
   showOverlay();
   try{
-    const res = await axios.get(API_URL);
-    const data = Array.isArray(res.data) ? res.data : [];
-    rawData = data.map(r => {
-      const rawDate = (r.invoice_date || r.INVOICE_DATE || "").toString().trim();
-      const parsedDate = parseDateFlexible(rawDate);
-      return {
-        state: (r.state || r.STATE || "").trim(),
-        partyName: (r.party_name || r.PARTY_NAME || "").trim(),
-        itemName: (r.item_name || r.ITEM_NAME || "").trim(),
-        invoiceDate: parsedDate ? `${String(parsedDate.getDate()).padStart(2,'0')}${String(parsedDate.getMonth()+1).padStart(2,'0')}${parsedDate.getFullYear()}` : "",
-        invoiceMonth: invoiceMonthLabel(rawDate),
-        invoiceDateObj: parsedDate,
-        quantityCs: toNum(r.quantity_cs || r.Quantity_CS || 0),
-        quantityKg: toNum(r.quantity_kg || r.Quantity_KG || 0),
-        billAmount: toNum(r.bill_amount || r.Bill_Amount || 0)
+    const res=await axios.get(API_URL);
+    const data=Array.isArray(res.data)?res.data:[];
+    rawData=data.map(r=>{
+      const raw=(r.invoice_date||r.INVOICE_DATE||"").toString().trim();
+      const parsed=parseDateFlexible(raw);
+      return{
+        state:(r.state||r.STATE||"").trim(),
+        party_name:(r.party_name||r.PARTY_NAME||"").trim(),
+        item_name:(r.item_name||r.ITEM_NAME||"").trim(),
+        invoice_date:parsed?`${String(parsed.getDate()).padStart(2,'0')}${String(parsed.getMonth()+1).padStart(2,'0')}${parsed.getFullYear()}`:"",
+        invoice_month:invoiceMonthLabel(raw),
+        invoice_date_obj:parsed,
+        quantity_cs:toNum(r.quantity_cs||r.Quantity_CS||0),
+        quantity_kg:toNum(r.quantity_kg||r.Quantity_KG||0),
+        bill_amount:toNum(r.bill_amount||r.Bill_Amount||0)
       };
-    }).filter(r => r.invoiceDateObj !== null); // Filter out rows with invalid dates
+    });
 
-    allStates = [...new Set(rawData.map(r => r.state))].sort();
-    allParties = [...new Set(rawData.map(r => r.partyName))].sort();
-    allItems = [...new Set(rawData.map(r => r.itemName))].sort();
+    allStates=[...new Set(rawData.map(r=>r.state))].sort();
+    allParties=[...new Set(rawData.map(r=>r.party_name))].sort();
+    allItems=[...new Set(rawData.map(r=>r.item_name))].sort();
 
-    // Fill Invoice months dropdown
-    const months = [...new Set(rawData.map(r => r.invoiceMonth).filter(Boolean))].sort((a,b)=>new Date(a)-new Date(b));
-    document.getElementById("monthQuick").innerHTML = `<option value="">--All--</option>` + months.map(m=>`<option value="${m}">${m}</option>`).join("");
+    const months=[...new Set(rawData.map(r=>r.invoice_month).filter(Boolean))].sort();
+    document.getElementById("monthQuick").innerHTML=`<option value="">--All--</option>`+months.map(m=>`<option value="${m}">${m}</option>`).join("");
 
-    // Set default date range to current month
-    const now = new Date(), first = new Date(now.getFullYear(), now.getMonth(), 1), last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    document.getElementById("dateFrom").value = formatDateInputISO(first);
-    document.getElementById("dateTo").value = formatDateInputISO(last);
+    const now=new Date(),first=new Date(now.getFullYear(),now.getMonth(),1),last=new Date(now.getFullYear(),now.getMonth()+1,0);
+    document.getElementById("dateFrom").value=formatDateInputISO(first);
+    document.getElementById("dateTo").value=formatDateInputISO(last);
 
     buildFilters();
-    debouncedApplyFilters(); // Initial table render
-  } finally {
-    hideOverlay();
-  }
+    applyFilters();
+  }finally{hideOverlay();}
 }
 
-// --- Filter Building ---
 function buildFilters(){
-  const container = document.getElementById("filtersContainer");
-  container.innerHTML = ""; // Clear existing filters
+  const c=document.getElementById("filtersContainer");
+  c.innerHTML="";
+  const allCols=["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE","INVOICE_MONTH","SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
+  const showHtml=allCols.map(v=>`<label><input type="checkbox" name="SHOW COLUMNS" value="${v}" checked> ${v}</label>`).join("");
+  c.innerHTML+=`<div class="filter-box"><strong>SHOW COLUMNS</strong><label><input type="checkbox" data-all="SHOW COLUMNS"> All</label><div class="options">${showHtml}</div></div>`;
 
-  const makeFilterBox = (title, vals, defaultSelections = []) => {
-    const defaultSet = new Set(defaultSelections);
-    return `
-      <div class="filter-box"><strong>${title}</strong>
-        <label><input type="checkbox" data-all-group="${title}"> All</label>
-        <div class="options">
-          ${vals.map(v => `<label><input type="checkbox" name="${title}" value="${v}" ${defaultSet.has(v) ? 'checked' : ''}> ${v}</label>`).join("")}
-        </div>
-      </div>`;
-  };
+  const makeBox=(title,vals)=>`
+    <div class="filter-box"><strong>${title}</strong>
+      <label><input type="checkbox" data-all="${title}"> All</label>
+      <div class="options">${vals.map(v=>`<label><input type="checkbox" name="${title}" value="${v}"> ${v}</label>`).join("")}</div>
+    </div>`;
+  c.innerHTML+=makeBox("STATE",allStates)+makeBox("PARTY_NAME",allParties)+makeBox("ITEM_NAME",allItems);
 
-  container.innerHTML += makeFilterBox(FILTER_KEYS.SHOW_COLUMNS, ALL_SELECTABLE_COLUMNS, [...DEFAULT_DISPLAY_COLUMNS]);
-  container.innerHTML += makeFilterBox(FILTER_KEYS.STATE, allStates);
-  container.innerHTML += makeFilterBox(FILTER_KEYS.PARTY_NAME, allParties);
-  container.innerHTML += makeFilterBox(FILTER_KEYS.ITEM_NAME, allItems);
+  c.querySelectorAll("input[data-all]").forEach(cb=>cb.addEventListener("change",e=>{
+    const grp=e.target.dataset.all;
+    c.querySelectorAll(`input[name='${grp}']`).forEach(i=>i.checked=e.target.checked);
+    setTimeout(applyFilters,150);
+  }));
 
-  // Event listeners for "All" checkboxes and filter changes
-  container.querySelectorAll("input[data-all-group]").forEach(cb => {
-    cb.addEventListener("change", e => {
-      const group = e.target.dataset.allGroup;
-      container.querySelectorAll(`input[name='${group}']`).forEach(i => i.checked = e.target.checked);
-      debouncedApplyFilters();
-    });
-  });
-  container.addEventListener("change", (e) => {
-    // Check if it's a specific filter option, not the "All" checkbox
-    if (e.target.name && e.target.name !== FILTER_KEYS.SHOW_COLUMNS) {
-      updateAllCheckboxState(e.target.name);
-    } else if (e.target.dataset.allGroup === FILTER_KEYS.SHOW_COLUMNS) {
-       updateAllCheckboxState(FILTER_KEYS.SHOW_COLUMNS);
-    }
-    debouncedApplyFilters();
-  });
-
-  // Initialize "All" checkbox states
-  Object.values(FILTER_KEYS).forEach(key => updateAllCheckboxState(key));
+  c.addEventListener("change",()=>setTimeout(applyFilters,150));
 }
-
-// Function to update the "All" checkbox's indeterminate/checked state
-function updateAllCheckboxState(groupName) {
-  const checkboxes = document.querySelectorAll(`input[name='${groupName}']`);
-  const allCheckbox = document.querySelector(`input[data-all-group='${groupName}']`);
-
-  if (!checkboxes.length || !allCheckbox) return;
-
-  const checkedCount = [...checkboxes].filter(cb => cb.checked).length;
-  allCheckbox.checked = checkedCount === checkboxes.length;
-  allCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
-}
-
-// --- Filter Application and Table Rendering ---
-function getSelectedFilters() {
-  const selected = {};
-  document.querySelectorAll(".filter-box strong").forEach(h => {
-    const key = h.textContent.trim();
-    selected[key] = [...document.querySelectorAll(`input[name='${key}']:checked`)].map(i => i.value);
-  });
-  return selected;
-}
-
-function getFilteredData(selectedFilters, dateFrom, dateTo) {
-  let filtered = rawData.filter(r => r.invoiceDateObj >= dateFrom && r.invoiceDateObj <= dateTo);
-
-  if (selectedFilters[FILTER_KEYS.STATE].length) filtered = filtered.filter(r => selectedFilters[FILTER_KEYS.STATE].includes(r.state));
-  if (selectedFilters[FILTER_KEYS.PARTY_NAME].length) filtered = filtered.filter(r => selectedFilters[FILTER_KEYS.PARTY_NAME].includes(r.partyName));
-  if (selectedFilters[FILTER_KEYS.ITEM_NAME].length) filtered = filtered.filter(r => selectedFilters[FILTER_KEYS.ITEM_NAME].includes(r.itemName));
-
-  return filtered;
-}
-
-function updateFilterCascades(filteredData) {
-  const validStates = [...new Set(filteredData.map(r => r.state))];
-  const validParties = [...new Set(filteredData.map(r => r.partyName))];
-  const validItems = [...new Set(filteredData.map(r => r.itemName))];
-
-  [
-    FILTER_KEYS.STATE,
-    FILTER_KEYS.PARTY_NAME,
-    FILTER_KEYS.ITEM_NAME,
-  ].forEach(type => {
-    document.querySelectorAll(`input[name='${type}']`).forEach(cb => {
-      const val = cb.value;
-      let isValid = false;
-      if (type === FILTER_KEYS.STATE) isValid = validStates.includes(val);
-      else if (type === FILTER_KEYS.PARTY_NAME) isValid = validParties.includes(val);
-      else if (type === FILTER_KEYS.ITEM_NAME) isValid = validItems.includes(val);
-
-      cb.closest("label").classList.toggle("invalid", !isValid);
-    });
-    // After updating invalid states, re-evaluate the "All" checkbox
-    updateAllCheckboxState(type);
-  });
-}
-
-function groupAndAggregateData(filteredData, selectedDisplayColumns) {
-  // Determine actual grouping keys based on selected display columns
-  const groupingKeys = selectedDisplayColumns.filter(k => !k.startsWith("Sum")); // Exclude sums for grouping
-  const map = new Map();
-
-  filteredData.forEach(r => {
-    // Dynamically create a key for grouping based on selected grouping keys
-    const key = groupingKeys.map(k => {
-      // Map display names back to raw data properties for grouping
-      if (k === COLUMN_DISPLAY_NAMES.STATE) return r.state;
-      if (k === COLUMN_DISPLAY_NAMES.PARTY_NAME) return r.partyName;
-      if (k === COLUMN_DISPLAY_NAMES.ITEM_NAME) return r.itemName;
-      if (k === COLUMN_DISPLAY_NAMES.INVOICE_DATE) return r.invoiceDate;
-      if (k === COLUMN_DISPLAY_NAMES.INVOICE_MONTH) return r.invoiceMonth;
-      return ""; // Fallback
-    }).join("|");
-
-    if (!map.has(key)) {
-      map.set(key, {
-        [COLUMN_DISPLAY_NAMES.STATE]: r.state,
-        [COLUMN_DISPLAY_NAMES.PARTY_NAME]: r.partyName,
-        [COLUMN_DISPLAY_NAMES.ITEM_NAME]: r.itemName,
-        [COLUMN_DISPLAY_NAMES.INVOICE_DATE]: r.invoiceDate,
-        [COLUMN_DISPLAY_NAMES.INVOICE_MONTH]: r.invoiceMonth,
-        [COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS]: r.quantityCs,
-        [COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG]: r.quantityKg,
-        [COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT]: r.billAmount
-      });
-    } else {
-      const o = map.get(key);
-      o[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS] += r.quantityCs;
-      o[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG] += r.quantityKg;
-      o[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT] += r.billAmount;
-    }
-  });
-
-  return [...map.values()];
-}
-
-function renderTable(rowsToRender, selectedDisplayColumns) {
-  const thead = document.getElementById("tableHead");
-  const tbody = document.getElementById("tableBody");
-  const tfoot = document.getElementById("tableFoot");
-
-  // Create Header
-  thead.innerHTML = `<tr>${selectedDisplayColumns.map(h => `<th>${h}</th>`).join("")}</tr>`;
-
-  // Create Body Rows
-  tbody.innerHTML = rowsToRender.map(r => `<tr>${selectedDisplayColumns.map(c => `<td>${r[c] !== undefined ? r[c] : 0}</td>`).join("")}</tr>`).join("");
-
-  // Create Footer (Grand Totals)
-  const grand = rowsToRender.reduce((a, r) => {
-    a[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS] += r[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS] || 0;
-    a[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG] += r[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG] || 0;
-    a[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT] += r[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT] || 0;
-    return a;
-  }, {
-    [COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS]: 0,
-    [COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG]: 0,
-    [COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT]: 0
-  });
-
-  tfoot.innerHTML = `<tr class='grandtotal-row'>` +
-    selectedDisplayColumns.map((c, i) => {
-      if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS) return `<td>${grand[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS]}</td>`;
-      if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG) return `<td>${grand[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG]}</td>`;
-      if (c === COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT) return `<td>${grand[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT]}</td>`;
-      if (i === 0) return `<td><b>GRAND TOTAL</b></td>`;
-      return `<td></td>`;
-    }).join("") + `</tr>`;
-
-  document.getElementById("recordsInfo").textContent = `Rows: ${rowsToRender.length}`;
-}
-
-const debouncedApplyFilters = debounce(applyFilters, 300); // Debounce filter application
 
 function applyFilters(){
   showOverlay();
-  setTimeout(()=>{ // Use a small timeout to allow overlay to render, actual debouncing is handled by debouncedApplyFilters
-    const selected = getSelectedFilters();
+  setTimeout(()=>{
+    const selected={};
+    document.querySelectorAll(".filter-box strong").forEach(h=>{
+      const k=h.textContent.trim();
+      selected[k]=[...document.querySelectorAll(`input[name='${k}']:checked`)].map(i=>i.value);
+    });
 
-    const dateFrom = new Date(document.getElementById("dateFrom").value + "T00:00:00");
-    const dateTo = new Date(document.getElementById("dateTo").value + "T23:59:59");
+    const selShow=selected["SHOW COLUMNS"]||[];
+    const selState=selected["STATE"]||[],selParty=selected["PARTY_NAME"]||[],selItem=selected["ITEM_NAME"]||[];
+    const from=new Date(document.getElementById("dateFrom").value+"T00:00:00");
+    const to=new Date(document.getElementById("dateTo").value+"T23:59:59");
 
-    const filteredData = getFilteredData(selected, dateFrom, dateTo);
-    updateFilterCascades(filteredData);
+    let filtered=rawData.filter(r=>r.invoice_date_obj>=from&&r.invoice_date_obj<=to);
+    if(selState.length)filtered=filtered.filter(r=>selState.includes(r.state));
+    if(selParty.length)filtered=filtered.filter(r=>selParty.includes(r.party_name));
+    if(selItem.length)filtered=filtered.filter(r=>selItem.includes(r.item_name));
 
-    const selectedDisplayColumns = selected[FILTER_KEYS.SHOW_COLUMNS].length ?
-      selected[FILTER_KEYS.SHOW_COLUMNS] : [...DEFAULT_DISPLAY_COLUMNS]; // Use default if nothing selected for show columns
+    // Smart cascade
+    const validStates=[...new Set(filtered.map(r=>r.state))];
+    const validParties=[...new Set(filtered.map(r=>r.party_name))];
+    const validItems=[...new Set(filtered.map(r=>r.item_name))];
+    ["STATE","PARTY_NAME","ITEM_NAME"].forEach(type=>{
+      document.querySelectorAll(`input[name='${type}']`).forEach(cb=>{
+        const val=cb.value;
+        const valid=(type==="STATE"?validStates:type==="PARTY_NAME"?validParties:validItems);
+        cb.closest("label").classList.toggle("invalid",!valid.includes(val));
+      });
+    });
 
-    const aggregatedRows = groupAndAggregateData(filteredData, selectedDisplayColumns);
-    renderTable(aggregatedRows, selectedDisplayColumns);
+    const groupKey="STATE"; // top-level grouping for subtotal
+    const map=new Map();
+    filtered.forEach(r=>{
+      const key=r[groupKey.toLowerCase()]||"";
+      if(!map.has(key))map.set(key,[]);
+      map.get(key).push(r);
+    });
 
+    const headerCols=selShow.length?selShow:["STATE","PARTY_NAME","ITEM_NAME","INVOICE_DATE","INVOICE_MONTH","SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
+    const thead=document.getElementById("tableHead"),tbody=document.getElementById("tableBody"),tfoot=document.getElementById("tableFoot");
+    thead.innerHTML="<tr>"+headerCols.map(h=>`<th>${h.replace(/_/g,' ')}</th>`).join("")+"</tr>";
+
+    let html="";
+    map.forEach((arr,grp)=>{
+      arr.forEach(r=>{
+        html+="<tr>"+headerCols.map(c=>{
+          if(c==="SUM_QUANTITY_KG")return `<td>${r.quantity_kg.toLocaleString()}</td>`;
+          if(c==="SUM_BILL_AMOUNT")return `<td>${r.bill_amount.toLocaleString()}</td>`;
+          if(c==="SUM_QUANTITY_CS")return `<td>${r.quantity_cs.toLocaleString()}</td>`;
+          return `<td>${r[c.toLowerCase()]||r[c.toUpperCase()]||""}</td>`;
+        }).join("")+"</tr>";
+      });
+      if(arr.length>1){
+        const sub=arr.reduce((a,x)=>{a.kg+=x.quantity_kg;a.amt+=x.bill_amount;a.cs+=x.quantity_cs;return a;},{kg:0,amt:0,cs:0});
+        html+=`<tr class="subtotal-row">`+headerCols.map((c,i)=>{
+          if(c==="SUM_QUANTITY_KG")return `<td>${sub.kg.toLocaleString()}</td>`;
+          if(c==="SUM_BILL_AMOUNT")return `<td>${sub.amt.toLocaleString()}</td>`;
+          if(c==="SUM_QUANTITY_CS")return `<td>${sub.cs.toLocaleString()}</td>`;
+          return i===0?`<td><b>Subtotal - ${grp}</b></td>`:`<td></td>`;
+        }).join("")+`</tr>`;
+      }
+    });
+    tbody.innerHTML=html||`<tr><td colspan="${headerCols.length}">No data</td></tr>`;
+
+    const grand=filtered.reduce((a,r)=>{a.kg+=r.quantity_kg;a.amt+=r.bill_amount;a.cs+=r.quantity_cs;return a;},{kg:0,amt:0,cs:0});
+    tfoot.innerHTML=`<tr class='grandtotal-row'>`+headerCols.map((c,i)=>{
+      if(c==="SUM_QUANTITY_KG")return `<td>${grand.kg.toLocaleString()}</td>`;
+      if(c==="SUM_BILL_AMOUNT")return `<td>${grand.amt.toLocaleString()}</td>`;
+      if(c==="SUM_QUANTITY_CS")return `<td>${grand.cs.toLocaleString()}</td>`;
+      return i===0?`<td><b>GRAND TOTAL</b></td>`:`<td></td>`;
+    }).join("")+`</tr>`;
+
+    document.getElementById("recordsInfo").textContent=`Rows: ${filtered.length}`;
     hideOverlay();
-  }, 50); // Small delay for UI update
+  },120);
 }
 
-// --- Event Listeners ---
 document.getElementById("toggleFiltersBtn").addEventListener("click",()=>{
-  const wrapper = document.getElementById("filtersWrapper");
-  const btn = document.getElementById("toggleFiltersBtn");
-  if(wrapper.style.display==="none"){wrapper.style.display="block";btn.textContent="Hide Filters";}else{wrapper.style.display="none";btn.textContent="Show Filters";}
+  const w=document.getElementById("filtersWrapper"),btn=document.getElementById("toggleFiltersBtn");
+  if(w.style.display==="none"){w.style.display="block";btn.textContent="Hide Filters";}else{w.style.display="none";btn.textContent="Show Filters";}
 });
-
-document.getElementById("clearBtn").addEventListener("click",()=>{
-  // Reset date range to current month
-  const now = new Date(), first = new Date(now.getFullYear(), now.getMonth(), 1), last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  document.getElementById("dateFrom").value = formatDateInputISO(first);
-  document.getElementById("dateTo").value = formatDateInputISO(last);
-  document.getElementById("monthQuick").value = ""; // Clear invoice month quick filter
-
-  buildFilters(); // Rebuild filters to reset all checkboxes to default
-  debouncedApplyFilters();
-});
-
-document.getElementById("yesterdayBtn").addEventListener("click", () => {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  document.getElementById("dateFrom").value = formatDateInputISO(yesterday);
-  document.getElementById("dateTo").value = formatDateInputISO(yesterday);
-  document.getElementById("monthQuick").value = ""; // Clear invoice month quick filter if "Yesterday" is clicked
-  debouncedApplyFilters();
-});
-
-document.getElementById("monthQuick").addEventListener("change", (e) => {
-  const selectedMonth = e.target.value;
-  if (selectedMonth) {
-    const [monthStr, yearStr] = selectedMonth.split(' ');
-    const monthIndex = new Date(Date.parse(monthStr +" 1, "+ yearStr)).getMonth();
-    const year = parseInt(yearStr);
-
-    const firstDayOfMonth = new Date(year, monthIndex, 1);
-    const lastDayOfMonth = new Date(year, monthIndex + 1, 0);
-
-    document.getElementById("dateFrom").value = formatDateInputISO(firstDayOfMonth);
-    document.getElementById("dateTo").value = formatDateInputISO(lastDayOfMonth);
-  }
-  debouncedApplyFilters();
-});
-
-
-// Event listeners for date range inputs
-document.getElementById("dateFrom").addEventListener("change", debouncedApplyFilters);
-document.getElementById("dateTo").addEventListener("change", debouncedApplyFilters);
-
-
+document.getElementById("clearBtn").addEventListener("click",()=>{buildFilters();applyFilters();});
 document.getElementById("exportBtn").addEventListener("click",async()=>{
   showOverlay();
-  try {
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("Lighthouse Sales");
-
-    // Get table headers
-    const headerCells = [...document.querySelectorAll("#tableHead th")].map(th => th.innerText.trim());
-    const headerRow = ws.addRow(headerCells);
-    headerRow.font = { bold: true };
-
-    // Get table body rows
-    const bodyRows = [...document.querySelectorAll("#tableBody tr")].map(tr =>
-      [...tr.children].map(td => td.innerText.trim())
-    );
-    bodyRows.forEach(r => ws.addRow(r));
-
-    // Get table footer (grand total)
-    const footerCells = [...document.querySelectorAll("#tableFoot tr.grandtotal-row td")].map(td => td.innerText.trim());
-    const footerRow = ws.addRow(footerCells);
-    footerRow.font = { bold: true };
-    footerRow.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFBAE6FD' } // Light blue for grand total
-    };
-
-
-    ws.columns.forEach(c => c.width = 18); // Set a default width for columns
-    const buf = await wb.xlsx.writeBuffer();
-    saveAs(new Blob([buf]),`lighthouse_sales_${new Date().toISOString().slice(0,10)}.xlsx`);
-  } catch (error) {
-    console.error("Export failed:", error);
-    alert("Failed to export data. Please try again.");
-  } finally {
-    hideOverlay();
-  }
+  const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet("Lighthouse");
+  const rows=[...document.querySelectorAll("#dataTable tr")].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
+  rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0)row.font={bold:true};});
+  ws.columns.forEach(c=>c.width=18);
+  const buf=await wb.xlsx.writeBuffer();
+  saveAs(new Blob([buf]),`lighthouse_${new Date().toISOString().slice(0,10)}.xlsx`);
+  hideOverlay();
 });
 
-// Initial data load
 loadData();
 </script>
 </body>
