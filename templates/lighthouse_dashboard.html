@@ -341,46 +341,72 @@ function renderTable(rowsToRender, selectedDisplayColumns) {
   // --- Header ---
   thead.innerHTML = `<tr>${selectedDisplayColumns.map(h => `<th>${h}</th>`).join("")}</tr>`;
 
-  // --- Group rows for Subtotals ---
-  const groupKey = selectedDisplayColumns.find(c => 
+  // --- Determine dynamic grouping hierarchy ---
+  const groupingHierarchy = selectedDisplayColumns.filter(c =>
     [COLUMN_DISPLAY_NAMES.STATE, COLUMN_DISPLAY_NAMES.PARTY_NAME, COLUMN_DISPLAY_NAMES.ITEM_NAME].includes(c)
-  ) || COLUMN_DISPLAY_NAMES.STATE;
+  );
 
-  const grouped = new Map();
-  rowsToRender.forEach(r => {
-    const key = r[groupKey] || "Undefined";
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(r);
-  });
+  // --- Recursive function to group and render rows ---
+  function renderGroupedRows(data, level = 0, parentGroup = "") {
+    if (level >= groupingHierarchy.length) return "";
 
-  // --- Build Table Body with Subtotals ---
-  let html = "";
-  grouped.forEach((arr, grp) => {
-    arr.forEach(r => {
-      html += "<tr>" + selectedDisplayColumns.map(c => `<td>${r[c] ?? ""}</td>`).join("") + "</tr>";
+    const key = groupingHierarchy[level];
+    const groupMap = new Map();
+
+    data.forEach(r => {
+      const val = r[key] || "Undefined";
+      if (!groupMap.has(val)) groupMap.set(val, []);
+      groupMap.get(val).push(r);
     });
 
-    // Add subtotal row only if ≥2 rows
-    if (arr.length >= 2) {
-      const subtotal = arr.reduce((a, r) => {
-        a[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS] += r[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS] || 0;
-        a[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG] += r[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG] || 0;
-        a[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT] += r[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT] || 0;
-        return a;
-      }, {
-        [COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS]: 0,
-        [COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG]: 0,
-        [COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT]: 0
-      });
+    let html = "";
 
-      html += `<tr class='subtotal-row'>` + selectedDisplayColumns.map((c, i) => {
-        if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS) return `<td>${subtotal[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS].toLocaleString()}</td>`;
-        if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG) return `<td>${subtotal[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG].toLocaleString()}</td>`;
-        if (c === COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT) return `<td>${subtotal[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT].toLocaleString()}</td>`;
-        return i === 0 ? `<td><b>Subtotal - ${grp}</b></td>` : `<td></td>`;
-      }).join("") + `</tr>`;
-    }
-  });
+    groupMap.forEach((groupRows, groupValue) => {
+      // If deeper levels exist, render recursively
+      if (level < groupingHierarchy.length - 1) {
+        html += renderGroupedRows(groupRows, level + 1, groupValue);
+      } else {
+        // Render data rows at the last level
+        groupRows.forEach(r => {
+          html += "<tr>" + selectedDisplayColumns.map(c => `<td>${r[c] ?? ""}</td>`).join("") + "</tr>";
+        });
+      }
+
+      // --- Subtotal if group has ≥2 rows ---
+      if (groupRows.length >= 2) {
+        const sub = groupRows.reduce((a, r) => {
+          a[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS] += r[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS] || 0;
+          a[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG] += r[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG] || 0;
+          a[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT] += r[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT] || 0;
+          return a;
+        }, {
+          [COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS]: 0,
+          [COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG]: 0,
+          [COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT]: 0
+        });
+
+        const indent = "&nbsp;".repeat(level * 6);
+        html += `<tr class='subtotal-row'>` +
+          selectedDisplayColumns.map((c, i) => {
+            if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS) return `<td>${sub[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS].toLocaleString()}</td>`;
+            if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG) return `<td>${sub[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG].toLocaleString()}</td>`;
+            if (c === COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT) return `<td>${sub[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT].toLocaleString()}</td>`;
+            return i === 0 ? `<td><b>${indent}Subtotal - ${groupValue}</b></td>` : `<td></td>`;
+          }).join("") + `</tr>`;
+      }
+    });
+
+    return html;
+  }
+
+  // --- Build body ---
+  let html = "";
+  if (groupingHierarchy.length > 0) {
+    html = renderGroupedRows(rowsToRender, 0);
+  } else {
+    // No grouping columns, show flat rows
+    html = rowsToRender.map(r => "<tr>" + selectedDisplayColumns.map(c => `<td>${r[c] ?? ""}</td>`).join("") + "</tr>").join("");
+  }
 
   tbody.innerHTML = html || `<tr><td colspan="${selectedDisplayColumns.length}">No data</td></tr>`;
 
@@ -406,6 +432,7 @@ function renderTable(rowsToRender, selectedDisplayColumns) {
 
   document.getElementById("recordsInfo").textContent = `Rows: ${rowsToRender.length}`;
 }
+
 
 const debouncedApplyFilters = debounce(applyFilters, 300); // Debounce filter application
 
