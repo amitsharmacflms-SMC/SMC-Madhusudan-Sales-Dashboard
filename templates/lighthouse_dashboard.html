@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>SMC Lighthouse Sales Dashboard</title>
 <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
+
 <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -26,7 +27,8 @@ main{max-width:1500px;margin:14px auto;padding:0 12px}
 .filter-box{background:linear-gradient(180deg,#fff,#f0f4ff);border:2px solid var(--navy);border-radius:12px;padding:10px 12px;flex:1 1 240px;box-shadow:0 6px 18px rgba(30,58,138,0.06)}
 .filter-box strong{display:block;text-align:center;color:var(--navy);font-weight:900;margin-bottom:6px;border-bottom:2px solid #e6eef9;padding-bottom:6px}
 .filter-box .options{max-height:220px;overflow:auto;padding-top:6px}
-.filter-box label{display:block;padding:6px 8px;margin:4px 0;border-radius:8px;background:#fbfeff;font-weight:700;cursor:pointer}
+.filter-box label{display:block;padding:6px 8px;margin:4px 0;border-radius:8px;font-weight:700;cursor:pointer;transition:all .2s}
+.filter-box label.invalid{opacity:.4;pointer-events:none}
 .table-wrapper{background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);overflow:auto;max-height:72vh}
 table{border-collapse:collapse;width:100%;min-width:1000px}
 th,td{border:1.5px solid #65738a;padding:6px 8px;text-align:center;font-weight:800;height:20px}
@@ -113,16 +115,21 @@ async function loadData(){
         bill_amount:toNum(r.bill_amount||r.Bill_Amount||0)
       };
     });
+
     allStates=[...new Set(rawData.map(r=>r.state))].sort();
     allParties=[...new Set(rawData.map(r=>r.party_name))].sort();
     allItems=[...new Set(rawData.map(r=>r.item_name))].sort();
+
+    // fill Invoice months
+    const months=[...new Set(rawData.map(r=>r.invoice_month).filter(Boolean))].sort((a,b)=>new Date(a)-new Date(b));
+    document.getElementById("monthQuick").innerHTML=`<option value="">--All--</option>`+months.map(m=>`<option value="${m}">${m}</option>`).join("");
 
     const now=new Date(),first=new Date(now.getFullYear(),now.getMonth(),1),last=new Date(now.getFullYear(),now.getMonth()+1,0);
     document.getElementById("dateFrom").value=formatDateInputISO(first);
     document.getElementById("dateTo").value=formatDateInputISO(last);
 
     buildFilters();
-    applyFilters();  // ✅ ensures table shows on open
+    applyFilters(); // ✅ table now renders automatically
   }finally{hideOverlay();}
 }
 
@@ -137,7 +144,6 @@ function buildFilters(){
     <label><input type="checkbox" data-all="SHOW COLUMNS"> All</label>
     <div class="options">${allCols.map(v=>`<label><input type="checkbox" name="SHOW COLUMNS" value="${v}" ${defaultCols.has(v)?'checked':''}> ${v}</label>`).join("")}</div></div>`;
 
-  // helper
   const makeBox=(title,vals)=>`
     <div class="filter-box"><strong>${title}</strong>
       <label><input type="checkbox" data-all="${title}"> All</label>
@@ -145,14 +151,12 @@ function buildFilters(){
     </div>`;
   c.innerHTML+=makeBox("STATE",allStates)+makeBox("PARTY_NAME",allParties)+makeBox("ITEM_NAME",allItems);
 
-  // all toggle
   c.querySelectorAll("input[data-all]").forEach(cb=>cb.addEventListener("change",e=>{
     const grp=e.target.dataset.all;
     c.querySelectorAll(`input[name='${grp}']`).forEach(i=>i.checked=e.target.checked);
-    setTimeout(applyFilters,100);
+    setTimeout(applyFilters,120);
   }));
 
-  // change trigger
   c.addEventListener("change",()=>setTimeout(applyFilters,150));
 }
 
@@ -174,7 +178,7 @@ function applyFilters(){
     if(selParty.length)filtered=filtered.filter(r=>selParty.includes(r.party_name));
     if(selItem.length)filtered=filtered.filter(r=>selItem.includes(r.item_name));
 
-    // smart cascade: dynamically hide unavailable options but keep current checks
+    // smart cascade (non-destructive)
     const validStates=[...new Set(filtered.map(r=>r.state))];
     const validParties=[...new Set(filtered.map(r=>r.party_name))];
     const validItems=[...new Set(filtered.map(r=>r.item_name))];
@@ -182,7 +186,7 @@ function applyFilters(){
       document.querySelectorAll(`input[name='${type}']`).forEach(cb=>{
         const val=cb.value;
         const valid=(type==="STATE"?validStates:type==="PARTY_NAME"?validParties:validItems);
-        cb.disabled=!valid.includes(val);
+        cb.closest("label").classList.toggle("invalid",!valid.includes(val));
       });
     });
 
@@ -190,62 +194,31 @@ function applyFilters(){
     const groupingKeys=groupCols.filter(k=>!k.startsWith("SUM_"));
     const lastKey=groupingKeys[groupingKeys.length-1]||"STATE";
 
-    const map = new Map();
-filtered.forEach(r => {
-  const key = groupingKeys.map(k => {
-    const lk = k.toLowerCase();
-    return r[lk] || r[k.toUpperCase()] || "";
-  }).join("|");
-
-  if (!map.has(key)) {
-    map.set(key, {
-      STATE: r.state,
-      PARTY_NAME: r.party_name,
-      ITEM_NAME: r.item_name,
-      INVOICE_DATE: r.invoice_date || "",
-      INVOICE_MONTH: r.invoice_month || "",
-      SUM_QUANTITY_CS: r.quantity_cs,
-      SUM_QUANTITY_KG: r.quantity_kg,
-      SUM_BILL_AMOUNT: r.bill_amount
-    });
-  } else {
-    const o = map.get(key);
-    // keep first seen INVOICE_DATE / MONTH if grouping key doesn't include them
-    if (!groupingKeys.includes("INVOICE_DATE") && !o.INVOICE_DATE)
-      o.INVOICE_DATE = r.invoice_date || "";
-    if (!groupingKeys.includes("INVOICE_MONTH") && !o.INVOICE_MONTH)
-      o.INVOICE_MONTH = r.invoice_month || "";
-
-    o.SUM_QUANTITY_CS += r.quantity_cs;
-    o.SUM_QUANTITY_KG += r.quantity_kg;
-    o.SUM_BILL_AMOUNT += r.bill_amount;
-  }
-});
-
-
-    const rows=[...map.values()];
-    const groupMap=new Map();
-    rows.forEach(r=>{const top=r[lastKey.toUpperCase()]||r[lastKey]||"";if(!groupMap.has(top))groupMap.set(top,[]);groupMap.get(top).push(r);});
-
-    const numeric=["SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"];
-    const headerCols=groupCols.concat(numeric.filter(n=>!groupCols.includes(n)));
-    const thead=document.getElementById("tableHead"),tbody=document.getElementById("tableBody"),tfoot=document.getElementById("tableFoot");
-    thead.innerHTML="<tr>"+headerCols.map(h=>`<th>${h.replace(/_/g,' ')}</th>`).join("")+"</tr>";
-
-    let html="";
-    groupMap.forEach((arr,grp)=>{
-      arr.forEach(r=>{
-        html+="<tr>"+headerCols.map(c=>c.startsWith("SUM_")?`<td>${(r[c]||0).toLocaleString()}</td>`:`<td>${r[c]||""}</td>`).join("")+"</tr>";
-      });
-      if(arr.length>1){
-        const sub=arr.reduce((a,x)=>{a.SUM_QUANTITY_CS+=x.SUM_QUANTITY_CS;a.SUM_QUANTITY_KG+=x.SUM_QUANTITY_KG;a.SUM_BILL_AMOUNT+=x.SUM_BILL_AMOUNT;return a;},{SUM_QUANTITY_CS:0,SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0});
-        html+=`<tr class="subtotal-row">`+headerCols.map((c,i)=>c==="SUM_QUANTITY_CS"?`<td>${sub.SUM_QUANTITY_CS.toLocaleString()}</td>`:c==="SUM_QUANTITY_KG"?`<td>${sub.SUM_QUANTITY_KG.toLocaleString()}</td>`:c==="SUM_BILL_AMOUNT"?`<td>${sub.SUM_BILL_AMOUNT.toLocaleString()}</td>`:i===0?`<td><b>Subtotal - ${grp}</b></td>`:`<td></td>`).join("")+`</tr>`;
+    const map=new Map();
+    filtered.forEach(r=>{
+      const key=groupingKeys.map(k=>r[k.toLowerCase()]||r[k.toUpperCase()]||"").join("|");
+      if(!map.has(key)){
+        map.set(key,{
+          STATE:r.state,PARTY_NAME:r.party_name,ITEM_NAME:r.item_name,
+          INVOICE_DATE:r.invoice_date,INVOICE_MONTH:r.invoice_month,
+          SUM_QUANTITY_CS:r.quantity_cs,SUM_QUANTITY_KG:r.quantity_kg,SUM_BILL_AMOUNT:r.bill_amount
+        });
+      }else{
+        const o=map.get(key);
+        o.SUM_QUANTITY_CS+=r.quantity_cs;
+        o.SUM_QUANTITY_KG+=r.quantity_kg;
+        o.SUM_BILL_AMOUNT+=r.bill_amount;
       }
     });
-    tbody.innerHTML=html||`<tr><td colspan="${headerCols.length}">No Data</td></tr>`;
+
+    const rows=[...map.values()];
+    const headerCols=[...new Set([...groupCols,"SUM_QUANTITY_KG","SUM_BILL_AMOUNT","SUM_QUANTITY_CS"])];
+    const thead=document.getElementById("tableHead"),tbody=document.getElementById("tableBody"),tfoot=document.getElementById("tableFoot");
+    thead.innerHTML="<tr>"+headerCols.map(h=>`<th>${h.replace(/_/g,' ')}</th>`).join("")+"</tr>";
+    tbody.innerHTML=rows.map(r=>"<tr>"+headerCols.map(c=>`<td>${r[c]||0}</td>`).join("")+"</tr>").join("");
 
     const grand=rows.reduce((a,r)=>{a.SUM_QUANTITY_CS+=r.SUM_QUANTITY_CS;a.SUM_QUANTITY_KG+=r.SUM_QUANTITY_KG;a.SUM_BILL_AMOUNT+=r.SUM_BILL_AMOUNT;return a;},{SUM_QUANTITY_CS:0,SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0});
-    tfoot.innerHTML=`<tr class="grandtotal-row">`+headerCols.map((c,i)=>c==="SUM_QUANTITY_CS"?`<td>${grand.SUM_QUANTITY_CS.toLocaleString()}</td>`:c==="SUM_QUANTITY_KG"?`<td>${grand.SUM_QUANTITY_KG.toLocaleString()}</td>`:c==="SUM_BILL_AMOUNT"?`<td>${grand.SUM_BILL_AMOUNT.toLocaleString()}</td>`:i===0?`<td><b>GRAND TOTAL</b></td>`:`<td></td>`).join("")+`</tr>`;
+    tfoot.innerHTML=`<tr class='grandtotal-row'>`+headerCols.map((c,i)=>c==="SUM_QUANTITY_CS"?`<td>${grand.SUM_QUANTITY_CS}</td>`:c==="SUM_QUANTITY_KG"?`<td>${grand.SUM_QUANTITY_KG}</td>`:c==="SUM_BILL_AMOUNT"?`<td>${grand.SUM_BILL_AMOUNT}</td>`:i===0?`<td><b>GRAND TOTAL</b></td>`:`<td></td>`).join("")+`</tr>`;
 
     document.getElementById("recordsInfo").textContent=`Rows: ${rows.length}`;
     hideOverlay();
@@ -259,8 +232,7 @@ document.getElementById("toggleFiltersBtn").addEventListener("click",()=>{
 document.getElementById("clearBtn").addEventListener("click",()=>{buildFilters();applyFilters();});
 document.getElementById("exportBtn").addEventListener("click",async()=>{
   showOverlay();
-  const wb=new ExcelJS.Workbook();
-  const ws=wb.addWorksheet("Lighthouse");
+  const wb=new ExcelJS.Workbook(),ws=wb.addWorksheet("Lighthouse");
   const rows=[...document.querySelectorAll("#dataTable tr")].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
   rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0)row.font={bold:true};});
   ws.columns.forEach(c=>c.width=18);
