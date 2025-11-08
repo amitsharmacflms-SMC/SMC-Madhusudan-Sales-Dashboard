@@ -83,9 +83,8 @@
 
 <script>
 const API_URL = "/get_data/lighthouse_sales";
-let rawData = [], allStates = [], allParties = [], allItems = [];
+let rawData=[],allStates=[],allParties=[],allItems=[];
 
-/* ---------- Utilities ---------- */
 function parseDateFlexible(s){if(!s)return null;s=String(s).trim();if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8);return new Date(y,m-1,d);}let m=s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);if(m)return new Date(+m[3],+m[2]-1,+m[1]);m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);const d=new Date(s);return isNaN(d.getTime())?null:d;}
 function formatDisplayDate(d){const dt=(typeof d==="string")?parseDateFlexible(d):d;if(!dt)return"";return `${String(dt.getDate()).padStart(2,'0')}${String(dt.getMonth()+1).padStart(2,'0')}${dt.getFullYear()}`;}
 function formatDateInputISO(d){const dt=(typeof d==="string")?parseDateFlexible(d):d;if(!dt)return"";return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;}
@@ -95,14 +94,14 @@ function showOverlay(){document.getElementById('overlay').classList.add('show');
 function hideOverlay(){document.getElementById('overlay').classList.remove('show');}
 function escapeHtml(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');}
 
-/* ---------- Load Data ---------- */
+/* ---------- Load data ---------- */
 async function loadData(){
   showOverlay();
   try{
     const res=await axios.get(API_URL);
     const data=Array.isArray(res.data)?res.data:[];
     rawData=data.map(r=>{
-      const raw=(r.invoice_date||r.INVOICE_DATE||r.Invoice_Date||"").toString().trim();
+      const raw=(r.invoice_date||r.INVOICE_DATE||"").toString().trim();
       const parsed=parseDateFlexible(raw);
       return{
         state:(r.state||r.STATE||"").trim(),
@@ -128,7 +127,7 @@ async function loadData(){
   }catch(e){console.error(e);}finally{hideOverlay();}
 }
 
-/* ---------- Build Filters ---------- */
+/* ---------- Build filters ---------- */
 function buildFilters(){
   const container=document.getElementById("filtersContainer");
   container.innerHTML="";
@@ -141,13 +140,13 @@ function buildFilters(){
     cb.addEventListener("change",e=>{
       const grp=e.target.dataset.all;
       container.querySelectorAll(`input[name='${grp}']`).forEach(i=>i.checked=e.target.checked);
-      setTimeout(applyFilters,100);
+      setTimeout(applyFilters,80);
     });
   });
   container.addEventListener("change",()=>setTimeout(applyFilters,120));
 }
 
-/* ---------- Apply Filters + Cascade ---------- */
+/* ---------- Apply filters + cascade + aggregation ---------- */
 function applyFilters(){
   showOverlay();
   setTimeout(()=>{
@@ -158,7 +157,8 @@ function applyFilters(){
     });
     const selShow=selected["SHOW COLUMNS"]||[],selStates=selected["STATE"]||[],selParties=selected["PARTY_NAME"]||[],selItems=selected["ITEM_NAME"]||[];
     const fromISO=document.getElementById("dateFrom").value,toISO=document.getElementById("dateTo").value;
-    const fromD=fromISO?new Date(fromISO+"T00:00:00"):null,toD=toISO?new Date(toISO+"T23:59:59"):null,monthVal=document.getElementById("monthQuick").value;
+    const fromD=fromISO?new Date(fromISO+"T00:00:00"):null,toD=toISO?new Date(toISO+"T23:59:59"):null;
+    const monthVal=document.getElementById("monthQuick").value;
     let preview=[...rawData];
     if(monthVal)preview=preview.filter(r=>r.invoice_month===monthVal);
     else if(fromD||toD)preview=preview.filter(r=>{const d=r.invoice_date_obj;if(!d)return false;if(fromD&&d<fromD)return false;if(toD&&d>toD)return false;return true;});
@@ -183,7 +183,7 @@ function applyFilters(){
     if(finalParties.length)filtered=filtered.filter(r=>finalParties.includes(r.party_name));
     if(finalItems.length)filtered=filtered.filter(r=>finalItems.includes(r.item_name));
     let groupCols=selShow.length?selShow.slice():["STATE","PARTY_NAME","INVOICE_DATE","SUM_QUANTITY_CS"];
-    groupCols=groupCols.map(c=>{if(c==="INVOICE_DATE")return"invoice_date";if(c==="INVOICE_MONTH")return"invoice_month";return c.startsWith("SUM_")?c:c.toLowerCase();});
+    groupCols=groupCols.map(c=>c==="INVOICE_DATE"?"invoice_date":c==="INVOICE_MONTH"?"invoice_month":c.startsWith("SUM_")?c:c.toLowerCase());
     const groupingKeys=groupCols.filter(k=>!k.startsWith("SUM_"));
     const effectiveGroups=groupingKeys.length?groupingKeys:["state","party_name","item_name"];
     const map=new Map();
@@ -202,12 +202,12 @@ function applyFilters(){
     tbody.innerHTML=html||`<tr><td colspan="${headerCols.length}">No data</td></tr>`;
     const grand=rows.reduce((a,r)=>{a.SUM_QUANTITY_KG+=toNum(r.SUM_QUANTITY_KG);a.SUM_BILL_AMOUNT+=toNum(r.SUM_BILL_AMOUNT);a.SUM_QUANTITY_CS+=toNum(r.SUM_QUANTITY_CS);return a;},{SUM_QUANTITY_KG:0,SUM_BILL_AMOUNT:0,SUM_QUANTITY_CS:0});
     tfoot.innerHTML=`<tr class="grandtotal-row">`+headerCols.map((c,i)=>c==="SUM_QUANTITY_KG"?`<td>${grand.SUM_QUANTITY_KG.toLocaleString()}</td>`:c==="SUM_BILL_AMOUNT"?`<td>${grand.SUM_BILL_AMOUNT.toLocaleString()}</td>`:c==="SUM_QUANTITY_CS"?`<td>${grand.SUM_QUANTITY_CS.toLocaleString()}</td>`:i===0?`<td><b>GRAND TOTAL</b></td>`:`<td></td>`).join("")+`</tr>`;
-    document.getElementById("recordsInfo").textContent=`Rows: ${rows.length} (filtered: ${filtered.length})`;
+    document.getElementById("recordsInfo").textContent=`Rows: ${rows.length}`;
     hideOverlay();
   },80);
 }
 
-/* ---------- UI Events ---------- */
+/* ---------- Buttons ---------- */
 document.getElementById("toggleFiltersBtn").addEventListener("click",()=>{
   const wrapper=document.getElementById("filtersWrapper");
   const btn=document.getElementById("toggleFiltersBtn");
