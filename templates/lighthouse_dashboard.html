@@ -262,16 +262,17 @@ function getFilteredData(selectedFilters, dateFrom, dateTo) {
   return filtered;
 }
 
+
+
+
+
+
 function updateFilterCascades(filteredData) {
   const validStates = [...new Set(filteredData.map(r => r.state))];
   const validParties = [...new Set(filteredData.map(r => r.partyName))];
   const validItems = [...new Set(filteredData.map(r => r.itemName))];
 
-  [
-    FILTER_KEYS.STATE,
-    FILTER_KEYS.PARTY_NAME,
-    FILTER_KEYS.ITEM_NAME,
-  ].forEach(type => {
+  [FILTER_KEYS.STATE, FILTER_KEYS.PARTY_NAME, FILTER_KEYS.ITEM_NAME].forEach(type => {
     document.querySelectorAll(`input[name='${type}']`).forEach(cb => {
       const val = cb.value;
       let isValid = false;
@@ -279,9 +280,10 @@ function updateFilterCascades(filteredData) {
       else if (type === FILTER_KEYS.PARTY_NAME) isValid = validParties.includes(val);
       else if (type === FILTER_KEYS.ITEM_NAME) isValid = validItems.includes(val);
 
-      cb.closest("label").classList.toggle("invalid", !isValid);
+      // 👇 visually mark invalid options only, still allow user to select multiple
+      cb.closest("label").style.opacity = isValid ? "1" : "0.4";
+      cb.closest("label").style.pointerEvents = "auto"; 
     });
-    // After updating invalid states, re-evaluate the "All" checkbox
     updateAllCheckboxState(type);
   });
 }
@@ -325,18 +327,64 @@ function groupAndAggregateData(filteredData, selectedDisplayColumns) {
   return [...map.values()];
 }
 
+
+
+
+
+
+
 function renderTable(rowsToRender, selectedDisplayColumns) {
   const thead = document.getElementById("tableHead");
   const tbody = document.getElementById("tableBody");
   const tfoot = document.getElementById("tableFoot");
 
-  // Create Header
+  // --- Header ---
   thead.innerHTML = `<tr>${selectedDisplayColumns.map(h => `<th>${h}</th>`).join("")}</tr>`;
 
-  // Create Body Rows
-  tbody.innerHTML = rowsToRender.map(r => `<tr>${selectedDisplayColumns.map(c => `<td>${r[c] !== undefined ? r[c] : 0}</td>`).join("")}</tr>`).join("");
+  // --- Group rows for Subtotals ---
+  const groupKey = selectedDisplayColumns.find(c => 
+    [COLUMN_DISPLAY_NAMES.STATE, COLUMN_DISPLAY_NAMES.PARTY_NAME, COLUMN_DISPLAY_NAMES.ITEM_NAME].includes(c)
+  ) || COLUMN_DISPLAY_NAMES.STATE;
 
-  // Create Footer (Grand Totals)
+  const grouped = new Map();
+  rowsToRender.forEach(r => {
+    const key = r[groupKey] || "Undefined";
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(r);
+  });
+
+  // --- Build Table Body with Subtotals ---
+  let html = "";
+  grouped.forEach((arr, grp) => {
+    arr.forEach(r => {
+      html += "<tr>" + selectedDisplayColumns.map(c => `<td>${r[c] ?? ""}</td>`).join("") + "</tr>";
+    });
+
+    // Add subtotal row only if ≥2 rows
+    if (arr.length >= 2) {
+      const subtotal = arr.reduce((a, r) => {
+        a[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS] += r[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS] || 0;
+        a[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG] += r[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG] || 0;
+        a[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT] += r[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT] || 0;
+        return a;
+      }, {
+        [COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS]: 0,
+        [COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG]: 0,
+        [COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT]: 0
+      });
+
+      html += `<tr class='subtotal-row'>` + selectedDisplayColumns.map((c, i) => {
+        if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS) return `<td>${subtotal[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS].toLocaleString()}</td>`;
+        if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG) return `<td>${subtotal[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG].toLocaleString()}</td>`;
+        if (c === COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT) return `<td>${subtotal[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT].toLocaleString()}</td>`;
+        return i === 0 ? `<td><b>Subtotal - ${grp}</b></td>` : `<td></td>`;
+      }).join("") + `</tr>`;
+    }
+  });
+
+  tbody.innerHTML = html || `<tr><td colspan="${selectedDisplayColumns.length}">No data</td></tr>`;
+
+  // --- Grand Total ---
   const grand = rowsToRender.reduce((a, r) => {
     a[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS] += r[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS] || 0;
     a[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG] += r[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG] || 0;
@@ -350,11 +398,10 @@ function renderTable(rowsToRender, selectedDisplayColumns) {
 
   tfoot.innerHTML = `<tr class='grandtotal-row'>` +
     selectedDisplayColumns.map((c, i) => {
-      if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS) return `<td>${grand[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS]}</td>`;
-      if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG) return `<td>${grand[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG]}</td>`;
-      if (c === COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT) return `<td>${grand[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT]}</td>`;
-      if (i === 0) return `<td><b>GRAND TOTAL</b></td>`;
-      return `<td></td>`;
+      if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS) return `<td>${grand[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_CS].toLocaleString()}</td>`;
+      if (c === COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG) return `<td>${grand[COLUMN_DISPLAY_NAMES.SUM_QUANTITY_KG].toLocaleString()}</td>`;
+      if (c === COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT) return `<td>${grand[COLUMN_DISPLAY_NAMES.SUM_BILL_AMOUNT].toLocaleString()}</td>`;
+      return i === 0 ? `<td><b>GRAND TOTAL</b></td>` : `<td></td>`;
     }).join("") + `</tr>`;
 
   document.getElementById("recordsInfo").textContent = `Rows: ${rowsToRender.length}`;
