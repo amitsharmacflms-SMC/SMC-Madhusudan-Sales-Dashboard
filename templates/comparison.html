@@ -358,7 +358,7 @@ function preselectLatestTwoMonths(){
   if(L>=2) inputs.find(i=>i.value===monthsList[L-2])?.checked = true;
 }
 
-/* ========= Apply filters + smart cascade ========= */
+/* Apply filters + smart cascade */
 function applyFilters(){
   showOverlay();
   setTimeout(()=>{
@@ -625,10 +625,13 @@ function renderTable({ grouped, monthsToShow, showCols }){
 document.getElementById('toggleFiltersBtn').addEventListener('click', ()=>{
   const f = document.getElementById('filters');
   const btn = document.getElementById('toggleFiltersBtn');
-  if(f.style.display === 'none'){ f.style.display = ''; btn.textContent = 'Hide Filters'; }
-  else { f.style.display = 'flex'; btn.textContent = 'Hide Filters'; /* default */ }
-  // user wanted Show Filters text when hidden - toggle behavior:
-  if(f.style.display === 'flex'){ btn.textContent = 'Hide Filters'; } else { btn.textContent = 'Show Filters'; }
+  if (f.style.display === 'none' || f.style.display === '') {
+    f.style.display = 'flex';
+    btn.textContent = 'Hide Filters';
+  } else {
+    f.style.display = 'none';
+    btn.textContent = 'Show Filters';
+  }
 });
 
 document.getElementById('clearBtn').addEventListener('click', ()=>{
