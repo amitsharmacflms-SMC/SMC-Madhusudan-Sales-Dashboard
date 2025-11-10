@@ -127,85 +127,220 @@ tr.state-total-row td{ background:var(--grand-bg); font-weight:900; }
 
 <script>
 const API_URL = "/get_data/lighthouse_sales";
-let rawData=[],monthsList=[],allStates=[],allParties=[],allItems=[];
-const toNum=v=>Number(v)||0;
+let rawData = [];
+let monthsList = [];
+let allStates = [];
+let allParties = [];
+let allItems = [];
 
-function showOverlay(){document.getElementById("overlay").style.display="flex";}
-function hideOverlay(){document.getElementById("overlay").style.display="none";}
+const toNum = v => Number(v) || 0;
+
+function showOverlay(){
+  document.getElementById("overlay").style.display="flex";
+}
+function hideOverlay(){
+  document.getElementById("overlay").style.display="none";
+}
 
 function parseDateFlexible(s){
-  if(!s)return null;
-  s=String(s).trim();
-  if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8);return new Date(y,m-1,d);}
-  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);
-  m=s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);if(m)return new Date(+m[3],+m[2]-1,+m[1]);
-  const d=new Date(s);return isNaN(d.getTime())?null:d;
+  if(!s) return null;
+  s = String(s).trim();
+  // ddmmyyyy format
+  if(/^\d{8}$/.test(s)){
+    const d = +s.slice(0,2);
+    const m = +s.slice(2,4);
+    const y = +s.slice(4,8);
+    return new Date(y,m-1,d);
+  }
+  // YYYY-MM-DD or YYYY-M-D
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  // DD-MM-YYYY or D/M/YYYY
+  m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+  
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
 }
-function invoiceMonthLabel(s){const dt=parseDateFlexible(s);if(!dt)return"";return dt.toLocaleString("default",{month:"short",year:"2-digit"});}
-function sortMonthsChronologically(a,b){return new Date("01 "+a)-new Date("01 "+b);}
-function itemSortKey(item){if(!item)return{p:"",n:Infinity,s:item||""};const s=item.trim();const m=s.match(/^([A-Za-z\W]+?)\s*([0-9]+)?(.*)$/);if(m){return{p:(m[1]||"").trim().toUpperCase(),n:m[2]?+m[2]:Infinity,s:(m[3]||"").trim().toUpperCase(),orig:s};}return{p:s.toUpperCase(),n:Infinity,s:"",orig:s};}
-function compareItemNames(a,b){const A=itemSortKey(a),B=itemSortKey(b);if(A.p<B.p)return-1;if(A.p>B.p)return 1;if(A.n<B.n)return-1;if(A.n>B.n)return 1;if(A.s<B.s)return-1;if(A.s>B.s)return 1;return 0;}
-function escapeHtml(s){return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");}
-function escapeHtmlAttr(s){return String(s).replaceAll('"',"&quot;").replaceAll("'","&#39;");}
+
+function invoiceMonthLabel(s){
+  const dt = parseDateFlexible(s);
+  if(!dt) return "";
+  return dt.toLocaleString("default",{month:"short",year:"2-digit"});
+}
+
+function sortMonthsChronologically(a,b){
+  // Convert "Jan-24" to a comparable date object (e.g., "01 Jan 2024")
+  return new Date("01 " + a) - new Date("01 " + b);
+}
+
+// More robust item sorting for alphanumeric items
+function itemSortKey(item){
+    if (!item) return { p: "", n: Infinity, s: item || "" };
+    const s = item.trim();
+    // Regex to capture leading text, an optional number, and any trailing text
+    // E.g., "WIRE_8_SWG", "ITEM 123 PROD", "ABC"
+    const m = s.match(/^([A-Za-z\W_]+?)\s*([0-9]+)?(.*)$/);
+    if (m) {
+        return {
+            p: (m[1] || "").trim().toUpperCase(), // Part before number
+            n: m[2] ? +m[2] : Infinity,          // The number itself, or Infinity if no number
+            s: (m[3] || "").trim().toUpperCase(), // Part after number
+            orig: s // Original string for stable sort if all else is equal
+        };
+    }
+    return { p: s.toUpperCase(), n: Infinity, s: "", orig: s }; // Fallback for items without clear number patterns
+}
+
+function compareItemNames(a,b){
+    const A = itemSortKey(a);
+    const B = itemSortKey(b);
+
+    if (A.p < B.p) return -1;
+    if (A.p > B.p) return 1;
+
+    if (A.n < B.n) return -1;
+    if (A.n > B.n) return 1;
+
+    if (A.s < B.s) return -1;
+    if (A.s > B.s) return 1;
+    
+    // Fallback to original string if all other keys are equal (stable sort)
+    if (A.orig < B.orig) return -1;
+    if (A.orig > B.orig) return 1;
+
+    return 0;
+}
+
+
+function escapeHtml(s){
+  return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
+function escapeHtmlAttr(s){
+  return String(s).replaceAll('"',"&quot;").replaceAll("'","&#39;");
+}
 
 async function loadData(){
   showOverlay();
   try{
-    const res=await axios.get(API_URL);
-    const data=Array.isArray(res.data)?res.data:[];
-    rawData=data.map(r=>{
-      const rawDate=(r.invoice_date||r.INVOICE_DATE||"").trim();
-      const parsed=parseDateFlexible(rawDate);
-      return{
-        state:(r.state||r.STATE||"").trim(),
-        partyName:(r.party_name||r.PARTY_NAME||"").trim(),
-        itemName:(r.item_name||r.ITEM_NAME||"").trim(),
-        invoiceMonth:invoiceMonthLabel(rawDate),
-        invoiceDateObj:parsed,
-        quantityCs:toNum(r.quantity_cs||r.Quantity_CS||0)
+    const res = await axios.get(API_URL);
+    const data = Array.isArray(res.data) ? res.data : [];
+    
+    rawData = data.map(r => {
+      const rawDate = (r.invoice_date || r.INVOICE_DATE || "").trim();
+      const parsedDateObj = parseDateFlexible(rawDate);
+      return {
+        state: (r.state || r.STATE || "").trim(),
+        partyName: (r.party_name || r.PARTY_NAME || "").trim(),
+        itemName: (r.item_name || r.ITEM_NAME || "").trim(),
+        invoiceMonth: invoiceMonthLabel(rawDate),
+        invoiceDateObj: parsedDateObj,
+        quantityCs: toNum(r.quantity_cs || r.Quantity_CS || 0)
       };
-    }).filter(r=>r.invoiceMonth);
-    allStates=[...new Set(rawData.map(r=>r.state))].sort();
-    allParties=[...new Set(rawData.map(r=>r.partyName))].sort();
-    allItems=[...new Set(rawData.map(r=>r.itemName))].sort(compareItemNames);
-    monthsList=[...new Set(rawData.map(r=>r.invoiceMonth))].sort(sortMonthsChronologically);
+    }).filter(r => r.invoiceMonth); // Filter out records with invalid month labels
+
+    allStates = [...new Set(rawData.map(r => r.state))].sort();
+    allParties = [...new Set(rawData.map(r => r.partyName))].sort();
+    allItems = [...new Set(rawData.map(r => r.itemName))].sort(compareItemNames);
+    monthsList = [...new Set(rawData.map(r => r.invoiceMonth))].sort(sortMonthsChronologically);
+
     buildFilters();
     preselectLatestTwoMonths();
     applyFilters();
-  }catch(e){console.error(e);alert("Failed to load data");}finally{hideOverlay();}
+  }catch(e){
+    console.error("Failed to load data:", e);
+    alert("Failed to load data. Please check the console for details.");
+  }finally{
+    hideOverlay();
+  }
 }
 
 function buildFilters(){
-  document.getElementById("stateOptions").innerHTML=allStates.map(s=>`<label><input type="checkbox" name="STATE" value="${escapeHtmlAttr(s)}">${escapeHtml(s)}</label>`).join("");
-  document.getElementById("partyOptions").innerHTML=allParties.map(s=>`<label><input type="checkbox" name="PARTY" value="${escapeHtmlAttr(s)}">${escapeHtml(s)}</label>`).join("");
-  document.getElementById("itemOptions").innerHTML=allItems.map(s=>`<label><input type="checkbox" name="ITEM" value="${escapeHtmlAttr(s)}">${escapeHtml(s)}</label>`).join("");
-  document.getElementById("compMonthOptions").innerHTML=monthsList.map(m=>`<label><input type="checkbox" name="COMP_MONTH" value="${escapeHtmlAttr(m)}">${escapeHtml(m)}</label>`).join("");
-  document.getElementById("filters").addEventListener("change",()=>{clearTimeout(window._cmpDeb);window._cmpDeb=setTimeout(applyFilters,80);});
+  document.getElementById("stateOptions").innerHTML = allStates.map(s => `<label><input type="checkbox" name="STATE" value="${escapeHtmlAttr(s)}">${escapeHtml(s)}</label>`).join("");
+  document.getElementById("partyOptions").innerHTML = allParties.map(s => `<label><input type="checkbox" name="PARTY" value="${escapeHtmlAttr(s)}">${escapeHtml(s)}</label>`).join("");
+  document.getElementById("itemOptions").innerHTML = allItems.map(s => `<label><input type="checkbox" name="ITEM" value="${escapeHtmlAttr(s)}">${escapeHtml(s)}</label>`).join("");
+  document.getElementById("compMonthOptions").innerHTML = monthsList.map(m => `<label><input type="checkbox" name="COMP_MONTH" value="${escapeHtmlAttr(m)}">${escapeHtml(m)}</label>`).join("");
+  
+  // Attach a single event listener to the filters container
+  document.getElementById("filters").addEventListener("change", () => {
+    clearTimeout(window._cmpDeb);
+    window._cmpDeb = setTimeout(applyFilters, 80); // Debounce filter application
+  });
 }
-function preselectLatestTwoMonths(){const i=[...document.querySelectorAll("input[name='COMP_MONTH']")];i.forEach(e=>e.checked=false);const L=monthsList.length;if(L>=1)i.find(x=>x.value===monthsList[L-1])?.checked=true;if(L>=2)i.find(x=>x.value===monthsList[L-2])?.checked=true;}
+
+function preselectLatestTwoMonths(){
+  const monthCheckboxes = [...document.querySelectorAll("input[name='COMP_MONTH']")];
+  monthCheckboxes.forEach(cb => cb.checked = false); // Clear all selections first
+
+  const len = monthsList.length;
+  if(len >= 1) {
+    monthCheckboxes.find(x => x.value === monthsList[len-1])?.checked = true; // Select latest month
+  }
+  if(len >= 2) {
+    monthCheckboxes.find(x => x.value === monthsList[len-2])?.checked = true; // Select second latest month
+  }
+}
 
 function applyFilters(){
   showOverlay();
   setTimeout(()=>{
-    const showCols=[...document.querySelectorAll("input[name='SHOW_COL']:checked")].map(i=>i.value);
-    const selStates=[...document.querySelectorAll("input[name='STATE']:checked")].map(i=>i.value);
-    const selParties=[...document.querySelectorAll("input[name='PARTY']:checked")].map(i=>i.value);
-    const selItems=[...document.querySelectorAll("input[name='ITEM']:checked")].map(i=>i.value);
-    const selMonths=[...document.querySelectorAll("input[name='COMP_MONTH']:checked")].map(i=>i.value).sort(sortMonthsChronologically);
-    let filtered=rawData.filter(r=>(!selStates.length||selStates.includes(r.state))&&(!selParties.length||selParties.includes(r.partyName))&&(!selItems.length||selItems.includes(r.itemName))&&(!selMonths.length||selMonths.includes(r.invoiceMonth)));
-    const monthsToShow=selMonths.length?selMonths.slice():monthsList.slice();
-    const map=new Map();
-    filtered.forEach(r=>{
-      const key=`${r.state}||${r.partyName}||${r.itemName}`;
-      if(!map.has(key))map.set(key,{STATE:r.state,PARTY_NAME:r.partyName,ITEM_NAME:r.itemName,monthValues:{}});
-      const o=map.get(key);o.monthValues[r.invoiceMonth]=(o.monthValues[r.invoiceMonth]||0)+r.quantityCs;
+    const showColumnsSelected = [...document.querySelectorAll("input[name='SHOW_COL']:checked")].map(i => i.value);
+    const selectedStates = [...document.querySelectorAll("input[name='STATE']:checked")].map(i => i.value);
+    const selectedParties = [...document.querySelectorAll("input[name='PARTY']:checked")].map(i => i.value);
+    const selectedItems = [...document.querySelectorAll("input[name='ITEM']:checked")].map(i => i.value);
+    const selectedMonths = [...document.querySelectorAll("input[name='COMP_MONTH']:checked")].map(i => i.value).sort(sortMonthsChronologically);
+
+    let filteredData = rawData.filter(r => 
+      (!selectedStates.length || selectedStates.includes(r.state)) &&
+      (!selectedParties.length || selectedParties.includes(r.partyName)) &&
+      (!selectedItems.length || selectedItems.includes(r.itemName)) &&
+      (!selectedMonths.length || selectedMonths.includes(r.invoiceMonth))
+    );
+    
+    // Determine the months that should actually be shown in the table columns
+    const monthsForTable = selectedMonths.length ? selectedMonths : monthsList.slice();
+
+    const groupedDataMap = new Map();
+    filteredData.forEach(r => {
+      // Unique key for grouping by State, Party_Name, Item_Name
+      const key = `${r.state}||${r.partyName}||${r.itemName}`;
+      if(!groupedDataMap.has(key)) {
+        groupedDataMap.set(key, {
+          STATE: r.state,
+          PARTY_NAME: r.partyName,
+          ITEM_NAME: r.itemName,
+          monthValues: {} // Store quantities for each month
+        });
+      }
+      const itemRow = groupedDataMap.get(key);
+      itemRow.monthValues[r.invoiceMonth] = (itemRow.monthValues[r.invoiceMonth] || 0) + r.quantityCs;
     });
-    const rows=[...map.values()].sort((a,b)=>a.STATE.localeCompare(b.STATE)||a.PARTY_NAME.localeCompare(b.PARTY_NAME)||compareItemNames(a.ITEM_NAME,b.ITEM_NAME));
-    const grouped=new Map();
-    rows.forEach(r=>{if(!grouped.has(r.STATE))grouped.set(r.STATE,new Map());const pMap=grouped.get(r.STATE);if(!pMap.has(r.PARTY_NAME))pMap.set(r.PARTY_NAME,[]);pMap.get(r.PARTY_NAME).push(r);});
-    renderTable({grouped,monthsToShow,showCols});
+
+    const rowsForTable = [...groupedDataMap.values()].sort((a, b) => 
+      a.STATE.localeCompare(b.STATE) ||
+      a.PARTY_NAME.localeCompare(b.PARTY_NAME) ||
+      compareItemNames(a.ITEM_NAME, b.ITEM_NAME)
+    );
+
+    const finalGroupedByStateAndParty = new Map();
+    rowsForTable.forEach(r => {
+      if (!finalGroupedByStateAndParty.has(r.STATE)) {
+        finalGroupedByStateAndParty.set(r.STATE, new Map());
+      }
+      const partyMap = finalGroupedByStateAndParty.get(r.STATE);
+      if (!partyMap.has(r.PARTY_NAME)) {
+        partyMap.set(r.PARTY_NAME, []);
+      }
+      partyMap.get(r.PARTY_NAME).push(r);
+    });
+
+    renderTable({
+      grouped: finalGroupedByStateAndParty,
+      monthsToShow: monthsForTable,
+      showCols: showColumnsSelected
+    });
     hideOverlay();
-  },60);
+  }, 60); // Small debounce
 }
 
 function renderTable({grouped, monthsToShow, showCols}){
@@ -213,13 +348,13 @@ function renderTable({grouped, monthsToShow, showCols}){
   const body = document.getElementById("comparisonBody");
   const foot = document.getElementById("comparisonFoot");
   
-  // Determine which columns to display (State, Party_Name, Item_Name)
+  // Determine which columns to display (e.g., STATE, PARTY_NAME, ITEM_NAME)
   const columnsToDisplay = showCols.length ? showCols : ["STATE", "PARTY_NAME", "ITEM_NAME"];
   
-  // Ensure monthsToShow is a clean array for iteration
-  const activeMonthColumns = monthsToShow; // Use directly after sorting and filtering in applyFilters()
+  // Use monthsToShow array directly from applyFilters
+  const activeMonthColumns = monthsToShow; 
   
-  // Determine if comparison columns should be shown
+  // Determine if comparison columns should be shown (requires at least two months)
   const showComparisonColumns = activeMonthColumns.length >= 2;
   const comparisonFirstMonth = showComparisonColumns ? activeMonthColumns[0] : null;
   const comparisonLastMonth = showComparisonColumns ? activeMonthColumns[activeMonthColumns.length - 1] : null;
@@ -240,13 +375,16 @@ function renderTable({grouped, monthsToShow, showCols}){
   head.innerHTML = headerHtml;
 
   let tableBodyHtml = "";
+  
+  // Calculate the total number of columns for dynamic colspan in "No data" message
+  const totalColumns = columnsToDisplay.length + activeMonthColumns.length + (showComparisonColumns ? 2 : 0);
 
   // Iterate through grouped data to build table rows
   grouped.forEach((pMap, state) => {
     pMap.forEach((items, party) => {
       items.forEach(r => {
         tableBodyHtml += "<tr>";
-        // Data columns
+        // Data columns (State, Party Name, Item Name)
         columnsToDisplay.forEach(c => {
           tableBodyHtml += `<td>${escapeHtml(r[c])}</td>`;
         });
@@ -272,7 +410,7 @@ function renderTable({grouped, monthsToShow, showCols}){
           }
           
           let percentageCssClass = '';
-          if (percentageChange !== null) { // Only apply class if pct is a number
+          if (percentageChange !== null) { // Only apply class if percentageChange is a number
             if (percentageChange > 0) {
               percentageCssClass = 'cell-positive';
             } else if (percentageChange < 0) {
@@ -280,8 +418,7 @@ function renderTable({grouped, monthsToShow, showCols}){
             }
           }
 
-          // Line 185 equivalent (where the error was reported)
-          // Using basic string concatenation for maximum compatibility
+          // Line 185 equivalent, using basic string concatenation for maximum compatibility
           tableBodyHtml += "<td class='num " + deltaCssClass + "'>" + deltaValue.toLocaleString() + "</td>";
           tableBodyHtml += "<td class='num " + percentageCssClass + "'>";
           if (percentageChange === null) {
@@ -290,18 +427,18 @@ function renderTable({grouped, monthsToShow, showCols}){
             tableBodyHtml += percentageChange.toFixed(1) + "%";
           }
           tableBodyHtml += "</td>";
-          // End of line 185 equivalent
         }
         tableBodyHtml += "</tr>";
       });
     });
   });
 
-  body.innerHTML = tableBodyHtml || "<tr><td colspan='10'>No data</td></tr>"; // colspan needs to be dynamic, consider calculating it
-  foot.innerHTML = ""; // As per your original code, keep foot empty
+  body.innerHTML = tableBodyHtml || `<tr><td colspan='${totalColumns}'>No data</td></tr>`;
+  foot.innerHTML = ""; // Keep foot empty as per original intention
 
   document.getElementById("recordsInfo").textContent=`Groups: ${[...grouped.keys()].length}`;
 }
+
 document.getElementById("toggleFiltersBtn").addEventListener("click",()=>{
   const f=document.getElementById("filters");
   const btn=document.getElementById("toggleFiltersBtn");
