@@ -50,6 +50,8 @@ tr.grandtotal-row td{background:#bae6fd;font-weight:900}
     <button id="exportBtn" class="btn btn-blue">Export</button>
     <button id="clearBtn" class="btn btn-gray">Clear</button>
     <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
+    <button id="comparisonBtn" class="btn btn-blue">Comparison</button>
+
   </div>
 </header>
 
@@ -72,6 +74,31 @@ tr.grandtotal-row td{background:#bae6fd;font-weight:900}
     </table>
   </div>
 </main>
+
+
+
+
+
+<section id="comparisonView" style="display:none;max-width:1500px;margin:20px auto;padding:12px;">
+  <h2 style="text-align:center;color:#1e3a8a;font-weight:900;">Month-wise Comparison</h2>
+  <div class="table-wrapper">
+    <table id="comparisonTable">
+      <thead id="comparisonHead"></thead>
+      <tbody id="comparisonBody"></tbody>
+    </table>
+  </div>
+</section>
+
+
+
+
+
+
+
+
+
+
+
 
 <div id="overlay" class="overlay">Processing...</div>
 
