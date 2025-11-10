@@ -621,7 +621,7 @@ function renderTable({ grouped, monthsToShow, showCols }){
   document.getElementById('recordsInfo').textContent = `Groups: ${[...grouped.keys()].length} — Months shown: ${monthCols.length} — Comparison: ${showComparison ? `${compFirst} → ${compLast}` : 'N/A'}`;
 }
 
-/* ========= Clear / Toggle filters / Export ========= */
+// --- Toggle Filters ---
 document.getElementById('toggleFiltersBtn').addEventListener('click', () => {
   const f = document.getElementById('filters');
   const btn = document.getElementById('toggleFiltersBtn');
@@ -634,6 +634,7 @@ document.getElementById('toggleFiltersBtn').addEventListener('click', () => {
     btn.textContent = 'Show Filters';
   }
 });
+
 
 
 document.getElementById('clearBtn').addEventListener('click', ()=>{
