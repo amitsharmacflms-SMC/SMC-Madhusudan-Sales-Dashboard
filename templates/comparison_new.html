@@ -225,10 +225,7 @@ function renderTable({grouped,monthsToShow,showCols}){
         html+="<tr>";
         cols.forEach(c=>html+=`<td>${escapeHtml(r[c])}</td>`);
         monthCols.forEach(m=>html+=`<td class='num'>${(r.monthValues[m]||0).toLocaleString()}</td>`);
-        if(showComparison){
-          const first=r.monthValues[compFirst]||0,last=r.monthValues[compLast]||0,delta=last-first,pct=first?((delta/first)*100):null;
-          html+=`<td class='num ${((pct === null || pct === undefined) ? 0 : pct) > 0?'cell-positive':'cell-negative'}'>${pct===null?'N/A':pct.toFixed(1)+'%'}</td>`;
-        }
+        if(showCompariso
         html+="</tr>";
       });
     });
