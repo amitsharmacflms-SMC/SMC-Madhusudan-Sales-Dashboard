@@ -142,7 +142,7 @@ def comparison():
     if "user" not in session:
         return redirect(url_for("login"))
     try:
-        return render_template("comparison.html", current_year=datetime.utcnow().year)
+        return render_template("comparison_new.html", current_year=datetime.utcnow().year)
     except Exception as e:
         import traceback
         print("❌ Error rendering comparison page:", e)
