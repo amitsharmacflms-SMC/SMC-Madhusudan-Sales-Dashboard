@@ -115,6 +115,10 @@ def sales_levels():
     return render_template("sales_levels.html", current_year=datetime.utcnow().year)
 
 
+
+
+
+
 # -------------------------------
 # DASHBOARDS
 # -------------------------------
@@ -131,6 +135,17 @@ def dashboard_plant():
     if "user" not in session:
         return redirect(url_for("login"))
     return render_template("lighthouse_dashboard.html", current_year=datetime.utcnow().year)
+
+
+@app.route("/comparison")
+def comparison():
+    return render_template("comparison.html")
+
+
+
+
+
+
 
 
 @app.route("/dashboard/ss")
