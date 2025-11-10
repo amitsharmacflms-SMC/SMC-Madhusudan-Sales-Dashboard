@@ -219,6 +219,7 @@ function renderTable({grouped,monthsToShow,showCols}){
   if(showComparison){headers.push(`<th>Δ (${compLast}-${compFirst})</th>`);headers.push("<th>% Change</th>");}
   head.innerHTML=`<tr>${headers.join("")}</tr>`;
   let html="";
+
   grouped.forEach((pMap,state)=>{
     pMap.forEach((items,party)=>{
       items.forEach(r=>{
@@ -226,7 +227,17 @@ function renderTable({grouped,monthsToShow,showCols}){
         cols.forEach(c=>html+=`<td>${escapeHtml(r[c])}</td>`);
         monthCols.forEach(m=>html+=`<td class='num'>${(r.monthValues[m]||0).toLocaleString()}</td>`);
         if(showComparison){
-          const first=r.monthValues[compFirst]||0,last=r.monthValues[compLast]||0,delta=last-first,pct=first?((delta/first)*100):null;
+          const first=r.monthValues[compFirst]||0;
+          const last=r.monthValues[compLast]||0;
+          const delta=last-first;
+          const pct=first?((delta/first)*100):null;
+          
+          let deltaClass = '';
+          if (delta > 0) {
+            deltaClass = 'cell-positive';
+          } else if (delta < 0) {
+            deltaClass = 'cell-negative';
+          }
           
           let pctClass = '';
           if (pct !== null) { // Only apply class if pct is a number
@@ -237,13 +248,6 @@ function renderTable({grouped,monthsToShow,showCols}){
             }
           }
 
-          let deltaClass = '';
-          if (delta > 0) {
-            deltaClass = 'cell-positive';
-          } else if (delta < 0) {
-            deltaClass = 'cell-negative';
-          }
-          
           html+=`<td class='num ${deltaClass}'>${delta.toLocaleString()}</td>`;
           html+=`<td class='num ${pctClass}'>${pct===null?'N/A':pct.toFixed(1)+'%'}</td>`;
         }
@@ -274,7 +278,19 @@ document.getElementById("exportBtn").addEventListener("click",async()=>{
   try{
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet("Comparison");
-    [...document.querySelectorAll("#comparisonTable tr")].map(tr=>[...tr.children].map(td=>td.innerText.trim())).forEach((r,i)=>{const row=ws.addRow(r);if(i===0)row.font={bold:true};});
+    // Get headers from the table head
+    const headerRow = [...document.querySelectorAll("#comparisonHead th")].map(th => th.innerText.trim());
+    if (headerRow.length > 0) {
+        const wsHeader = ws.addRow(headerRow);
+        wsHeader.font = { bold: true };
+    }
+
+    // Get data rows from the table body
+    [...document.querySelectorAll("#comparisonBody tr")].forEach(tr => {
+        const rowData = [...tr.children].map(td => td.innerText.trim());
+        ws.addRow(rowData);
+    });
+    
     ws.columns.forEach(c=>c.width=18);
     const buf=await wb.xlsx.writeBuffer();
     saveAs(new Blob([buf]),`comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
