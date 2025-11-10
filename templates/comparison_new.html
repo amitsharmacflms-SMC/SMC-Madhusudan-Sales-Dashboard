@@ -208,67 +208,100 @@ function applyFilters(){
   },60);
 }
 
-function renderTable({grouped,monthsToShow,showCols}){
-  const head=document.getElementById("comparisonHead"),body=document.getElementById("comparisonBody"),foot=document.getElementById("comparisonFoot");
-  const cols=showCols.length?showCols:["STATE","PARTY_NAME","ITEM_NAME"];
-  const monthCols=monthsToShow.slice();
-  const showComparison=monthCols.length>=2;
-  const compFirst=showComparison?monthCols[0]:null;
-  const compLast=showComparison?monthCols[monthCols.length-1]:null;
-  const headers=[...cols.map(c=>`<th>${c.replace(/_/g," ")}</th>`),...monthCols.map(m=>`<th>${m}</th>`)];
-  if(showComparison){headers.push(`<th>Δ (${compLast}-${compFirst})</th>`);headers.push("<th>% Change</th>");}
-  head.innerHTML=`<tr>${headers.join("")}</tr>`;
-  let html="";
+function renderTable({grouped, monthsToShow, showCols}){
+  const head = document.getElementById("comparisonHead");
+  const body = document.getElementById("comparisonBody");
+  const foot = document.getElementById("comparisonFoot");
+  
+  // Determine which columns to display (State, Party_Name, Item_Name)
+  const columnsToDisplay = showCols.length ? showCols : ["STATE", "PARTY_NAME", "ITEM_NAME"];
+  
+  // Ensure monthsToShow is a clean array for iteration
+  const activeMonthColumns = monthsToShow; // Use directly after sorting and filtering in applyFilters()
+  
+  // Determine if comparison columns should be shown
+  const showComparisonColumns = activeMonthColumns.length >= 2;
+  const comparisonFirstMonth = showComparisonColumns ? activeMonthColumns[0] : null;
+  const comparisonLastMonth = showComparisonColumns ? activeMonthColumns[activeMonthColumns.length - 1] : null;
 
-  grouped.forEach((pMap,state)=>{
-    pMap.forEach((items,party)=>{
-      items.forEach(r=>{
-        html+="<tr>";
-        cols.forEach(c=>html+=`<td>${escapeHtml(r[c])}</td>`);
-        monthCols.forEach(m=>html+=`<td class='num'>${(r.monthValues[m]||0).toLocaleString()}</td>`);
-        if(showComparison){
-          const first=r.monthValues[compFirst]||0;
-          const last=r.monthValues[compLast]||0;
-          const delta=last-first;
-          const pct=first?((delta/first)*100):null;
+  // Build table headers
+  let headerHtml = "<tr>";
+  columnsToDisplay.forEach(c => {
+    headerHtml += `<th>${c.replace(/_/g," ")}</th>`;
+  });
+  activeMonthColumns.forEach(m => {
+    headerHtml += `<th>${m}</th>`;
+  });
+  if(showComparisonColumns){
+    headerHtml += `<th>Δ (${comparisonLastMonth}-${comparisonFirstMonth})</th>`;
+    headerHtml += "<th>% Change</th>";
+  }
+  headerHtml += "</tr>";
+  head.innerHTML = headerHtml;
+
+  let tableBodyHtml = "";
+
+  // Iterate through grouped data to build table rows
+  grouped.forEach((pMap, state) => {
+    pMap.forEach((items, party) => {
+      items.forEach(r => {
+        tableBodyHtml += "<tr>";
+        // Data columns
+        columnsToDisplay.forEach(c => {
+          tableBodyHtml += `<td>${escapeHtml(r[c])}</td>`;
+        });
+        
+        // Month-wise quantity columns
+        activeMonthColumns.forEach(m => {
+          const quantity = r.monthValues[m] || 0;
+          tableBodyHtml += `<td class='num'>${quantity.toLocaleString()}</td>`;
+        });
+
+        // Comparison columns (Delta and Percentage Change)
+        if(showComparisonColumns){
+          const firstMonthValue = r.monthValues[comparisonFirstMonth] || 0;
+          const lastMonthValue = r.monthValues[comparisonLastMonth] || 0;
+          const deltaValue = lastMonthValue - firstMonthValue;
+          const percentageChange = firstMonthValue ? ((deltaValue / firstMonthValue) * 100) : null;
           
-          let deltaClass = '';
-          if (delta > 0) {
-            deltaClass = 'cell-positive';
-          } else if (delta < 0) {
-            deltaClass = 'cell-negative';
+          let deltaCssClass = '';
+          if (deltaValue > 0) {
+            deltaCssClass = 'cell-positive';
+          } else if (deltaValue < 0) {
+            deltaCssClass = 'cell-negative';
           }
           
-          let pctClass = '';
-          if (pct !== null) { // Only apply class if pct is a number
-            if (pct > 0) {
-              pctClass = 'cell-positive';
-            } else if (pct < 0) {
-              pctClass = 'cell-negative';
+          let percentageCssClass = '';
+          if (percentageChange !== null) { // Only apply class if pct is a number
+            if (percentageChange > 0) {
+              percentageCssClass = 'cell-positive';
+            } else if (percentageChange < 0) {
+              percentageCssClass = 'cell-negative';
             }
           }
 
-          html+=`<td class='num ${deltaClass}'>${delta.toLocaleString()}</td>`;
-          // Original line 184 (keep this as is)
-          html+=`<td class='num ${deltaClass}'>${delta.toLocaleString()}</td>`;
-
-          // This is the problematic line 185, using old-school concatenation
-          html += "<td class='num " + pctClass + "'>";
-          if (pct === null) {
-            html += "N/A";
+          // Line 185 equivalent (where the error was reported)
+          // Using basic string concatenation for maximum compatibility
+          tableBodyHtml += "<td class='num " + deltaCssClass + "'>" + deltaValue.toLocaleString() + "</td>";
+          tableBodyHtml += "<td class='num " + percentageCssClass + "'>";
+          if (percentageChange === null) {
+            tableBodyHtml += "N/A";
           } else {
-            html += pct.toFixed(1) + "%";
+            tableBodyHtml += percentageChange.toFixed(1) + "%";
           }
-          html += "</td>";
-        html+="</tr>";
+          tableBodyHtml += "</td>";
+          // End of line 185 equivalent
+        }
+        tableBodyHtml += "</tr>";
       });
     });
   });
-  body.innerHTML=html||"<tr><td colspan='10'>No data</td></tr>";
-  foot.innerHTML="";
+
+  body.innerHTML = tableBodyHtml || "<tr><td colspan='10'>No data</td></tr>"; // colspan needs to be dynamic, consider calculating it
+  foot.innerHTML = ""; // As per your original code, keep foot empty
+
   document.getElementById("recordsInfo").textContent=`Groups: ${[...grouped.keys()].length}`;
 }
-
 document.getElementById("toggleFiltersBtn").addEventListener("click",()=>{
   const f=document.getElementById("filters");
   const btn=document.getElementById("toggleFiltersBtn");
