@@ -625,13 +625,8 @@ function renderTable({ grouped, monthsToShow, showCols }){
 document.getElementById('toggleFiltersBtn').addEventListener('click', ()=>{
   const f = document.getElementById('filters');
   const btn = document.getElementById('toggleFiltersBtn');
-  if (f.style.display === 'none' || f.style.display === '') {
-    f.style.display = 'flex';
-    btn.textContent = 'Hide Filters';
-  } else {
-    f.style.display = 'none';
-    btn.textContent = 'Show Filters';
-  }
+  if(f.style.display === 'none'){ f.style.display = 'flex'; btn.textContent = 'Hide Filters'; }
+  else { f.style.display = 'none'; btn.textContent = 'Show Filters'; }
 });
 
 document.getElementById('clearBtn').addEventListener('click', ()=>{
