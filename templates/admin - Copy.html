@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}User Management{% endblock %}
+{% block content %}
+<div class="bg-white p-6 rounded shadow">
+  <h2 class="text-2xl font-semibold mb-4">👤 User Management</h2>
+
+  <form action="{{ url_for('admin_create_user') }}" method="post" class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+    <input name="user_id" placeholder="User ID" class="px-3 py-2 border rounded" required>
+    <input name="password" type="password" placeholder="Password" class="px-3 py-2 border rounded" required>
+    <select name="role" class="px-3 py-2 border rounded">
+      <option>User</option>
+      <option>Admin</option>
+    </select>
+    <input name="state" placeholder="State" class="px-3 py-2 border rounded">
+    <input name="manager_name" placeholder="Manager Name" class="px-3 py-2 border rounded">
+    <input name="district" placeholder="District" class="px-3 py-2 border rounded">
+    <div class="col-span-full flex justify-end">
+      <button class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Create User</button>
+    </div>
+  </form>
+
+  <table class="min-w-full divide-y">
+    <thead class="bg-slate-50">
+      <tr>
+        <th class="px-3 py-2 text-left">User ID</th>
+        <th class="px-3 py-2 text-left">Role</th>
+        <th class="px-3 py-2 text-left">State</th>
+        <th class="px-3 py-2 text-left">Manager</th>
+        <th class="px-3 py-2 text-left">District</th>
+        <th class="px-3 py-2 text-center">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y">
+      {% for u in users %}
+      <tr>
+        <td class="px-3 py-2">{{ u.user_id }}</td>
+        <td class="px-3 py-2">{{ u.role }}</td>
+        <td class="px-3 py-2">{{ u.state }}</td>
+        <td class="px-3 py-2">{{ u.manager_name }}</td>
+        <td class="px-3 py-2">{{ u.district }}</td>
+        <td class="px-3 py-2 text-center">
+          {% if u.user_id != "admin" %}
+          <form action="{{ url_for('admin_delete_user', user_id=u.id) }}" method="post" onsubmit="return confirm('Delete {{u.user_id}}?')">
+            <button class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Delete</button>
+          </form>
+          {% else %}
+          <span class="text-slate-400 text-sm">Protected</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

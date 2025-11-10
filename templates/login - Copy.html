@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login | SMC Madhusudan Sales Dashboard</title>
+  <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .login-box {
+      background: #fff;
+      padding: 40px 45px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeIn 0.8s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-20px); }
+    }
+
+    .login-box.fade-out {
+      animation: fadeOut 0.6s ease forwards;
+    }
+
+    .login-box img {
+      height: 80px;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      color: #1e3a8a;
+      margin-bottom: 6px;
+      font-size: 1.4rem;
+    }
+
+    p {
+      color: #6b7280;
+      font-size: 0.95rem;
+      margin-bottom: 25px;
+    }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: 0.25s;
+    }
+
+    input[type="text"]:focus, input[type="password"]:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
+    }
+
+    .show-pass {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 20px;
+      font-size: 0.85rem;
+      color: #374151;
+    }
+
+    button {
+      background: linear-gradient(90deg,#2563eb,#4f46e5);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 20px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.25s;
+      width: 100%;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      background: linear-gradient(90deg,#1d4ed8,#4338ca);
+      transform: translateY(-1px);
+    }
+
+    .message {
+      margin-top: 15px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #dc2626;
+      min-height: 22px;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #6b7280;
+      margin-top: 25px;
+    }
+    footer strong { color: #1e40af; }
+  </style>
+</head>
+
+<body>
+  <div class="login-box" id="loginBox">
+    <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="SMC Logo">
+    <h2>Welcome Back</h2>
+    <p>Please log in to continue</p>
+
+    <form id="loginForm" method="POST" action="/login">
+      <input type="text" name="username" id="username" placeholder="Username" required>
+      <input type="password" name="password" id="password" placeholder="Password" required>
+
+      <div class="show-pass">
+        <input type="checkbox" id="showPassword">
+        <label for="showPassword">Show Password</label>
+      </div>
+
+      <button type="submit">Login</button>
+    </form>
+
+    <div id="message" class="message">
+      {% if message %}
+        {{ message }}
+      {% endif %}
+    </div>
+
+    <footer>
+      © {{ current_year }} <strong>SMC Madhusudan</strong> | All Rights Reserved
+    </footer>
+  </div>
+
+<script>
+  // Toggle password visibility
+  document.getElementById("showPassword").addEventListener("change", function() {
+    const pwd = document.getElementById("password");
+    pwd.type = this.checked ? "text" : "password";
+  });
+
+  // Handle login result messages
+  const msgElem = document.getElementById("message");
+  const box = document.getElementById("loginBox");
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.get("status") === "success") {
+    msgElem.textContent = "✅ Login successful! Redirecting...";
+    msgElem.style.color = "green";
+    box.classList.add("fade-out");
+    setTimeout(() => window.location.href = "/dashboard", 900);
+  } else if (params.get("status") === "error") {
+    msgElem.textContent = "❌ Invalid Username or Password.";
+    msgElem.style.color = "red";
+  }
+
+  // Optional: Fade-in animation on page load handled by CSS
+</script>
+</body>
+</html>
