@@ -137,7 +137,7 @@ def dashboard_plant():
     return render_template("lighthouse_dashboard.html", current_year=datetime.utcnow().year)
 
 
-@app.route("/comparison")
+@app.route("/comparison_new")
 def comparison():
     if "user" not in session:
         return redirect(url_for("login"))
