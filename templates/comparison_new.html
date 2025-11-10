@@ -249,8 +249,17 @@ function renderTable({grouped,monthsToShow,showCols}){
           }
 
           html+=`<td class='num ${deltaClass}'>${delta.toLocaleString()}</td>`;
-          html+=`<td class='num ${pctClass}'>${pct===null?'N/A':pct.toFixed(1)+'%'}</td>`;
-        }
+          // Original line 184 (keep this as is)
+          html+=`<td class='num ${deltaClass}'>${delta.toLocaleString()}</td>`;
+
+          // This is the problematic line 185, using old-school concatenation
+          html += "<td class='num " + pctClass + "'>";
+          if (pct === null) {
+            html += "N/A";
+          } else {
+            html += pct.toFixed(1) + "%";
+          }
+          html += "</td>";
         html+="</tr>";
       });
     });
