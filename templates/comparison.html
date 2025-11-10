@@ -124,6 +124,23 @@ tr.state-total-row td{ background:var(--grand-bg); font-weight:900; }
   .header-wrap img.logo{ width:56px; height:56px; }
   .filters-row{ padding:8px 6px; }
 }
+
+/* optional: smooth hide/show for filters row */
+#filters {
+  transition: opacity 250ms ease, max-height 250ms ease;
+  will-change: opacity, max-height;
+}
+#filters.hidden {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+
+
+
+
 </style>
 </head>
 <body>
@@ -227,7 +244,6 @@ function parseDateFlexible(s){
 function invoiceMonthLabel(s){
   const dt = parseDateFlexible(s);
   if(!dt) return "";
-  // e.g. "Sep 25"
   const month = dt.toLocaleString('default', { month: 'short' });
   const year2 = String(dt.getFullYear()).slice(-2);
   return `${month} ${year2}`;
@@ -235,21 +251,14 @@ function invoiceMonthLabel(s){
 
 // Chronological sort comparator for month labels "Sep 25"
 function sortMonthsChronologically(a,b){
-  // Parse into Date using "01-MON-20YY"
   const pa = new Date("01 " + a);
   const pb = new Date("01 " + b);
   return pa - pb;
 }
 
-/* ===== Item name sorting helper (prefix grouping + numeric) =====
-   Example sorting order:
-     DW 3 GM, DW 9 GM, DW 19 GM, DW 100 GM
-   Approach: extract prefix word (letters until first digit), then number if present,
-   then fallback alphabetical.
-*/
+/* Item sorting helper */
 function itemSortKey(item){
   if(!item) return {p:'', n:Infinity, s:item||''};
-  // normalize spacing
   const s = item.trim();
   const m = s.match(/^([A-Za-z\W]+?)\s*([0-9]+)?(.*)$/);
   if(m){
@@ -277,7 +286,6 @@ async function loadData(){
   try{
     const res = await axios.get(API_URL);
     const data = Array.isArray(res.data) ? res.data : [];
-    // normalize rows
     rawData = data.map(r=>{
       const rawDate = (r.invoice_date || r.INVOICE_DATE || r.Invoice_Date || "").toString().trim();
       const parsed = parseDateFlexible(rawDate);
@@ -294,10 +302,8 @@ async function loadData(){
       };
     });
 
-    // filter out rows lacking month (safety)
     rawData = rawData.filter(r => r.invoiceMonth && r.invoiceDateObj);
 
-    // Build sets
     allStates = [...new Set(rawData.map(r=>r.state).filter(Boolean))].sort();
     allParties = [...new Set(rawData.map(r=>r.partyName).filter(Boolean))].sort();
     allItems = [...new Set(rawData.map(r=>r.itemName).filter(Boolean))].sort(compareItemNames);
@@ -305,7 +311,6 @@ async function loadData(){
     monthsList = [...new Set(rawData.map(r=>r.invoiceMonth).filter(Boolean))].sort(sortMonthsChronologically);
 
     buildFilters();
-    // default: select latest two months for comparison
     preselectLatestTwoMonths();
     applyFilters();
   } catch(err){
@@ -318,40 +323,31 @@ async function loadData(){
 
 /* ========= Build filters UI ========= */
 function buildFilters(){
-  // STATE
   const stateOptions = document.getElementById('stateOptions');
   stateOptions.innerHTML = allStates.map(s=>`<label><input type="checkbox" name="STATE" value="${escapeHtmlAttr(s)}"> ${escapeHtml(s)}</label>`).join("");
 
-  // PARTY_NAME
   const partyOptions = document.getElementById('partyOptions');
   partyOptions.innerHTML = allParties.map(s=>`<label><input type="checkbox" name="PARTY" value="${escapeHtmlAttr(s)}"> ${escapeHtml(s)}</label>`).join("");
 
-  // ITEM_NAME
   const itemOptions = document.getElementById('itemOptions');
   itemOptions.innerHTML = allItems.map(s=>`<label><input type="checkbox" name="ITEM" value="${escapeHtmlAttr(s)}"> ${escapeHtml(s)}</label>`).join("");
 
-  // Comparison months
   const comp = document.getElementById('compMonthOptions');
   comp.innerHTML = monthsList.map(m=>`<label><input type="checkbox" name="COMP_MONTH" value="${escapeHtmlAttr(m)}"> ${escapeHtml(m)}</label>`).join("");
 
-  // add event listeners (delegated)
   document.getElementById('filters').addEventListener('change', function(e){
-    // whenever a filter changes re-run apply
-    // small debounce
     clearTimeout(window._cmpDeb);
     window._cmpDeb = setTimeout(()=>applyFilters(), 90);
-  });
+  }, { passive: true });
 }
 
-/* escape helpers for safety in DOM insertion */
+/* escape helpers */
 function escapeHtml(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
 function escapeHtmlAttr(s){ return String(s).replaceAll('"','&quot;').replaceAll("'", "&#39;"); }
 
-/* Preselect latest two months in Comparison_Month filter */
 function preselectLatestTwoMonths(){
   if(!monthsList.length) return;
   const inputs = [...document.querySelectorAll("input[name='COMP_MONTH']")];
-  // clear first
   inputs.forEach(i => i.checked = false);
   const L = monthsList.length;
   if(L>=1) inputs.find(i=>i.value===monthsList[L-1])?.checked = true;
@@ -362,22 +358,18 @@ function preselectLatestTwoMonths(){
 function applyFilters(){
   showOverlay();
   setTimeout(()=>{
-    // read show columns
     const showCols = [...document.querySelectorAll("input[name='SHOW_COL']:checked")].map(i=>i.value);
-    // read filters
     const selStates = [...document.querySelectorAll("input[name='STATE']:checked")].map(i=>i.value);
     const selParties = [...document.querySelectorAll("input[name='PARTY']:checked")].map(i=>i.value);
     const selItems = [...document.querySelectorAll("input[name='ITEM']:checked")].map(i=>i.value);
     const selMonths = [...document.querySelectorAll("input[name='COMP_MONTH']:checked")].map(i=>i.value).sort(sortMonthsChronologically);
 
-    // preview for cascade (apply current selections)
     let preview = rawData.slice();
     if(selStates.length) preview = preview.filter(r=>selStates.includes(r.state));
     if(selParties.length) preview = preview.filter(r=>selParties.includes(r.partyName));
     if(selItems.length) preview = preview.filter(r=>selItems.includes(r.itemName));
     if(selMonths.length) preview = preview.filter(r=> selMonths.includes(r.invoiceMonth) );
 
-    // mark options that are invalid (dim) but do not remove them so multi-select still possible
     const validStates = new Set(preview.map(r=>r.state));
     document.querySelectorAll("input[name='STATE']").forEach(cb=>{
       const lbl = cb.closest('label');
@@ -393,23 +385,18 @@ function applyFilters(){
       const lbl = cb.closest('label');
       if(validItems.has(cb.value)) lbl.classList.remove('dim'); else lbl.classList.add('dim');
     });
-    // months: mark months that have data in preview
     const validMonths = new Set(preview.map(r=>r.invoiceMonth));
     document.querySelectorAll("input[name='COMP_MONTH']").forEach(cb=>{
       const lbl = cb.closest('label');
       if(validMonths.has(cb.value)) lbl.classList.remove('dim'); else lbl.classList.add('dim');
     });
 
-    // Now apply filters to produce final dataset used for table (we allow selecting nothing -> all)
     let filtered = rawData.slice();
     if(selStates.length) filtered = filtered.filter(r=>selStates.includes(r.state));
     if(selParties.length) filtered = filtered.filter(r=>selParties.includes(r.partyName));
     if(selItems.length) filtered = filtered.filter(r=>selItems.includes(r.itemName));
-    // For months, we need all months possibly selected to be displayed; but aggregation per month is restricted by those months.
     const monthsToShow = selMonths.length ? selMonths.slice().sort(sortMonthsChronologically) : monthsList.slice().sort(sortMonthsChronologically);
 
-    // Group + aggregate by combination of selected show columns (STATE, PARTY_NAME, ITEM_NAME)
-    // Create keys in canonical order: State | Party | Item
     const map = new Map();
     filtered.forEach(r=>{
       const keyState = r.state || "";
@@ -421,8 +408,7 @@ function applyFilters(){
           STATE: keyState,
           PARTY_NAME: keyParty,
           ITEM_NAME: keyItem,
-          // store per month values
-          monthValues: {} // monthLabel -> sum(quantityCs)
+          monthValues: {}
         };
         map.set(key, init);
       }
@@ -431,10 +417,7 @@ function applyFilters(){
       obj.monthValues[m] = (obj.monthValues[m] || 0) + toNum(r.quantityCs);
     });
 
-    // convert map -> rows
     let rows = [...map.values()];
-
-    // Sort rows by state, party, item (item uses custom comparator)
     rows.sort((a,b)=>{
       if(a.STATE < b.STATE) return -1;
       if(a.STATE > b.STATE) return 1;
@@ -443,7 +426,6 @@ function applyFilters(){
       return compareItemNames(a.ITEM_NAME, b.ITEM_NAME);
     });
 
-    // Build structure grouped by state -> party -> items for subtotals
     const grouped = new Map();
     rows.forEach(r=>{
       const st = r.STATE || "";
@@ -466,17 +448,12 @@ function renderTable({ grouped, monthsToShow, showCols }){
   const body = document.getElementById('comparisonBody');
   const foot = document.getElementById('comparisonFoot');
 
-  // Build header: always show selected Show Columns in that order, then each selected month
-  // ShowCols contains values like "STATE","PARTY_NAME","ITEM_NAME"
   const cols = showCols.length ? showCols.slice() : ["STATE","PARTY_NAME","ITEM_NAME"];
-  // month columns
   const monthCols = monthsToShow.slice();
-  // comparison columns: Δ and % Change — based on first (earliest) and last (latest) selected months
   const showComparison = monthCols.length >= 2;
   const compFirst = showComparison ? monthCols[0] : null;
   const compLast = showComparison ? monthCols[monthCols.length-1] : null;
 
-  // Construct header html
   const headerCells = [...cols.map(c=>`<th>${c.replace(/_/g,' ')}</th>`), ...monthCols.map(m=>`<th>${m}</th>`)];
   if(showComparison){
     headerCells.push(`<th>Δ (${escapeHtml(compLast)} - ${escapeHtml(compFirst)})</th>`);
@@ -489,13 +466,10 @@ function renderTable({ grouped, monthsToShow, showCols }){
   grandTotals.delta = 0;
   grandTotals.pct = 0;
 
-  // iterate states
   grouped.forEach((partyMap, state) => {
     let stateTotals = Object.fromEntries(monthCols.map(m=>[m,0]));
-    // iterate parties in state
     partyMap.forEach((items, party) => {
       let partyTotals = Object.fromEntries(monthCols.map(m=>[m,0]));
-      // each item row
       items.forEach(row=>{
         html += "<tr>";
         cols.forEach(c=>{
@@ -505,7 +479,6 @@ function renderTable({ grouped, monthsToShow, showCols }){
           else if(c === "ITEM_NAME") val = escapeHtml(row.ITEM_NAME);
           html += `<td>${val}</td>`;
         });
-        // month values
         monthCols.forEach(m=>{
           const v = toNum(row.monthValues[m] || 0);
           html += `<td class="num">${v.toLocaleString()}</td>`;
@@ -514,7 +487,6 @@ function renderTable({ grouped, monthsToShow, showCols }){
           grandTotals[m] += v;
         });
 
-        // comparison columns per row (Δ,%)
         if(showComparison){
           const firstVal = toNum(row.monthValues[compFirst] || 0);
           const lastVal = toNum(row.monthValues[compLast] || 0);
@@ -525,29 +497,19 @@ function renderTable({ grouped, monthsToShow, showCols }){
           html += `<td class="num ${deltaClass}">${delta.toLocaleString()}</td>`;
           html += `<td class="num ${pctClass}">${pct===null ? 'N/A' : pct.toFixed(1) + '%'}</td>`;
           grandTotals.delta += delta;
-          // for grand pct we will compute later (not a direct sum)
         }
 
         html += "</tr>";
       });
 
-      // Party subtotal row (only show if party has at least one item)
-      const partyHasRows = items.length > 0;
-      if(partyHasRows){
+      if(items.length){
         html += `<tr class="subtotal-row">`;
-        // first column show "SUM <party>"
         cols.forEach((c,i)=>{
-          if(i===1 && cols.includes("PARTY_NAME")){ // place subtotal label in Party column
-            html += `<td><b>SUM ${escapeHtml(party)}</b></td>`;
-          } else {
-            html += `<td></td>`;
-          }
+          if(i===1 && cols.includes("PARTY_NAME")){ html += `<td><b>SUM ${escapeHtml(party)}</b></td>`; }
+          else { html += `<td></td>`; }
         });
-        monthCols.forEach(m=>{
-          html += `<td class="num"><b>${partyTotals[m].toLocaleString()}</b></td>`;
-        });
+        monthCols.forEach(m=>{ html += `<td class="num"><b>${partyTotals[m].toLocaleString()}</b></td>`; });
         if(showComparison){
-          // party delta/pct between comp months
           const pFirst = partyTotals[compFirst] || 0;
           const pLast = partyTotals[compLast] || 0;
           const pDelta = pLast - pFirst;
@@ -561,17 +523,12 @@ function renderTable({ grouped, monthsToShow, showCols }){
       }
     });
 
-    // State total row
     html += `<tr class="state-total-row">`;
-    // label in first column
     cols.forEach((c,i)=>{
       if(i===0 && cols.includes("STATE")) html += `<td><b>TOTAL ${escapeHtml(state)}</b></td>`;
       else html += `<td></td>`;
     });
-    monthCols.forEach(m=>{
-      html += `<td class="num"><b>${stateTotals[m].toLocaleString()}</b></td>`;
-      grandTotals[m] += 0; // already accumulated
-    });
+    monthCols.forEach(m=>{ html += `<td class="num"><b>${stateTotals[m].toLocaleString()}</b></td>`; });
     if(showComparison){
       const sFirst = stateTotals[compFirst] || 0;
       const sLast = stateTotals[compLast] || 0;
@@ -588,26 +545,16 @@ function renderTable({ grouped, monthsToShow, showCols }){
 
   body.innerHTML = html || `<tr><td colspan="${cols.length + monthCols.length + (showComparison ? 2 : 0)}">No data</td></tr>`;
 
-  // Grand total row (bottom)
-  // compute grand pct as (sum last - sum first)/sum first
   let grandFirst = 0, grandLast = 0;
   if(monthCols.length >= 2){
-    grandFirst = monthsToShow.reduce((acc,m)=> acc + (grandTotals[m] && monthsToShow.indexOf(m)===0 ? grandTotals[m] : 0), 0);
-    // but the above is wrong: we need sum for compFirst and compLast specifically:
     grandFirst = grandTotals[compFirst] || 0;
     grandLast = grandTotals[compLast] || 0;
   }
   let grandPct = (grandFirst === 0) ? null : ((grandLast - grandFirst)/grandFirst)*100;
 
-  // Build footer
   let footerHtml = `<tr class="state-total-row">`;
-  const footerColsCount = cols.length + monthCols.length + (showComparison ? 2 : 0);
-  cols.forEach((c,i)=>{
-    if(i===0) footerHtml += `<td><b>GRAND TOTAL</b></td>`; else footerHtml += `<td></td>`;
-  });
-  monthCols.forEach(m=>{
-    footerHtml += `<td class="num"><b>${(grandTotals[m]||0).toLocaleString()}</b></td>`;
-  });
+  cols.forEach((c,i)=>{ if(i===0) footerHtml += `<td><b>GRAND TOTAL</b></td>`; else footerHtml += `<td></td>`; });
+  monthCols.forEach(m=>{ footerHtml += `<td class="num"><b>${(grandTotals[m]||0).toLocaleString()}</b></td>`; });
   if(showComparison){
     const gDelta = grandLast - grandFirst;
     const deltaClass = gDelta > 0 ? 'cell-positive' : 'cell-negative';
@@ -621,33 +568,25 @@ function renderTable({ grouped, monthsToShow, showCols }){
   document.getElementById('recordsInfo').textContent = `Groups: ${[...grouped.keys()].length} — Months shown: ${monthCols.length} — Comparison: ${showComparison ? `${compFirst} → ${compLast}` : 'N/A'}`;
 }
 
-// --- Toggle Filters ---
+// --- Toggle Filters: fixed (uses class toggle, no assignment bug) ---
 document.getElementById('toggleFiltersBtn').addEventListener('click', () => {
   const f = document.getElementById('filters');
   const btn = document.getElementById('toggleFiltersBtn');
-
-  if (f.style.display === 'none' || f.style.display === '') {
-    f.style.display = 'flex';
-    btn.textContent = 'Hide Filters';
-  } else {
-    f.style.display = 'none';
-    btn.textContent = 'Show Filters';
-  }
+  const isHidden = f.classList.toggle('hidden'); // toggle class
+  btn.textContent = isHidden ? 'Show Filters' : 'Hide Filters';
 });
 
-
-
+// Clear filters
 document.getElementById('clearBtn').addEventListener('click', ()=>{
-  // clear all non-show-col filters, and reset comparison months to latest two
   document.querySelectorAll("input[name='STATE'], input[name='PARTY'], input[name='ITEM'], input[name='COMP_MONTH']").forEach(cb => cb.checked = false);
   preselectLatestTwoMonths();
-  // ensure Show Columns default remains (user wanted defaults checked)
   document.querySelectorAll("input[name='SHOW_COL']").forEach(cb => {
     cb.checked = ["STATE","PARTY_NAME","ITEM_NAME"].includes(cb.value);
   });
   applyFilters();
 });
 
+// Export
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
   showOverlay();
   try{
