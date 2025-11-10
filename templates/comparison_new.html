@@ -225,7 +225,28 @@ function renderTable({grouped,monthsToShow,showCols}){
         html+="<tr>";
         cols.forEach(c=>html+=`<td>${escapeHtml(r[c])}</td>`);
         monthCols.forEach(m=>html+=`<td class='num'>${(r.monthValues[m]||0).toLocaleString()}</td>`);
-        if(showCompariso
+        if(showComparison){
+          const first=r.monthValues[compFirst]||0,last=r.monthValues[compLast]||0,delta=last-first,pct=first?((delta/first)*100):null;
+          
+          let pctClass = '';
+          if (pct !== null) { // Only apply class if pct is a number
+            if (pct > 0) {
+              pctClass = 'cell-positive';
+            } else if (pct < 0) {
+              pctClass = 'cell-negative';
+            }
+          }
+
+          let deltaClass = '';
+          if (delta > 0) {
+            deltaClass = 'cell-positive';
+          } else if (delta < 0) {
+            deltaClass = 'cell-negative';
+          }
+          
+          html+=`<td class='num ${deltaClass}'>${delta.toLocaleString()}</td>`;
+          html+=`<td class='num ${pctClass}'>${pct===null?'N/A':pct.toFixed(1)+'%'}</td>`;
+        }
         html+="</tr>";
       });
     });
