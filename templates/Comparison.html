@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SMC Lighthouse - Comparison</title>
+<title>SMC Lighthouse - Monthly Comparison</title>
 
 <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -11,23 +11,61 @@
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 
 <style>
-:root{--navy:#1e3a8a;--accent1:#2563eb;--accent2:#4f46e5;}
-body{font-family:Inter,system-ui,Arial;margin:0;background:#f6f9fc;color:#0f172a;}
-header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff;}
+:root {
+  --navy:#1e3a8a;
+  --accent1:#2563eb;
+  --accent2:#4f46e5;
+  --green:#d1fae5;
+  --red:#fee2e2;
+}
+
+body {
+  font-family: Inter, system-ui, Arial;
+  margin: 0;
+  background: #f6f9fc;
+  color: #0f172a;
+}
+
+header {
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 16px;
+  background:linear-gradient(90deg,var(--accent1),var(--accent2));
+  color:#fff;
+}
+
 header h1{margin:0;font-weight:800;font-size:1.05rem;}
 header .left{display:flex;align-items:center;gap:12px;}
 .toolbar{display:flex;gap:8px;align-items:center;}
 .btn{border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700;}
 .btn-blue{background:#fff;color:var(--navy);}
 .btn-gray{background:#eef2ff;color:var(--navy);}
+
 main{max-width:1500px;margin:20px auto;padding:12px;}
 h2{text-align:center;color:var(--navy);font-weight:900;margin-bottom:18px;}
-.table-wrapper{background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);overflow:auto;max-height:80vh;}
+.controls{
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+  background:#fff;padding:10px;border-radius:10px;
+  box-shadow:0 3px 10px rgba(0,0,0,0.05);margin-bottom:15px;
+}
+select{padding:6px;border:1px solid #dbeafe;border-radius:6px;}
+.table-wrapper{
+  background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);
+  overflow:auto;max-height:80vh;
+}
 table{border-collapse:collapse;width:100%;min-width:1100px;}
-th,td{border:1.5px solid #65738a;padding:6px 8px;text-align:center;font-weight:700;}
-thead th{position:sticky;top:0;background:linear-gradient(90deg,#e0e7ff,#c7d2fe);color:#1e3a8a;z-index:5;}
+th,td{
+  border:1.5px solid #65738a;
+  padding:6px 8px;text-align:center;font-weight:700;height:20px;
+}
+thead th{
+  position:sticky;top:0;
+  background:linear-gradient(90deg,#e0e7ff,#c7d2fe);
+  color:#1e3a8a;z-index:5;
+}
 tr.subtotal-row td{background:#fff7cc;font-weight:900;}
 tr.grandtotal-row td{background:#bae6fd;font-weight:900;}
+td.positive{background:var(--green);}
+td.negative{background:var(--red);}
 .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.7);z-index:3000;font-weight:900;color:#1e3a8a;}
 .overlay.show{display:flex;}
 @media(max-width:900px){th,td{font-size:.85rem;}}
@@ -41,13 +79,22 @@ tr.grandtotal-row td{background:#bae6fd;font-weight:900;}
     <h1>SMC Lighthouse - Monthly Comparison</h1>
   </div>
   <div class="toolbar">
-    <a href="/dashboard"><button class="btn btn-gray">← Back to Dashboard</button></a>
+    <a href="/dashboard/plant"><button class="btn btn-gray">← Back to Plant</button></a>
     <button id="exportBtn" class="btn btn-blue">Export</button>
   </div>
 </header>
 
 <main>
   <h2>Month-wise Sales Comparison</h2>
+
+  <div class="controls">
+    State: <select id="stateFilter"><option value="">All</option></select>
+    Party Name: <select id="partyFilter"><option value="">All</option></select>
+    Item Name: <select id="itemFilter"><option value="">All</option></select>
+    Month: <select id="monthFilter"><option value="">Select Base Month</option></select>
+    Comparison Month: <select id="compareMonthFilter"><option value="">Select Compare Month</option></select>
+  </div>
+
   <div class="table-wrapper">
     <table id="comparisonTable">
       <thead id="comparisonHead"></thead>
@@ -62,10 +109,9 @@ tr.grandtotal-row td{background:#bae6fd;font-weight:900;}
 const API_URL = "/get_data/lighthouse_sales";
 let rawData = [];
 
-// Utility functions
 function showOverlay(){ document.getElementById('overlay').classList.add('show'); }
 function hideOverlay(){ document.getElementById('overlay').classList.remove('show'); }
-function toNum(v){ return Number(v) || 0; }
+function toNum(v){ return Number(v)||0; }
 
 function parseDateFlexible(s){
   if(!s) return null;
@@ -83,120 +129,161 @@ function invoiceMonthLabel(s){
   return dt.toLocaleString('default',{month:'short',year:'2-digit'});
 }
 
-// Load data from backend
+// Load data
 async function loadData(){
   showOverlay();
   try{
     const res = await axios.get(API_URL);
-    const data = Array.isArray(res.data) ? res.data : [];
-
+    const data = Array.isArray(res.data)?res.data:[];
     rawData = data.map(r=>{
       const rawDate = (r.invoice_date || r.INVOICE_DATE || "").toString().trim();
       const parsed = parseDateFlexible(rawDate);
       return {
-        state: (r.state || r.STATE || "").trim(),
-        partyName: (r.party_name || r.PARTY_NAME || "").trim(),
-        itemName: (r.item_name || r.ITEM_NAME || "").trim(),
-        invoiceMonth: invoiceMonthLabel(rawDate),
-        quantityCs: toNum(r.quantity_cs || r.Quantity_CS || 0)
+        state:(r.state||r.STATE||"").trim(),
+        party:(r.party_name||r.PARTY_NAME||"").trim(),
+        item:(r.item_name||r.ITEM_NAME||"").trim(),
+        month:invoiceMonthLabel(rawDate),
+        qty:toNum(r.quantity_cs||r.Quantity_CS||0)
       };
-    }).filter(r=>r.invoiceMonth);
+    }).filter(r=>r.month);
 
-    renderComparisonTable();
-  } catch(e){
-    console.error("Error loading data", e);
+    populateFilters();
+    renderTable();
+  }catch(e){
+    console.error("Error loading data",e);
     alert("Failed to load data.");
-  } finally {
+  }finally{
     hideOverlay();
   }
 }
 
-// Render comparison table
-function renderComparisonTable(){
-  const head = document.getElementById("comparisonHead");
-  const body = document.getElementById("comparisonBody");
+// Populate dropdown filters
+function populateFilters(){
+  const states=[...new Set(rawData.map(r=>r.state))].sort();
+  const parties=[...new Set(rawData.map(r=>r.party))].sort();
+  const items=[...new Set(rawData.map(r=>r.item))].sort();
+  const months=[...new Set(rawData.map(r=>r.month))].sort((a,b)=>new Date("01-"+a)-new Date("01-"+b));
 
-  if(!rawData.length){
-    head.innerHTML = "<tr><th>No data available</th></tr>";
-    body.innerHTML = "";
-    return;
-  }
+  fillSelect("stateFilter",["",...states]);
+  fillSelect("partyFilter",["",...parties]);
+  fillSelect("itemFilter",["",...items]);
+  fillSelect("monthFilter",["",...months]);
+  fillSelect("compareMonthFilter",["",...months]);
+}
 
-  // Extract unique months
-  const months = [...new Set(rawData.map(r=>r.invoiceMonth))].sort((a,b)=>{
-    const da = new Date("01-"+a), db = new Date("01-"+b);
-    return da - db;
-  });
+function fillSelect(id,vals){
+  const sel=document.getElementById(id);
+  sel.innerHTML=vals.map(v=>`<option value="${v}">${v||'All'}</option>`).join("");
+}
 
-  head.innerHTML = "<tr><th>State</th><th>Party_Name</th><th>Item_Name</th>" +
-    months.map(m=>`<th>${m}</th>`).join("") + "</tr>";
+// Filter + render table
+function renderTable(){
+  showOverlay();
+  setTimeout(()=>{
+    const state=document.getElementById("stateFilter").value;
+    const party=document.getElementById("partyFilter").value;
+    const item=document.getElementById("itemFilter").value;
+    const baseMonth=document.getElementById("monthFilter").value;
+    const compareMonth=document.getElementById("compareMonthFilter").value;
 
-  // Group data
-  const stateMap = new Map();
-  rawData.forEach(r=>{
-    const {state, partyName, itemName, invoiceMonth, quantityCs} = r;
-    if(!stateMap.has(state)) stateMap.set(state, new Map());
-    const partyMap = stateMap.get(state);
-    if(!partyMap.has(partyName)) partyMap.set(partyName, new Map());
-    const itemMap = partyMap.get(partyName);
-    if(!itemMap.has(itemName)) itemMap.set(itemName, {});
-    itemMap.get(itemName)[invoiceMonth] = (itemMap.get(itemName)[invoiceMonth] || 0) + quantityCs;
-  });
+    if(!baseMonth){ hideOverlay(); return; }
 
-  let html = "";
-  stateMap.forEach((partyMap, state)=>{
-    let stateTotals = Object.fromEntries(months.map(m=>[m,0]));
+    let data=[...rawData];
+    if(state) data=data.filter(r=>r.state===state);
+    if(party) data=data.filter(r=>r.party===party);
+    if(item) data=data.filter(r=>r.item===item);
 
-    partyMap.forEach((itemMap, party)=>{
-      let partyTotals = Object.fromEntries(months.map(m=>[m,0]));
-
-      itemMap.forEach((monthData, item)=>{
-        html += `<tr><td>${state}</td><td>${party}</td><td>${item}</td>`;
-        months.forEach(m=>{
-          const val = monthData[m] || 0;
-          html += `<td>${val.toLocaleString()}</td>`;
-          partyTotals[m] += val;
-          stateTotals[m] += val;
-        });
-        html += `</tr>`;
-      });
-
-      // Party subtotal
-      html += `<tr class='subtotal-row'><td></td><td><b>SUM ${party}</b></td><td></td>` +
-        months.map(m=>`<td><b>${partyTotals[m].toLocaleString()}</b></td>`).join("") +
-      `</tr>`;
+    // group: state > party > item
+    const stateMap=new Map();
+    data.forEach(r=>{
+      if(!stateMap.has(r.state)) stateMap.set(r.state,new Map());
+      const partyMap=stateMap.get(r.state);
+      if(!partyMap.has(r.party)) partyMap.set(r.party,new Map());
+      const itemMap=partyMap.get(r.party);
+      if(!itemMap.has(r.item)) itemMap.set(r.item,{base:0,compare:0});
+      const obj=itemMap.get(r.item);
+      if(r.month===baseMonth) obj.base+=r.qty;
+      if(r.month===compareMonth) obj.compare+=r.qty;
     });
 
-    // State total
-    html += `<tr class='grandtotal-row'><td><b>TOTAL ${state}</b></td><td></td><td></td>` +
-      months.map(m=>`<td><b>${stateTotals[m].toLocaleString()}</b></td>`).join("") +
-    `</tr>`;
-  });
+    const head=document.getElementById("comparisonHead");
+    const body=document.getElementById("comparisonBody");
+    head.innerHTML=`<tr>
+      <th>State</th><th>Party_Name</th><th>Item_Name</th>
+      <th>${baseMonth}</th>${compareMonth?`<th>${compareMonth}</th><th>Δ Diff</th>`:""}
+    </tr>`;
 
-  body.innerHTML = html;
+    let html="";
+    stateMap.forEach((partyMap,state)=>{
+      let stateTotals={base:0,compare:0};
+      partyMap.forEach((itemMap,party)=>{
+        let partyTotals={base:0,compare:0};
+        itemMap.forEach((vals,item)=>{
+          const diff=(vals.compare||0)-(vals.base||0);
+          const diffCls=diff>0?"positive":"negative";
+          const compareCls=vals.compare>0?"positive":"negative";
+          html+=`<tr>
+            <td>${state}</td><td>${party}</td><td>${item}</td>
+            <td>${vals.base.toLocaleString()}</td>
+            ${compareMonth?`
+              <td class='${compareCls}'>${vals.compare.toLocaleString()}</td>
+              <td class='${diffCls}'>${diff.toLocaleString()}</td>`:""}
+          </tr>`;
+          partyTotals.base+=vals.base;partyTotals.compare+=vals.compare;
+          stateTotals.base+=vals.base;stateTotals.compare+=vals.compare;
+        });
+        // party subtotal
+        if(itemMap.size>=2){
+          const diff=(partyTotals.compare||0)-(partyTotals.base||0);
+          const diffCls=diff>0?"positive":"negative";
+          html+=`<tr class='subtotal-row'>
+            <td></td><td><b>SUM ${party}</b></td><td></td>
+            <td>${partyTotals.base.toLocaleString()}</td>
+            ${compareMonth?`
+              <td>${partyTotals.compare.toLocaleString()}</td>
+              <td class='${diffCls}'>${diff.toLocaleString()}</td>`:""}
+          </tr>`;
+        }
+      });
+      // state total
+      const diff=(stateTotals.compare||0)-(stateTotals.base||0);
+      const diffCls=diff>0?"positive":"negative";
+      html+=`<tr class='grandtotal-row'>
+        <td><b>TOTAL ${state}</b></td><td></td><td></td>
+        <td>${stateTotals.base.toLocaleString()}</td>
+        ${compareMonth?`
+          <td>${stateTotals.compare.toLocaleString()}</td>
+          <td class='${diffCls}'>${diff.toLocaleString()}</td>`:""}
+      </tr>`;
+    });
+
+    body.innerHTML=html||"<tr><td colspan='6'>No Data</td></tr>";
+    hideOverlay();
+  },80);
 }
 
-// Export to Excel
-document.getElementById("exportBtn").addEventListener("click", async ()=>{
-  showOverlay();
-  try{
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("Comparison");
-    const rows = [...document.querySelectorAll("#comparisonTable tr")]
-      .map(tr => [...tr.children].map(td => td.innerText.trim()));
-    rows.forEach((r,i)=>{const row=ws.addRow(r); if(i===0) row.font={bold:true};});
-    ws.columns.forEach(c=>c.width=16);
-    const buf = await wb.xlsx.writeBuffer();
-    saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
-  } catch(e){
-    console.error("Export failed", e);
-    alert("Export failed: " + e.message);
-  } finally {
-    hideOverlay();
-  }
+// Events
+["stateFilter","partyFilter","itemFilter","monthFilter","compareMonthFilter"].forEach(id=>{
+  document.getElementById(id).addEventListener("change",renderTable);
 });
 
-// Initialize
+// Export
+document.getElementById("exportBtn").addEventListener("click",async()=>{
+  showOverlay();
+  try{
+    const wb=new ExcelJS.Workbook();
+    const ws=wb.addWorksheet("Comparison");
+    const rows=[...document.querySelectorAll("#comparisonTable tr")]
+      .map(tr=>[...tr.children].map(td=>td.innerText.trim()));
+    rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0)row.font={bold:true};});
+    ws.columns.forEach(c=>c.width=18);
+    const buf=await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf]),`comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }catch(e){
+    console.error("Export failed",e);alert("Export failed: "+e.message);
+  }finally{hideOverlay();}
+});
+
 loadData();
 </script>
 </body>
