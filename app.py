@@ -141,7 +141,13 @@ def dashboard_plant():
 def comparison():
     if "user" not in session:
         return redirect(url_for("login"))
-    return render_template("comparison.html", current_year=datetime.utcnow().year)
+    try:
+        return render_template("comparison.html", current_year=datetime.utcnow().year)
+    except Exception as e:
+        import traceback
+        print("❌ Error rendering comparison page:", e)
+        traceback.print_exc()
+        return f"<pre>{traceback.format_exc()}</pre>", 500
 
 
 
