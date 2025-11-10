@@ -15,522 +15,651 @@
   --navy:#1e3a8a;
   --accent1:#2563eb;
   --accent2:#4f46e5;
-  --green-bg: #dff7e6;
-  --red-bg: #ffe6e6;
+  --muted:#6b7280;
+  --green-bg:#e6ffed;
+  --red-bg:#ffecec;
+  --subtotal-bg:#fff7cc;
+  --grand-bg:#bae6fd;
 }
-* {box-sizing:border-box}
-body{font-family:Inter,system-ui,Arial;margin:0;background:#f6f9fc;color:#0f172a}
-header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff}
-header .left{display:flex;align-items:center;gap:12px}
-header h1{margin:0;font-weight:900;font-size:1.05rem;text-align:center;flex:1}
-.toolbar{display:flex;gap:8px;align-items:center}
-.btn{border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700}
-.btn-blue{background:#fff;color:var(--navy)}
-.btn-gray{background:#eef2ff;color:var(--navy)}
 
-main{max-width:1400px;margin:16px auto;padding:12px}
-.filters-row{display:flex;gap:10px;align-items:center;overflow:auto;padding-bottom:6px;margin-bottom:8px}
-.filter-box{background:#fff;border:1px solid #e6eef9;border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;white-space:nowrap}
-.filter-box strong{font-weight:800;color:var(--navy);margin-right:6px}
-.filter-box .options{display:flex;gap:8px;align-items:center}
-.filter-box label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;padding:4px}
-.filter-box label.dim{opacity:.45}
+/* Page layout */
+body{
+  font-family: Inter, system-ui, Arial, sans-serif;
+  margin:0; background:#f6f9fc; color:#0f172a;
+}
 
-.table-wrapper{background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);overflow:auto;max-height:72vh}
-table{border-collapse:collapse;width:100%;min-width:1000px}
-th,td{border:1.4px solid #9aa7b2;padding:6px 8px;text-align:center;font-weight:700}
-thead th{position:sticky;top:0;background:linear-gradient(90deg,#e0e7ff,#c7d2fe);z-index:5;color:var(--navy)}
-tr.subtotal-row td{background:#fff7cc;font-weight:900}
-tr.state-total td{background:#dbeefe;font-weight:900}
-tr.grandtotal-row td{background:#bae6fd;font-weight:900}
-.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.7);z-index:3000;font-weight:900;color:var(--navy)}
-.overlay.show{display:flex}
-.small-note{color:#475569;font-weight:700;margin-left:8px}
-@media(max-width:900px){ .filter-box{padding:6px} th,td{font-size:.85rem} }
+/* Header: centered logo + title on one line */
+.header-wrap{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:16px;
+  padding:14px 12px;
+  background:linear-gradient(90deg,var(--accent1),var(--accent2));
+  color:#fff;
+  box-shadow:0 4px 14px rgba(2,6,23,0.12);
+  position:relative;
+}
+.header-wrap .center{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex:0 1 auto;
+  justify-content:center;
+}
+.header-wrap img.logo{
+  width:70px; height:70px; object-fit:contain;
+}
+.header-wrap h1{
+  margin:0; font-weight:900; font-size:1.25rem; letter-spacing:0.2px;
+}
+
+/* toolbar aligns right but stays on same header bar */
+.toolbar{
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.btn{
+  border:0; padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:700;
+}
+.btn-blue{ background:#fff; color:var(--navy); }
+.btn-gray{ background:#eef2ff; color:var(--navy); }
+
+/* main content */
+main{ max-width:1400px; margin:18px auto; padding:0 12px; }
+
+/* Filters row - horizontally scrollable single row */
+.filters-row{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  overflow:auto;
+  padding:10px 6px;
+  scrollbar-width:thin;
+  -webkit-overflow-scrolling:touch;
+  margin-bottom:12px;
+}
+.filter-box{
+  min-width:220px;
+  background:linear-gradient(180deg,#fff,#f7fbff);
+  border:2px solid var(--navy);
+  border-radius:10px;
+  padding:10px 12px;
+  box-shadow:0 6px 14px rgba(30,58,138,0.06);
+  display:inline-flex;
+  flex-direction:column;
+}
+.filter-box strong{ display:block; text-align:center; color:var(--navy); font-weight:900; margin-bottom:8px; }
+.filter-box .options{ max-height:220px; overflow:auto; padding-top:6px; display:flex; flex-direction:column; gap:6px; }
+.filter-box label{ display:flex; align-items:center; gap:8px; font-weight:700; cursor:pointer; padding:4px 6px; border-radius:6px; background:#fbfeff; }
+.filter-box label.dim{ opacity:.45; } /* dim for cascade invalid */
+
+/* Table area */
+.table-wrapper{
+  background:#fff; border-radius:10px; box-shadow:0 8px 26px rgba(4,8,15,0.06);
+  overflow:auto; max-height:72vh; padding:12px;
+}
+table{ border-collapse:collapse; width:100%; min-width:1000px; }
+th, td{ border:1.5px solid #65738a; padding:8px 10px; text-align:center; font-weight:700; vertical-align:middle; }
+thead th{ position:sticky; top:0; background:linear-gradient(90deg,#e0e7ff,#c7d2fe); z-index:5; color:var(--navy); }
+td.num{ text-align:right; font-weight:800; }
+
+/* subtotal / grandtotal rows */
+tr.subtotal-row td{ background:var(--subtotal-bg); font-weight:900; }
+tr.state-total-row td{ background:var(--grand-bg); font-weight:900; }
+
+/* coloring for comparison positive/negative */
+.cell-positive{ background:var(--green-bg); }
+.cell-negative{ background:var(--red-bg); }
+
+/* Responsive - keep header centered in one line */
+@media (max-width:640px){
+  .header-wrap{ padding:10px 8px; }
+  .header-wrap h1{ font-size:1rem; }
+  .header-wrap img.logo{ width:56px; height:56px; }
+  .filters-row{ padding:8px 6px; }
+}
 </style>
 </head>
 <body>
-<header>
-  <div class="left">
-    <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" style="height:36px">
+
+<div class="header-wrap" role="banner" aria-label="SMC header">
+  <div class="center" aria-hidden="false">
+    <img src="{{ url_for('static', filename='onlylogo.png') }}" class="logo" alt="SMC logo">
+    <h1>SMC - Plant to Depot Sales Dashboard</h1>
   </div>
 
-  <h1>SMC - Plant to Depot Sales Dashboard</h1>
-
-  <div class="toolbar">
+  <div class="toolbar" role="toolbar">
     <a href="/dashboard/plant"><button class="btn btn-gray">← Back to Plant</button></a>
     <button id="exportBtn" class="btn btn-blue">Export</button>
+    <button id="clearBtn" class="btn btn-gray">Clear Filters</button>
     <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
-    <button id="clearBtn" class="btn btn-gray">Clear</button>
   </div>
-</header>
+</div>
 
 <main>
-  <div id="filtersWrapper">
-    <div class="filters-row" id="filtersRow">
-      <!-- Show Columns -->
-      <div class="filter-box" id="showColsBox">
-        <strong>Show Columns</strong>
-        <div class="options" id="showColsOptions"></div>
+  <!-- Filters: all in one row, horizontally scrollable -->
+  <div id="filters" class="filters-row" role="region" aria-label="Filters">
+    <!-- Show Columns -->
+    <div class="filter-box" id="box-show-columns">
+      <strong>Show Columns</strong>
+      <div class="options" id="showColumnsOptions">
+        <label><input type="checkbox" name="SHOW_COL" value="STATE" checked> State</label>
+        <label><input type="checkbox" name="SHOW_COL" value="PARTY_NAME" checked> Party_Name</label>
+        <label><input type="checkbox" name="SHOW_COL" value="ITEM_NAME" checked> Item_Name</label>
       </div>
+    </div>
 
-      <!-- State -->
-      <div class="filter-box" id="stateBox">
-        <strong>State</strong>
-        <div class="options" id="stateOptions"></div>
-      </div>
+    <!-- STATE -->
+    <div class="filter-box" id="box-state">
+      <strong>State</strong>
+      <div class="options" id="stateOptions"></div>
+    </div>
 
-      <!-- Party -->
-      <div class="filter-box" id="partyBox">
-        <strong>Party_Name</strong>
-        <div class="options" id="partyOptions"></div>
-      </div>
+    <!-- PARTY_NAME -->
+    <div class="filter-box" id="box-party">
+      <strong>Party_Name</strong>
+      <div class="options" id="partyOptions"></div>
+    </div>
 
-      <!-- Item -->
-      <div class="filter-box" id="itemBox">
-        <strong>Item_Name</strong>
-        <div class="options" id="itemOptions"></div>
-      </div>
+    <!-- ITEM_NAME -->
+    <div class="filter-box" id="box-item">
+      <strong>Item_Name</strong>
+      <div class="options" id="itemOptions"></div>
+    </div>
 
-      <!-- Comparison Month -->
-      <div class="filter-box" id="cmpMonthBox">
-        <strong>Comparison Month</strong>
-        <div class="options" id="cmpMonthOptions"></div>
-      </div>
-
-      <div class="small-note" id="noteInfo"></div>
+    <!-- Comparison Month -->
+    <div class="filter-box" id="box-compare-month">
+      <strong>Comparison_Month</strong>
+      <div class="options" id="compMonthOptions"></div>
     </div>
   </div>
 
-  <div class="table-wrapper" aria-live="polite">
-    <table id="comparisonTable" role="table" aria-label="Monthly comparison table">
-      <thead id="tableHead"></thead>
-      <tbody id="tableBody"></tbody>
-      <tfoot id="tableFoot"></tfoot>
+  <!-- Table -->
+  <div class="table-wrapper" role="main" aria-live="polite">
+    <table id="comparisonTable" aria-describedby="recordsInfo">
+      <thead id="comparisonHead"></thead>
+      <tbody id="comparisonBody"></tbody>
+      <tfoot id="comparisonFoot"></tfoot>
     </table>
   </div>
+
+  <div style="margin-top:8px;color:var(--muted)" id="recordsInfo"></div>
 </main>
 
-<div id="overlay" class="overlay">Processing...</div>
+<div id="overlay" style="display:none;position:fixed;inset:0;justify-content:center;align-items:center;background:rgba(255,255,255,0.7);z-index:9999;font-weight:900;color:var(--navy);">
+  Processing...
+</div>
 
 <script>
-/* Comparison page using /get_data/lighthouse_sales
-   - Show Columns default: State, Party_Name, Item_Name
-   - Comparison Month auto-select latest two months
-   - Multi-select filters with smart cascade (dim invalid options; still selectable)
-   - Month columns show chronologically; difference & % between earliest & latest selected months
-*/
-
+/* ========= Configuration ========= */
 const API_URL = "/get_data/lighthouse_sales";
-let rawData = [];
-let monthsList = []; // chronological labels like "Sep 25"
+let rawData = []; // original rows from backend
+let monthsList = []; // unique months (e.g. "Sep 25")
 let allStates = [], allParties = [], allItems = [];
-const DEFAULT_SHOW_COLS = ["State","Party Name","Item Name"];
 
-// small helpers
-function showOverlay(){ document.getElementById('overlay').classList.add('show'); }
-function hideOverlay(){ document.getElementById('overlay').classList.remove('show'); }
-function toNum(v){ return Number(v)||0; }
+/* ========= Helpers ========= */
+function showOverlay(){ document.getElementById('overlay').style.display = 'flex'; }
+function hideOverlay(){ document.getElementById('overlay').style.display = 'none'; }
+const toNum = v => Number(v) || 0;
+
+// Parse flexible dates (supports ddmmyyyy, yyyy-mm-dd, dd-mm-yyyy)
 function parseDateFlexible(s){
   if(!s) return null;
   s = String(s).trim();
-  if(/^\d{8}$/.test(s)){ const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8); return new Date(y,m-1,d); }
-  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
-  const d = new Date(s); return isNaN(d)?null:d;
+  if(/^\d{8}$/.test(s)){ // DDMMYYYY
+    const d = Number(s.slice(0,2)), m = Number(s.slice(2,4)), y = Number(s.slice(4,8));
+    return new Date(y,m-1,d);
+  }
+  let m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  if(m) return new Date(Number(m[3]), Number(m[2])-1, Number(m[1]));
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
 }
-function invoiceMonthLabel(s){ const dt = parseDateFlexible(s); if(!dt) return ""; return dt.toLocaleString('default',{month:'short',year:'2-digit'}); }
-function isoMonthSortKey(label){ // convert "Sep 25" to Date for sorting
-  const parts = String(label).split(' ');
-  if(parts.length<2) return new Date(0);
-  const mon = parts[0], yr = parts[1].length===2 ? '20'+parts[1] : parts[1];
-  return new Date(`${mon} 01, ${yr}`);
-}
-function escapeHtml(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
 
-// load and initialize
+function invoiceMonthLabel(s){
+  const dt = parseDateFlexible(s);
+  if(!dt) return "";
+  // e.g. "Sep 25"
+  const month = dt.toLocaleString('default', { month: 'short' });
+  const year2 = String(dt.getFullYear()).slice(-2);
+  return `${month} ${year2}`;
+}
+
+// Chronological sort comparator for month labels "Sep 25"
+function sortMonthsChronologically(a,b){
+  // Parse into Date using "01-MON-20YY"
+  const pa = new Date("01 " + a);
+  const pb = new Date("01 " + b);
+  return pa - pb;
+}
+
+/* ===== Item name sorting helper (prefix grouping + numeric) =====
+   Example sorting order:
+     DW 3 GM, DW 9 GM, DW 19 GM, DW 100 GM
+   Approach: extract prefix word (letters until first digit), then number if present,
+   then fallback alphabetical.
+*/
+function itemSortKey(item){
+  if(!item) return {p:'', n:Infinity, s:item||''};
+  // normalize spacing
+  const s = item.trim();
+  const m = s.match(/^([A-Za-z\W]+?)\s*([0-9]+)?(.*)$/);
+  if(m){
+    const prefix = (m[1]||'').trim().toUpperCase();
+    const num = m[2] ? Number(m[2]) : Infinity;
+    const rest = (m[3]||'').trim().toUpperCase();
+    return { p: prefix, n: num, s: rest, orig: s };
+  }
+  return { p: s.toUpperCase(), n: Infinity, s: '' , orig: s};
+}
+function compareItemNames(a,b){
+  const A = itemSortKey(a), B = itemSortKey(b);
+  if(A.p < B.p) return -1;
+  if(A.p > B.p) return 1;
+  if(A.n < B.n) return -1;
+  if(A.n > B.n) return 1;
+  if(A.s < B.s) return -1;
+  if(A.s > B.s) return 1;
+  return 0;
+}
+
+/* ========= Data load ========= */
 async function loadData(){
   showOverlay();
   try{
     const res = await axios.get(API_URL);
     const data = Array.isArray(res.data) ? res.data : [];
-    rawData = data.map(r => {
-      const raw = (r.invoice_date || r.INVOICE_DATE || r.Invoice_Date || "").toString().trim();
-      const dt = parseDateFlexible(raw);
+    // normalize rows
+    rawData = data.map(r=>{
+      const rawDate = (r.invoice_date || r.INVOICE_DATE || r.Invoice_Date || "").toString().trim();
+      const parsed = parseDateFlexible(rawDate);
       return {
         state: (r.state || r.STATE || "").toString().trim(),
-        party: (r.party_name || r.PARTY_NAME || "").toString().trim(),
-        item: (r.item_name || r.ITEM_NAME || "").toString().trim(),
-        invoice_date_obj: dt,
-        invoice_date_raw: raw,
-        invoice_month: invoiceMonthLabel(raw),
-        quantity_cs: toNum(r.quantity_cs || r.Quantity_CS || 0),
-        quantity_kg: toNum(r.quantity_kg || r.Quantity_KG || 0),
-        bill_amount: toNum(r.bill_amount || r.Bill_Amount || 0)
+        partyName: (r.party_name || r.PARTY_NAME || "").toString().trim(),
+        itemName: (r.item_name || r.ITEM_NAME || "").toString().trim(),
+        invoiceDateObj: parsed,
+        invoiceDateRaw: rawDate,
+        invoiceMonth: invoiceMonthLabel(rawDate),
+        quantityCs: toNum(r.quantity_cs || r.Quantity_CS || r.QTY_CS || 0),
+        quantityKg: toNum(r.quantity_kg || r.Quantity_KG || 0),
+        billAmount: toNum(r.bill_amount || r.Bill_Amount || 0)
       };
-    }).filter(r => r.invoice_date_obj); // remove rows with no valid date
+    });
 
+    // filter out rows lacking month (safety)
+    rawData = rawData.filter(r => r.invoiceMonth && r.invoiceDateObj);
+
+    // Build sets
     allStates = [...new Set(rawData.map(r=>r.state).filter(Boolean))].sort();
-    allParties = [...new Set(rawData.map(r=>r.party).filter(Boolean))].sort();
-    allItems = [...new Set(rawData.map(r=>r.item).filter(Boolean))].sort();
+    allParties = [...new Set(rawData.map(r=>r.partyName).filter(Boolean))].sort();
+    allItems = [...new Set(rawData.map(r=>r.itemName).filter(Boolean))].sort(compareItemNames);
 
-    monthsList = [...new Set(rawData.map(r=>r.invoice_month).filter(Boolean))].sort((a,b)=>isoMonthSortKey(a)-isoMonthSortKey(b));
+    monthsList = [...new Set(rawData.map(r=>r.invoiceMonth).filter(Boolean))].sort(sortMonthsChronologically);
 
     buildFilters();
-    // default: latest two months auto selected
-    const lastTwo = monthsList.slice(-2);
-    if(lastTwo.length) {
-      // check corresponding checkboxes
-      setTimeout(()=> {
-        lastTwo.forEach(m => {
-          const el = document.querySelector(`#cmpMonthOptions input[value="${m}"]`);
-          if(el) el.checked = true;
-        });
-        applyFilters();
-      }, 40);
-    } else {
-      applyFilters();
-    }
+    // default: select latest two months for comparison
+    preselectLatestTwoMonths();
+    applyFilters();
   } catch(err){
     console.error("loadData error", err);
-    alert("Failed to load data from server. Make sure /get_data/lighthouse_sales is accessible.");
+    alert("Failed to load data.");
   } finally {
     hideOverlay();
   }
 }
 
-/* Build filters UI */
+/* ========= Build filters UI ========= */
 function buildFilters(){
-  // show columns
-  const showColsOptions = document.getElementById('showColsOptions');
-  showColsOptions.innerHTML = '';
-  const cols = ["State","Party Name","Item Name"]; // controlled columns only
-  cols.forEach(c => {
-    const lbl = document.createElement('label');
-    const inp = document.createElement('input');
-    inp.type = 'checkbox'; inp.name = 'SHOW_COLS'; inp.value = c;
-    if(DEFAULT_SHOW_COLS.includes(c)) inp.checked = true;
-    inp.addEventListener('change', ()=> applyFilters());
-    lbl.appendChild(inp); lbl.appendChild(document.createTextNode(' '+c));
-    showColsOptions.appendChild(lbl);
-  });
-
-  // state
+  // STATE
   const stateOptions = document.getElementById('stateOptions');
-  stateOptions.innerHTML = allStates.map(s => `<label><input type="checkbox" name="STATE" value="${escapeHtml(s)}"> ${escapeHtml(s)}</label>`).join('');
-  // party
+  stateOptions.innerHTML = allStates.map(s=>`<label><input type="checkbox" name="STATE" value="${escapeHtmlAttr(s)}"> ${escapeHtml(s)}</label>`).join("");
+
+  // PARTY_NAME
   const partyOptions = document.getElementById('partyOptions');
-  partyOptions.innerHTML = allParties.map(s => `<label><input type="checkbox" name="PARTY" value="${escapeHtml(s)}"> ${escapeHtml(s)}</label>`).join('');
-  // item
+  partyOptions.innerHTML = allParties.map(s=>`<label><input type="checkbox" name="PARTY" value="${escapeHtmlAttr(s)}"> ${escapeHtml(s)}</label>`).join("");
+
+  // ITEM_NAME
   const itemOptions = document.getElementById('itemOptions');
-  itemOptions.innerHTML = allItems.map(s => `<label><input type="checkbox" name="ITEM" value="${escapeHtml(s)}"> ${escapeHtml(s)}</label>`).join('');
+  itemOptions.innerHTML = allItems.map(s=>`<label><input type="checkbox" name="ITEM" value="${escapeHtmlAttr(s)}"> ${escapeHtml(s)}</label>`).join("");
 
-  // comparison months
-  const cmpMonthOptions = document.getElementById('cmpMonthOptions');
-  cmpMonthOptions.innerHTML = monthsList.map(m => `<label><input type="checkbox" name="CMP_MONTH" value="${escapeHtml(m)}"> ${escapeHtml(m)}</label>`).join('');
+  // Comparison months
+  const comp = document.getElementById('compMonthOptions');
+  comp.innerHTML = monthsList.map(m=>`<label><input type="checkbox" name="COMP_MONTH" value="${escapeHtmlAttr(m)}"> ${escapeHtml(m)}</label>`).join("");
 
-  // wire change listeners
-  ['STATE','PARTY','ITEM','CMP_MONTH','SHOW_COLS'].forEach(name => {
-    document.querySelectorAll(`input[name='${name}']`).forEach(i => i.addEventListener('change', ()=> applyFilters()));
-  });
-
-  // note
-  document.getElementById('noteInfo').textContent = 'Tip: Select multiple months to compare (Difference & % show when 2+ selected).';
-}
-
-/* Read selections */
-function getSelections(){
-  const showCols = [...document.querySelectorAll("input[name='SHOW_COLS']:checked")].map(i=>i.value);
-  const states = [...document.querySelectorAll("input[name='STATE']:checked")].map(i=>i.value);
-  const parties = [...document.querySelectorAll("input[name='PARTY']:checked")].map(i=>i.value);
-  const items = [...document.querySelectorAll("input[name='ITEM']:checked")].map(i=>i.value);
-  const cmpMonths = [...document.querySelectorAll("input[name='CMP_MONTH']:checked")].map(i=>i.value)
-    .sort((a,b)=>isoMonthSortKey(a)-isoMonthSortKey(b)); // chronological
-  return {showCols, states, parties, items, cmpMonths};
-}
-
-/* Smart cascade (dim invalid options but keep selectable) */
-function updateCascades(filteredPreview){
-  const validStates = new Set(filteredPreview.map(r=>r.state));
-  const validParties = new Set(filteredPreview.map(r=>r.party));
-  const validItems = new Set(filteredPreview.map(r=>r.item));
-
-  document.querySelectorAll("input[name='STATE']").forEach(cb=>{
-    const lbl = cb.closest('label');
-    if(validStates.has(cb.value)) { lbl.classList.remove('dim'); lbl.style.opacity=1; }
-    else { lbl.classList.add('dim'); lbl.style.opacity=.45; }
-  });
-  document.querySelectorAll("input[name='PARTY']").forEach(cb=>{
-    const lbl = cb.closest('label');
-    if(validParties.has(cb.value)) { lbl.classList.remove('dim'); lbl.style.opacity=1; }
-    else { lbl.classList.add('dim'); lbl.style.opacity=.45; }
-  });
-  document.querySelectorAll("input[name='ITEM']").forEach(cb=>{
-    const lbl = cb.closest('label');
-    if(validItems.has(cb.value)) { lbl.classList.remove('dim'); lbl.style.opacity=1; }
-    else { lbl.classList.add('dim'); lbl.style.opacity=.45; }
+  // add event listeners (delegated)
+  document.getElementById('filters').addEventListener('change', function(e){
+    // whenever a filter changes re-run apply
+    // small debounce
+    clearTimeout(window._cmpDeb);
+    window._cmpDeb = setTimeout(()=>applyFilters(), 90);
   });
 }
 
-/* Aggregate and render table */
+/* escape helpers for safety in DOM insertion */
+function escapeHtml(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+function escapeHtmlAttr(s){ return String(s).replaceAll('"','&quot;').replaceAll("'", "&#39;"); }
+
+/* Preselect latest two months in Comparison_Month filter */
+function preselectLatestTwoMonths(){
+  if(!monthsList.length) return;
+  const inputs = [...document.querySelectorAll("input[name='COMP_MONTH']")];
+  // clear first
+  inputs.forEach(i => i.checked = false);
+  const L = monthsList.length;
+  if(L>=1) inputs.find(i=>i.value===monthsList[L-1])?.checked = true;
+  if(L>=2) inputs.find(i=>i.value===monthsList[L-2])?.checked = true;
+}
+
+/* ========= Apply filters + smart cascade ========= */
 function applyFilters(){
   showOverlay();
-  setTimeout(()=> {
-    const sel = getSelections();
+  setTimeout(()=>{
+    // read show columns
+    const showCols = [...document.querySelectorAll("input[name='SHOW_COL']:checked")].map(i=>i.value);
+    // read filters
+    const selStates = [...document.querySelectorAll("input[name='STATE']:checked")].map(i=>i.value);
+    const selParties = [...document.querySelectorAll("input[name='PARTY']:checked")].map(i=>i.value);
+    const selItems = [...document.querySelectorAll("input[name='ITEM']:checked")].map(i=>i.value);
+    const selMonths = [...document.querySelectorAll("input[name='COMP_MONTH']:checked")].map(i=>i.value).sort(sortMonthsChronologically);
 
-    // build preview for cascade: apply months selection only
-    let preview = [...rawData];
-    if(sel.cmpMonths.length) {
-      preview = preview.filter(r => sel.cmpMonths.includes(r.invoice_month));
-    }
-    // apply explicit selected states/parties/items to preview so other options narrow (but we won't block them)
-    if(sel.states.length) preview = preview.filter(r => sel.states.includes(r.state));
-    if(sel.parties.length) preview = preview.filter(r => sel.parties.includes(r.party));
-    if(sel.items.length) preview = preview.filter(r => sel.items.includes(r.item));
+    // preview for cascade (apply current selections)
+    let preview = rawData.slice();
+    if(selStates.length) preview = preview.filter(r=>selStates.includes(r.state));
+    if(selParties.length) preview = preview.filter(r=>selParties.includes(r.partyName));
+    if(selItems.length) preview = preview.filter(r=>selItems.includes(r.itemName));
+    if(selMonths.length) preview = preview.filter(r=> selMonths.includes(r.invoiceMonth) );
 
-    updateCascades(preview);
+    // mark options that are invalid (dim) but do not remove them so multi-select still possible
+    const validStates = new Set(preview.map(r=>r.state));
+    document.querySelectorAll("input[name='STATE']").forEach(cb=>{
+      const lbl = cb.closest('label');
+      if(validStates.has(cb.value)) lbl.classList.remove('dim'); else lbl.classList.add('dim');
+    });
+    const validParties = new Set(preview.map(r=>r.partyName));
+    document.querySelectorAll("input[name='PARTY']").forEach(cb=>{
+      const lbl = cb.closest('label');
+      if(validParties.has(cb.value)) lbl.classList.remove('dim'); else lbl.classList.add('dim');
+    });
+    const validItems = new Set(preview.map(r=>r.itemName));
+    document.querySelectorAll("input[name='ITEM']").forEach(cb=>{
+      const lbl = cb.closest('label');
+      if(validItems.has(cb.value)) lbl.classList.remove('dim'); else lbl.classList.add('dim');
+    });
+    // months: mark months that have data in preview
+    const validMonths = new Set(preview.map(r=>r.invoiceMonth));
+    document.querySelectorAll("input[name='COMP_MONTH']").forEach(cb=>{
+      const lbl = cb.closest('label');
+      if(validMonths.has(cb.value)) lbl.classList.remove('dim'); else lbl.classList.add('dim');
+    });
 
-    // Now produce filtered rows (final dataset)
-    let filtered = [...rawData];
-    if(sel.cmpMonths.length) filtered = filtered.filter(r => sel.cmpMonths.includes(r.invoice_month));
-    if(sel.states.length) filtered = filtered.filter(r => sel.states.includes(r.state));
-    const finalParties = [...document.querySelectorAll("input[name='PARTY']:checked")].map(i=>i.value);
-    const finalItems = [...document.querySelectorAll("input[name='ITEM']:checked")].map(i=>i.value);
-    if(finalParties.length) filtered = filtered.filter(r => finalParties.includes(r.party));
-    if(finalItems.length) filtered = filtered.filter(r => finalItems.includes(r.item));
+    // Now apply filters to produce final dataset used for table (we allow selecting nothing -> all)
+    let filtered = rawData.slice();
+    if(selStates.length) filtered = filtered.filter(r=>selStates.includes(r.state));
+    if(selParties.length) filtered = filtered.filter(r=>selParties.includes(r.partyName));
+    if(selItems.length) filtered = filtered.filter(r=>selItems.includes(r.itemName));
+    // For months, we need all months possibly selected to be displayed; but aggregation per month is restricted by those months.
+    const monthsToShow = selMonths.length ? selMonths.slice().sort(sortMonthsChronologically) : monthsList.slice().sort(sortMonthsChronologically);
 
-    // Determine months to show: if none selected -> default latest two
-    let monthsToShow = sel.cmpMonths.length ? sel.cmpMonths.slice() : monthsList.slice(-2);
-    monthsToShow = [...new Set(monthsToShow)].sort((a,b)=>isoMonthSortKey(a)-isoMonthSortKey(b));
-
-    // grouping: always aggregate by State->Party->Item (but visibility of columns controlled by showCols)
-    // We need for each group sums per month
-    const groupMap = new Map(); // key: state|party|item -> { state, party, item, months: {m:sum}, __count }
+    // Group + aggregate by combination of selected show columns (STATE, PARTY_NAME, ITEM_NAME)
+    // Create keys in canonical order: State | Party | Item
+    const map = new Map();
     filtered.forEach(r=>{
-      const key = `${r.state}||${r.party}||${r.item}`;
-      if(!groupMap.has(key)){
-        const monthsObj = {};
-        monthsToShow.forEach(m=> monthsObj[m]=0);
-        groupMap.set(key, {state:r.state, party:r.party, item:r.item, months:monthsObj, SUM_QUANTITY_CS:0, SUM_QUANTITY_KG:0, SUM_BILL_AMOUNT:0, __count:0});
+      const keyState = r.state || "";
+      const keyParty = r.partyName || "";
+      const keyItem = r.itemName || "";
+      const key = `${keyState}||${keyParty}||${keyItem}`;
+      if(!map.has(key)){
+        const init = {
+          STATE: keyState,
+          PARTY_NAME: keyParty,
+          ITEM_NAME: keyItem,
+          // store per month values
+          monthValues: {} // monthLabel -> sum(quantityCs)
+        };
+        map.set(key, init);
       }
-      const o = groupMap.get(key);
-      if(monthsToShow.includes(r.invoice_month)) o.months[r.invoice_month] += r.quantity_cs;
-      // accumulate overall sums for subtotals/grand totals
-      o.SUM_QUANTITY_CS += r.quantity_cs;
-      o.SUM_QUANTITY_KG += r.quantity_kg;
-      o.SUM_BILL_AMOUNT += r.bill_amount;
-      o.__count += 1;
+      const obj = map.get(key);
+      const m = r.invoiceMonth;
+      obj.monthValues[m] = (obj.monthValues[m] || 0) + toNum(r.quantityCs);
     });
-    const rows = [...groupMap.values()];
 
-    // Build hierarchical structure by state -> party -> items arrays
-    const stateMap = new Map();
+    // convert map -> rows
+    let rows = [...map.values()];
+
+    // Sort rows by state, party, item (item uses custom comparator)
+    rows.sort((a,b)=>{
+      if(a.STATE < b.STATE) return -1;
+      if(a.STATE > b.STATE) return 1;
+      if(a.PARTY_NAME < b.PARTY_NAME) return -1;
+      if(a.PARTY_NAME > b.PARTY_NAME) return 1;
+      return compareItemNames(a.ITEM_NAME, b.ITEM_NAME);
+    });
+
+    // Build structure grouped by state -> party -> items for subtotals
+    const grouped = new Map();
     rows.forEach(r=>{
-      if(!stateMap.has(r.state)) stateMap.set(r.state, new Map());
-      const partyMap = stateMap.get(r.state);
-      if(!partyMap.has(r.party)) partyMap.set(r.party, []);
-      partyMap.get(r.party).push(r);
+      const st = r.STATE || "";
+      if(!grouped.has(st)) grouped.set(st, new Map());
+      const partyMap = grouped.get(st);
+      const p = r.PARTY_NAME || "";
+      if(!partyMap.has(p)) partyMap.set(p, []);
+      partyMap.get(p).push(r);
     });
 
-    // Build headers based on showCols + months + diff/% if >=2 months
-    const showColsNormalized = sel.showCols.length ? sel.showCols.slice() : DEFAULT_SHOW_COLS.slice();
-    // ensure names match columns we have: "State","Party Name","Item Name"
-    const headerCols = [...showColsNormalized];
-    monthsToShow.forEach(m => headerCols.push(m));
-    const showComparisonCols = (monthsToShow.length >= 2);
-    if(showComparisonCols){ headerCols.push('Difference'); headerCols.push('% Change'); }
-
-    // Render table head
-    const thead = document.getElementById('tableHead');
-    thead.innerHTML = `<tr>` + headerCols.map(h=>`<th>${escapeHtml(h)}</th>`).join('') + `</tr>`;
-
-    // Render body with party subtotals (if party has >=2 rows) and state totals
-    const tbody = document.getElementById('tableBody');
-    let html = '';
-    stateMap.forEach((partyMap, state)=>{
-      let stateTotals = {}; monthsToShow.forEach(m=> stateTotals[m]=0);
-      let stateQty = 0;
-      partyMap.forEach((itemsArr, party)=>{
-        let partyTotals = {}; monthsToShow.forEach(m=> partyTotals[m]=0);
-        itemsArr.forEach(itemRow=>{
-          // build row cells according to headerCols
-          html += '<tr>';
-          headerCols.forEach(col=>{
-            if(col === 'State'){
-              html += `<td>${escapeHtml(itemRow.state)}</td>`;
-            } else if(col === 'Party Name'){
-              html += `<td>${escapeHtml(itemRow.party)}</td>`;
-            } else if(col === 'Item Name'){
-              html += `<td>${escapeHtml(itemRow.item)}</td>`;
-            } else if(monthsToShow.includes(col)){
-              // month cell: we will color vs previous month for that row
-              const val = itemRow.months[col] || 0;
-              html += `<td data-val="${val}">${val.toLocaleString()}</td>`;
-              partyTotals[col] += val; stateTotals[col] += val;
-            } else if(col === 'Difference' || col === '% Change'){
-              // placeholders - we'll compute after row rendered using months values
-              html += `<td data-diff></td>`;
-            } else {
-              html += `<td></td>`;
-            }
-          });
-          html += '</tr>';
-        });
-
-        // party subtotal row (always show as requirement keep subtotals)
-        const partySub = partyTotals;
-        const partyRow = `<tr class="subtotal-row">` + headerCols.map((col,i)=>{
-          if(col === 'State') return `<td></td>`;
-          if(col === 'Party Name') return `<td><b>SUM ${escapeHtml(party)}</b></td>`;
-          if(col === 'Item Name') return `<td></td>`;
-          if(monthsToShow.includes(col)) return `<td><b>${(partySub[col]||0).toLocaleString()}</b></td>`;
-          if(col === 'Difference'){
-            // diff between last and first month for party
-            const first = partySub[monthsToShow[0]]||0, last = partySub[monthsToShow[monthsToShow.length-1]]||0;
-            const diff = last - first;
-            return `<td><b>${diff.toLocaleString()}</b></td>`;
-          }
-          if(col === '% Change'){
-            const first = partySub[monthsToShow[0]]||0, last = partySub[monthsToShow[monthsToShow.length-1]]||0;
-            const pct = first===0 ? (last===0 ? 0 : null) : ((last-first)/first*100);
-            return `<td><b>${pct===null ? '—' : pct.toFixed(1)+'%'}</b></td>`;
-          }
-          return `<td></td>`;
-        }).join('') + `</tr>`;
-        html += partyRow;
-      });
-
-      // state total row
-      const stateRow = `<tr class="state-total">` + headerCols.map(col=>{
-        if(col === 'State') return `<td><b>TOTAL ${escapeHtml(state)}</b></td>`;
-        if(col === 'Party Name') return `<td></td>`;
-        if(col === 'Item Name') return `<td></td>`;
-        if(monthsToShow.includes(col)) return `<td><b>${(stateTotals[col]||0).toLocaleString()}</b></td>`;
-        if(col === 'Difference'){
-          const first = stateTotals[monthsToShow[0]]||0, last = stateTotals[monthsToShow[monthsToShow.length-1]]||0;
-          const diff = last - first;
-          return `<td><b>${diff.toLocaleString()}</b></td>`;
-        }
-        if(col === '% Change'){
-          const first = stateTotals[monthsToShow[0]]||0, last = stateTotals[monthsToShow[monthsToShow.length-1]]||0;
-          const pct = first===0 ? (last===0 ? 0 : null) : ((last-first)/first*100);
-          return `<td><b>${pct===null ? '—' : pct.toFixed(1)+'%'}</b></td>`;
-        }
-        return `<td></td>`;
-      }).join('') + `</tr>`;
-      html += stateRow;
-    });
-
-    tbody.innerHTML = html || `<tr><td colspan="${headerCols.length}">No data</td></tr>`;
-
-    // After rendering body, compute per-row Difference and % and color month cells vs previous month
-    // Color month cells: compare with previous month in monthsToShow for that row
-    const rowsNodes = Array.from(tbody.querySelectorAll('tr')).filter(tr=>!tr.classList.contains('subtotal-row') && !tr.classList.contains('state-total'));
-    rowsNodes.forEach(tr=>{
-      // gather month cell values for the row
-      const monthCells = monthsToShow.map(m => {
-        const td = tr.querySelector(`td:nth-child(${headerCols.indexOf(m)+1})`);
-        return {td, val: td ? Number(td.getAttribute('data-val')||0) : 0};
-      });
-      // color each month comparing to previous
-      for(let i=1;i<monthCells.length;i++){
-        const cur = monthCells[i], prev = monthCells[i-1];
-        if(!cur.td) continue;
-        if(cur.val > prev.val) cur.td.style.background = 'var(--green-bg)';
-        else cur.td.style.background = 'var(--red-bg)';
-      }
-      // compute diff & % between earliest and latest months
-      if(monthsToShow.length >= 2){
-        const firstVal = monthCells[0] ? monthCells[0].val : 0;
-        const lastVal = monthCells[monthCells.length-1] ? monthCells[monthCells.length-1].val : 0;
-        const diff = lastVal - firstVal;
-        const pct = (firstVal === 0) ? (lastVal === 0 ? 0 : null) : ((diff / firstVal)*100);
-        // find the difference and % td placeholders and fill them
-        const diffIdx = headerCols.indexOf('Difference');
-        const pctIdx = headerCols.indexOf('% Change');
-        if(diffIdx >= 0){
-          const td = tr.children[diffIdx];
-          if(td){ td.innerText = diff.toLocaleString(); td.style.background = diff>0 ? 'var(--green-bg)' : 'var(--red-bg)'; }
-        }
-        if(pctIdx >= 0){
-          const td = tr.children[pctIdx];
-          if(td) { td.innerText = pct===null ? '—' : pct.toFixed(1)+'%'; td.style.background = (pct===null ? 'transparent' : (pct>0 ? 'var(--green-bg)' : 'var(--red-bg)')); }
-        }
-      }
-    });
-
-    // Grand total footer
-    const tfoot = document.getElementById('tableFoot');
-    const grand = {}; monthsToShow.forEach(m=>grand[m]=0);
-    stateMap.forEach(partyMap=>{
-      partyMap.forEach(itemsArr=>{
-        itemsArr.forEach(it=>{
-          monthsToShow.forEach(m=> grand[m] += (it.months[m]||0));
-        });
-      });
-    });
-    const grandDiff = (monthsToShow.length>=2) ? (grand[monthsToShow[monthsToShow.length-1]] - grand[monthsToShow[0]]) : 0;
-    const grandPct = (monthsToShow.length>=2) ? (grand[monthsToShow[0]]===0 ? (grand[monthsToShow[monthsToShow.length-1]]===0 ? 0 : null) : (grandDiff/grand[monthsToShow[0]]*100)) : 0;
-
-    let footHtml = `<tr class="grandtotal-row">`;
-    headerCols.forEach(col=>{
-      if(col === 'State') footHtml += `<td><b>GRAND TOTAL</b></td>`;
-      else if(col === 'Party Name' || col === 'Item Name') footHtml += `<td></td>`;
-      else if(monthsToShow.includes(col)) footHtml += `<td><b>${(grand[col]||0).toLocaleString()}</b></td>`;
-      else if(col === 'Difference') footHtml += `<td><b>${grandDiff.toLocaleString()}</b></td>`;
-      else if(col === '% Change') footHtml += `<td><b>${grandPct===null ? '—' : grandPct.toFixed(1)+'%'}</b></td>`;
-      else footHtml += `<td></td>`;
-    });
-    footHtml += `</tr>`;
-    tfoot.innerHTML = footHtml;
-
-    // update records note
-    document.getElementById('noteInfo').textContent = `Groups: ${rows.length} — Months: ${monthsToShow.join(', ')}`;
+    renderTable({ grouped, monthsToShow, showCols });
 
     hideOverlay();
   }, 60);
 }
 
-/* Clear filters */
+/* ========= Render Table ========= */
+function renderTable({ grouped, monthsToShow, showCols }){
+  const head = document.getElementById('comparisonHead');
+  const body = document.getElementById('comparisonBody');
+  const foot = document.getElementById('comparisonFoot');
+
+  // Build header: always show selected Show Columns in that order, then each selected month
+  // ShowCols contains values like "STATE","PARTY_NAME","ITEM_NAME"
+  const cols = showCols.length ? showCols.slice() : ["STATE","PARTY_NAME","ITEM_NAME"];
+  // month columns
+  const monthCols = monthsToShow.slice();
+  // comparison columns: Δ and % Change — based on first (earliest) and last (latest) selected months
+  const showComparison = monthCols.length >= 2;
+  const compFirst = showComparison ? monthCols[0] : null;
+  const compLast = showComparison ? monthCols[monthCols.length-1] : null;
+
+  // Construct header html
+  const headerCells = [...cols.map(c=>`<th>${c.replace(/_/g,' ')}</th>`), ...monthCols.map(m=>`<th>${m}</th>`)];
+  if(showComparison){
+    headerCells.push(`<th>Δ (${escapeHtml(compLast)} - ${escapeHtml(compFirst)})</th>`);
+    headerCells.push(`<th>% Change</th>`);
+  }
+  head.innerHTML = `<tr>${headerCells.join('')}</tr>`;
+
+  let html = "";
+  let grandTotals = Object.fromEntries(monthCols.map(m=>[m,0]));
+  grandTotals.delta = 0;
+  grandTotals.pct = 0;
+
+  // iterate states
+  grouped.forEach((partyMap, state) => {
+    let stateTotals = Object.fromEntries(monthCols.map(m=>[m,0]));
+    // iterate parties in state
+    partyMap.forEach((items, party) => {
+      let partyTotals = Object.fromEntries(monthCols.map(m=>[m,0]));
+      // each item row
+      items.forEach(row=>{
+        html += "<tr>";
+        cols.forEach(c=>{
+          let val = "";
+          if(c === "STATE") val = escapeHtml(row.STATE);
+          else if(c === "PARTY_NAME") val = escapeHtml(row.PARTY_NAME);
+          else if(c === "ITEM_NAME") val = escapeHtml(row.ITEM_NAME);
+          html += `<td>${val}</td>`;
+        });
+        // month values
+        monthCols.forEach(m=>{
+          const v = toNum(row.monthValues[m] || 0);
+          html += `<td class="num">${v.toLocaleString()}</td>`;
+          partyTotals[m] += v;
+          stateTotals[m] += v;
+          grandTotals[m] += v;
+        });
+
+        // comparison columns per row (Δ,%)
+        if(showComparison){
+          const firstVal = toNum(row.monthValues[compFirst] || 0);
+          const lastVal = toNum(row.monthValues[compLast] || 0);
+          const delta = lastVal - firstVal;
+          const pct = firstVal === 0 ? null : (delta / firstVal) * 100;
+          const deltaClass = delta > 0 ? 'cell-positive' : 'cell-negative';
+          const pctClass = (pct !== null && pct > 0) ? 'cell-positive' : 'cell-negative';
+          html += `<td class="num ${deltaClass}">${delta.toLocaleString()}</td>`;
+          html += `<td class="num ${pctClass}">${pct===null ? 'N/A' : pct.toFixed(1) + '%'}</td>`;
+          grandTotals.delta += delta;
+          // for grand pct we will compute later (not a direct sum)
+        }
+
+        html += "</tr>";
+      });
+
+      // Party subtotal row (only show if party has at least one item)
+      const partyHasRows = items.length > 0;
+      if(partyHasRows){
+        html += `<tr class="subtotal-row">`;
+        // first column show "SUM <party>"
+        cols.forEach((c,i)=>{
+          if(i===1 && cols.includes("PARTY_NAME")){ // place subtotal label in Party column
+            html += `<td><b>SUM ${escapeHtml(party)}</b></td>`;
+          } else {
+            html += `<td></td>`;
+          }
+        });
+        monthCols.forEach(m=>{
+          html += `<td class="num"><b>${partyTotals[m].toLocaleString()}</b></td>`;
+        });
+        if(showComparison){
+          // party delta/pct between comp months
+          const pFirst = partyTotals[compFirst] || 0;
+          const pLast = partyTotals[compLast] || 0;
+          const pDelta = pLast - pFirst;
+          const pPct = pFirst === 0 ? null : (pDelta / pFirst) * 100;
+          const deltaClass = pDelta > 0 ? 'cell-positive' : 'cell-negative';
+          const pctClass = (pPct !== null && pPct > 0) ? 'cell-positive' : 'cell-negative';
+          html += `<td class="num ${deltaClass}"><b>${pDelta.toLocaleString()}</b></td>`;
+          html += `<td class="num ${pctClass}"><b>${pPct===null ? 'N/A' : pPct.toFixed(1) + '%'}</b></td>`;
+        }
+        html += `</tr>`;
+      }
+    });
+
+    // State total row
+    html += `<tr class="state-total-row">`;
+    // label in first column
+    cols.forEach((c,i)=>{
+      if(i===0 && cols.includes("STATE")) html += `<td><b>TOTAL ${escapeHtml(state)}</b></td>`;
+      else html += `<td></td>`;
+    });
+    monthCols.forEach(m=>{
+      html += `<td class="num"><b>${stateTotals[m].toLocaleString()}</b></td>`;
+      grandTotals[m] += 0; // already accumulated
+    });
+    if(showComparison){
+      const sFirst = stateTotals[compFirst] || 0;
+      const sLast = stateTotals[compLast] || 0;
+      const sDelta = sLast - sFirst;
+      const sPct = sFirst === 0 ? null : (sDelta / sFirst) * 100;
+      const deltaClass = sDelta > 0 ? 'cell-positive' : 'cell-negative';
+      const pctClass = (sPct !== null && sPct > 0) ? 'cell-positive' : 'cell-negative';
+      html += `<td class="num ${deltaClass}"><b>${sDelta.toLocaleString()}</b></td>`;
+      html += `<td class="num ${pctClass}"><b>${sPct===null ? 'N/A' : sPct.toFixed(1) + '%'}</b></td>`;
+      grandTotals.delta += sDelta;
+    }
+    html += `</tr>`;
+  });
+
+  body.innerHTML = html || `<tr><td colspan="${cols.length + monthCols.length + (showComparison ? 2 : 0)}">No data</td></tr>`;
+
+  // Grand total row (bottom)
+  // compute grand pct as (sum last - sum first)/sum first
+  let grandFirst = 0, grandLast = 0;
+  if(monthCols.length >= 2){
+    grandFirst = monthsToShow.reduce((acc,m)=> acc + (grandTotals[m] && monthsToShow.indexOf(m)===0 ? grandTotals[m] : 0), 0);
+    // but the above is wrong: we need sum for compFirst and compLast specifically:
+    grandFirst = grandTotals[compFirst] || 0;
+    grandLast = grandTotals[compLast] || 0;
+  }
+  let grandPct = (grandFirst === 0) ? null : ((grandLast - grandFirst)/grandFirst)*100;
+
+  // Build footer
+  let footerHtml = `<tr class="state-total-row">`;
+  const footerColsCount = cols.length + monthCols.length + (showComparison ? 2 : 0);
+  cols.forEach((c,i)=>{
+    if(i===0) footerHtml += `<td><b>GRAND TOTAL</b></td>`; else footerHtml += `<td></td>`;
+  });
+  monthCols.forEach(m=>{
+    footerHtml += `<td class="num"><b>${(grandTotals[m]||0).toLocaleString()}</b></td>`;
+  });
+  if(showComparison){
+    const gDelta = grandLast - grandFirst;
+    const deltaClass = gDelta > 0 ? 'cell-positive' : 'cell-negative';
+    const pctClass = (grandPct !== null && grandPct > 0) ? 'cell-positive' : 'cell-negative';
+    footerHtml += `<td class="num ${deltaClass}"><b>${gDelta.toLocaleString()}</b></td>`;
+    footerHtml += `<td class="num ${pctClass}"><b>${grandPct===null ? 'N/A' : grandPct.toFixed(1) + '%'}</b></td>`;
+  }
+  footerHtml += `</tr>`;
+  foot.innerHTML = footerHtml;
+
+  document.getElementById('recordsInfo').textContent = `Groups: ${[...grouped.keys()].length} — Months shown: ${monthCols.length} — Comparison: ${showComparison ? `${compFirst} → ${compLast}` : 'N/A'}`;
+}
+
+/* ========= Clear / Toggle filters / Export ========= */
+document.getElementById('toggleFiltersBtn').addEventListener('click', ()=>{
+  const f = document.getElementById('filters');
+  const btn = document.getElementById('toggleFiltersBtn');
+  if(f.style.display === 'none'){ f.style.display = ''; btn.textContent = 'Hide Filters'; }
+  else { f.style.display = 'flex'; btn.textContent = 'Hide Filters'; /* default */ }
+  // user wanted Show Filters text when hidden - toggle behavior:
+  if(f.style.display === 'flex'){ btn.textContent = 'Hide Filters'; } else { btn.textContent = 'Show Filters'; }
+});
+
 document.getElementById('clearBtn').addEventListener('click', ()=>{
-  // reset all checkboxes
-  document.querySelectorAll("#filtersRow input[type=checkbox]").forEach(cb=>cb.checked=false);
-  // default show columns
-  document.querySelectorAll("input[name='SHOW_COLS']").forEach(i=> i.checked = DEFAULT_SHOW_COLS.includes(i.value));
-  // default months: latest two
-  monthsList.slice(-2).forEach(m=>{
-    const el = document.querySelector(`#cmpMonthOptions input[value="${m}"]`);
-    if(el) el.checked = true;
+  // clear all non-show-col filters, and reset comparison months to latest two
+  document.querySelectorAll("input[name='STATE'], input[name='PARTY'], input[name='ITEM'], input[name='COMP_MONTH']").forEach(cb => cb.checked = false);
+  preselectLatestTwoMonths();
+  // ensure Show Columns default remains (user wanted defaults checked)
+  document.querySelectorAll("input[name='SHOW_COL']").forEach(cb => {
+    cb.checked = ["STATE","PARTY_NAME","ITEM_NAME"].includes(cb.value);
   });
   applyFilters();
 });
 
-/* Toggle filters visible */
-document.getElementById('toggleFiltersBtn').addEventListener('click', ()=>{
-  const wrapper = document.getElementById('filtersWrapper');
-  const btn = document.getElementById('toggleFiltersBtn');
-  if(wrapper.style.display === 'none'){ wrapper.style.display = 'block'; btn.textContent = 'Hide Filters'; }
-  else { wrapper.style.display = 'none'; btn.textContent = 'Show Filters'; }
-});
-
-/* Export */
 document.getElementById('exportBtn').addEventListener('click', async ()=>{
   showOverlay();
   try{
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Comparison");
     const rows = [...document.querySelectorAll("#comparisonTable tr")].map(tr => [...tr.children].map(td => td.innerText.trim()));
-    rows.forEach((r,i)=> { const row = ws.addRow(r); if(i===0) row.font = {bold:true}; });
-    ws.columns.forEach(c=> c.width = 18);
+    rows.forEach((r,i)=>{ const row = ws.addRow(r); if(i===0) row.font = {bold:true}; });
+    ws.columns.forEach(c=>c.width = 18);
     const buf = await wb.xlsx.writeBuffer();
     saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
-  } catch(err){ console.error("export error", err); alert("Export failed"); }
-  finally{ hideOverlay(); }
+  } catch(e){
+    console.error("Export error", e);
+    alert("Export failed");
+  } finally { hideOverlay(); }
 });
 
-/* init */
+/* ========= Init ========= */
 loadData();
-
 </script>
 </body>
 </html>
