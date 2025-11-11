@@ -16,46 +16,143 @@
   --accent1: #2563eb;
   --accent2: #4f46e5;
 }
+
 body {
   font-family: Inter, system-ui, Arial;
   margin: 0;
   background: #f6f9fc;
   color: #0f172a;
 }
+
+/* Header */
 header {
-  display:flex;align-items:center;justify-content:center;
-  gap:16px;padding:14px;background:linear-gradient(90deg,var(--accent1),var(--accent2));
-  color:#fff;position:sticky;top:0;z-index:1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background: linear-gradient(90deg, var(--accent1), var(--accent2));
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 1100;
 }
-header img{height:56px}
-header h1{margin:0;font-weight:900;font-size:1.35rem}
+header img { height: 56px; }
+header h1 { margin: 0; font-weight: 900; font-size: 1.35rem; }
 
+/* Toolbar */
 .toolbar {
-  display:flex;justify-content:center;gap:10px;padding:10px;background:#fff;
-  position:sticky;top:80px;z-index:1050;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  background: #fff;
+  position: sticky;
+  top: 80px;
+  z-index: 1050;
 }
-.btn{border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:800}
-.btn-blue{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff}
-.btn-gray{background:#eef2ff;color:var(--navy)}
-
-#filtersWrapper{display:flex;justify-content:center;background:#f8fafc;border-bottom:1px solid #dbeafe}
-.filters{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding:12px;max-width:1500px;width:100%}
-.filter-box{background:#fff;border-radius:12px;padding:10px 12px;border:2px solid #c7d2fe;min-width:160px}
-.filter-box label{display:block;font-weight:800;color:var(--navy);margin-bottom:6px}
-.filter-box select{width:200px;padding:6px;border-radius:8px;border:1.5px solid #c7d2fe;background:#fff;font-weight:700}
-
-.table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06)}
-table{border-collapse:collapse;width:100%;min-width:1100px}
-thead th, tbody td{
-  text-align:center;padding:4px 6px;border:2px solid #2d3748;font-weight:700;vertical-align:middle
+.btn {
+  border: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 800;
 }
-thead th{position:sticky;top:0;background:linear-gradient(90deg,#e0e7ff,#c7d2fe);color:var(--navy);z-index:10}
-tr.subtotal-row td{background:#fff7cc;font-weight:900}
-tr.state-total-row td{background:#e6f6ff;font-weight:900}
-tr.grandtotal-row td{background:#bae6fd;font-weight:900}
+.btn-blue {
+  background: linear-gradient(90deg, var(--accent1), var(--accent2));
+  color: #fff;
+}
+.btn-gray {
+  background: #eef2ff;
+  color: var(--navy);
+}
 
-.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.75);z-index:3000;font-weight:900;color:var(--navy)}
-.overlay.show{display:flex}
+/* Filters */
+#filtersWrapper {
+  display: flex;
+  justify-content: center;
+  background: #f8fafc;
+  border-bottom: 1px solid #dbeafe;
+}
+.filters {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding: 12px;
+  max-width: 1500px;
+  width: 100%;
+}
+.filter-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  border: 2px solid #c7d2fe;
+  min-width: 160px;
+}
+.filter-box label {
+  display: block;
+  font-weight: 800;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+.filter-box select {
+  width: 200px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1.5px solid #c7d2fe;
+  background: #fff;
+  font-weight: 700;
+}
+
+/* Table */
+.table-wrapper {
+  max-width: 1500px;
+  margin: 18px auto;
+  border-radius: 8px;
+  overflow: auto;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(4,8,15,0.06);
+  height: calc(100vh - 320px);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 1100px;
+}
+
+thead th, tbody td {
+  text-align: center;
+  padding: 6px 8px;
+  border: 2px solid #2d3748;
+  font-weight: 700;
+  vertical-align: middle;
+}
+thead th {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(90deg, #e0e7ff, #c7d2fe);
+  color: var(--navy);
+  z-index: 100;
+}
+
+tr.subtotal-row td { background: #fff7cc; font-weight: 900; }
+tr.state-total-row td { background: #e6f6ff; font-weight: 900; }
+tr.grandtotal-row td { background: #bae6fd; font-weight: 900; }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.75);
+  z-index: 3000;
+  font-weight: 900;
+  color: var(--navy);
+}
+.overlay.show { display: flex; }
 </style>
 </head>
 
@@ -101,37 +198,38 @@ tr.grandtotal-row td{background:#bae6fd;font-weight:900}
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
-const API_URL="/get_data/lighthouse_sales";
-let rawData=[];
+const API_URL = "/get_data/lighthouse_sales";
+let rawData = [];
+
 function showOverlay(){document.getElementById('overlay').classList.add('show');}
 function hideOverlay(){document.getElementById('overlay').classList.remove('show');}
 function toNum(v){return Number(v)||0;}
 function parseDateFlexible(s){if(!s)return null;s=String(s).trim();if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8);return new Date(y,m-1,d);}const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);const d=new Date(s);return isNaN(d)?null:d;}
 function invoiceMonthLabel(s){const dt=parseDateFlexible(s);return dt?dt.toLocaleString('default',{month:'short',year:'2-digit'}):"";}
-function debounce(fn,ms=200){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+function debounce(fn,ms=200){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);}}
 
-/* Load and normalize data */
+/* Load data */
 async function loadData(){
  showOverlay();
  try{
-   const res=await axios.get(API_URL);
-   const rows=Array.isArray(res.data)?res.data:[];
-   rawData=rows.map(r=>{
-     const rawDate=(r.invoice_date||r.INVOICE_DATE||"").toString().trim();
-     const month=invoiceMonthLabel(rawDate);
-     return{
-       state:(r.state||r.STATE||"").trim(),
-       party:(r.party_name||r.PARTY_NAME||"").trim(),
-       item:(r.item_name||r.ITEM_NAME||"").trim().replace(/\s+/g," "),
-       month,
-       qty:toNum(r.quantity_cs||r.Quantity_CS||0)
-     };
-   }).filter(r=>r.state&&r.party&&r.item);
-   initFilters();applyFilters();
+  const res = await axios.get(API_URL);
+  const rows = Array.isArray(res.data)?res.data:[];
+  rawData = rows.map(r=>{
+    const month = invoiceMonthLabel(r.invoice_date||r.INVOICE_DATE||"");
+    return {
+      state:(r.state||r.STATE||"").trim(),
+      party:(r.party_name||r.PARTY_NAME||"").trim(),
+      item:(r.item_name||r.ITEM_NAME||"").trim().replace(/\s+/g," "),
+      month,
+      qty:toNum(r.quantity_cs||r.Quantity_CS||0)
+    };
+  }).filter(r=>r.state&&r.party&&r.item);
+  initFilters(); applyFilters();
  }catch(e){alert("Failed to load data");console.error(e);}
  finally{hideOverlay();}
 }
 
+/* Filters */
 function initFilters(){
  const states=[...new Set(rawData.map(r=>r.state))].sort();
  const parties=[...new Set(rawData.map(r=>r.party))].sort();
@@ -144,6 +242,7 @@ function initFilters(){
 
 function getVals(id){return[...document.getElementById(id).selectedOptions].map(o=>o.value);}
 
+/* Apply Filters */
 function applyFilters(){
  showOverlay();
  setTimeout(()=>{
@@ -153,18 +252,21 @@ function applyFilters(){
  const compSorted=comp.slice().sort((a,b)=>new Date("01 "+a)-new Date("01 "+b));
  const compPair=compSorted.length>=2?compSorted.slice(-2):[];
 
- // group
+ const filtered=rawData.filter(r=>
+   (!states.length||states.includes(r.state))&&
+   (!parties.length||parties.includes(r.party))&&
+   (!items.length||items.includes(r.item))
+ );
+
  const stateMap=new Map();
- rawData.forEach(r=>{
-   if(!r.month)return; // skip if no valid month at all
-   if(!states.length||states.includes(r.state)){
-     if(!stateMap.has(r.state))stateMap.set(r.state,new Map());
-     const pMap=stateMap.get(r.state);
-     if(!pMap.has(r.party))pMap.set(r.party,new Map());
-     const iMap=pMap.get(r.party);
-     if(!iMap.has(r.item))iMap.set(r.item,{});
-     iMap.get(r.item)[r.month]=(iMap.get(r.item)[r.month]||0)+r.qty;
-   }
+ filtered.forEach(r=>{
+   if(!r.month)return;
+   if(!stateMap.has(r.state))stateMap.set(r.state,new Map());
+   const p=stateMap.get(r.state);
+   if(!p.has(r.party))p.set(r.party,new Map());
+   const i=p.get(r.party);
+   if(!i.has(r.item))i.set(r.item,{});
+   i.get(r.item)[r.month]=(i.get(r.item)[r.month]||0)+r.qty;
  });
 
  const thead=document.getElementById("comparisonHead"),tbody=document.getElementById("comparisonBody"),tfoot=document.getElementById("comparisonFoot");
@@ -172,37 +274,22 @@ function applyFilters(){
  thead.innerHTML="<tr>"+headers.map(h=>`<th>${h}</th>`).join("")+"</tr>";
 
  let html="",grand=Object.fromEntries(monthsToShow.map(m=>[m,0]));
- stateMap.forEach((pMap,state)=>{
-   // filter out entire state if all values zero
-   let stateTotalCheck=0;
-   pMap.forEach(iMap=>iMap.forEach(mon=>monthsToShow.forEach(m=>stateTotalCheck+=mon[m]||0)));
-   if(stateTotalCheck===0)return;
 
-   const st=Object.fromEntries(monthsToShow.map(m=>[m,0]));
-   const partiesArr=[...pMap.entries()];
-   let stateRowCount=0;
-   partiesArr.forEach(([party,iMap])=>{
-     let validItems=[...iMap.entries()].filter(([_,mon])=>monthsToShow.some(m=>mon[m]>0));
-     if(validItems.length===0)return;
-     stateRowCount+=validItems.length+(validItems.length>1?1:0);
-   });
-   let stateAdded=false;
-   partiesArr.forEach(([party,iMap])=>{
-     const arr=[...iMap.entries()].filter(([_,mon])=>monthsToShow.some(m=>mon[m]>0));
-     if(arr.length===0)return;
-     const ps=Object.fromEntries(monthsToShow.map(m=>[m,0]));
-     let partyAdded=false;
+ stateMap.forEach((pMap,state)=>{
+   pMap.forEach((iMap,party)=>{
+     const arr=[...iMap.entries()];
      arr.forEach(([item,mon])=>{
+       const hasData=monthsToShow.some(m=>mon[m]>0);
+       if(!hasData)return;
        html+="<tr>";
        headers.forEach(h=>{
-         if(h==="State"&&!stateAdded){html+=`<td rowspan="${stateRowCount}" style="font-weight:900;">${state}</td>`;stateAdded=true;}
-         else if(h==="Party_Name"&&!partyAdded){const rowspan=arr.length+(arr.length>1?1:0);html+=`<td rowspan="${rowspan}" style="font-weight:800;">${party}</td>`;partyAdded=true;}
+         if(h==="State")html+=`<td>${state}</td>`;
+         else if(h==="Party_Name")html+=`<td>${party}</td>`;
          else if(h==="Item_Name")html+=`<td>${item}</td>`;
          else if(monthsToShow.includes(h)){
            const v=mon[h]||0;const prevMonth=monthsToShow[monthsToShow.indexOf(h)-1];let bg="";
            if(prevMonth&&mon[prevMonth]!==undefined){const prev=mon[prevMonth]||0;bg=v>prev?"background-color:#dcfce7;":"background-color:#fee2e2;";}
-           html+=`<td style="${bg}">${v?v.toLocaleString():""}</td>`;
-           ps[h]+=v;st[h]+=v;grand[h]+=v;
+           html+=`<td style="${bg}">${v?v.toLocaleString():""}</td>`;grand[h]+=v;
          }
          else if(h==="Δ"||h==="% Change"){
            if(compPair.length>=2){const[v1,v2]=[mon[compPair[0]]||0,mon[compPair[1]]||0];
@@ -213,23 +300,7 @@ function applyFilters(){
        });
        html+="</tr>";
      });
-     if(arr.length>1){
-       html+="<tr class='subtotal-row'>";
-       headers.forEach((h,i)=>{
-         if(monthsToShow.includes(h))html+=`<td><b>${ps[h].toLocaleString()}</b></td>`;
-         else if(h==="Item_Name")html+=`<td><b>SUM ${party}</b></td>`;
-         else html+="<td></td>";
-       });
-       html+="</tr>";
-     }
    });
-   html+="<tr class='state-total-row'>";
-   headers.forEach(h=>{
-     if(monthsToShow.includes(h))html+=`<td><b>${st[h].toLocaleString()}</b></td>`;
-     else if(h==="Item_Name")html+=`<td><b>TOTAL ${state}</b></td>`;
-     else html+="<td></td>";
-   });
-   html+="</tr>";
  });
 
  let f="<tr class='grandtotal-row'>";
