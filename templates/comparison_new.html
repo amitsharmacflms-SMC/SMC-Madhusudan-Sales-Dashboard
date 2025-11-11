@@ -235,13 +235,62 @@ else{if(i===0)html+=`<td><b>SUM ${party}</b></td>`;else html+="<td></td>";}});ht
 html+="<tr class='state-total-row'>";headers.forEach((h,i)=>{if(monthsToShow.includes(h))html+=`<td><b>${st[h].toLocaleString()}</b></td>`;else if(h==="Δ"||h==="% Change"){if(compPair.length>=2){const[v1,v2]=[st[compPair[0]]||0,st[compPair[1]]||0];if(h==="Δ"){const diff=v2-v1;const col=diff>0?"#16a34a":"#dc2626";html+=`<td style="color:${col}"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;}else{const pct=v1?(((v2-v1)/v1)*100):(v2?100:0);const col=pct>0?"#16a34a":"#dc2626";html+=`<td style="color:${col}"><b>${pct>0?'+':''}${pct.toFixed(1)}%</b></td>`;}}else html+="<td></td>";}
 else{if(i===0)html+=`<td><b>TOTAL ${state}</b></td>`;else html+="<td></td>";}});html+="</tr>";});
 let f="<tr class='grandtotal-row'>";headers.forEach((h,i)=>{if(monthsToShow.includes(h))f+=`<td><b>${grand[h].toLocaleString()}</b></td>`;else if(h==="Δ"||h==="% Change"){if(compPair.length>=2){const[v1,v2]=[grand[compPair[0]]||0,grand[compPair[1]]||0];if(h==="Δ"){const diff=v2-v1;const col=diff>0?"#16a34a":"#dc2626";f+=`<td style="color:${col}"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;}else{const pct=v1?(((v2-v1)/v1)*100):(v2?100:0);const col=pct>0?"#16a34a":"#dc2626";f+=`<td style="color:${col}"><b>${pct>0?'+':''}${pct.toFixed(1)}%</b></td>`;}}else f+="<td></td>";}
-else{if(i===0)f+=`<td><b>GRAND TOTAL</b></td>`;else f+="<td></td>";}});f+="</tr>";
-tbody.innerHTML=html||`<tr><td colspan="${headers.length}">No Data</td></tr>`;tfoot.innerHTML=f;hideOverlay();},100);}
-const debouncedApply=debounce(applyFilters,250);
-["showColumns","stateFilter","partyFilter","itemFilter","monthFilter","comparisonMonth"].forEach(id=>document.getElementById(id).addEventListener("change",debouncedApply));
-document.getElementById("clearBtn").onclick=()=>{location.reload();};
-document.getElementById("toggleFiltersBtn").onclick=()=>{const row=document.getElementById("filtersRow");const b=document.getElementById("toggleFiltersBtn");if(row.style.display==="none"){row.style.display="flex";b.textContent="Hide Filters";}else{row.style.display="none";b.textContent="Show Filters";}};
-document.getElementById("exportBtn").onclick=async()=>{showOverlay();try{const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet("Comparison");const rows=[...document.querySelectorAll("#comparisonTable tr")].map(tr=>[...tr.children].map(td=>td.innerText.trim()));rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0)row.font={bold:true};});ws.columns.forEach(c=>c.width=18);const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`comparison_${new Date().toISOString().slice(0,10)}.xlsx`);}finally{hideOverlay();}};
+
+
+
+
+else {
+  if (i === 0) f += `<td><b>GRAND TOTAL</b></td>`;
+  else f += "<td></td>";
+}
+});
+f += "</tr>";
+
+tbody.innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
+tfoot.innerHTML = f;
+hideOverlay();
+}, 100);
+}
+
+/* --- Event bindings --- */
+const debouncedApply = debounce(applyFilters, 250);
+["showColumns", "stateFilter", "partyFilter", "itemFilter", "monthFilter", "comparisonMonth"]
+  .forEach(id => document.getElementById(id).addEventListener("change", debouncedApply));
+
+document.getElementById("clearBtn").onclick = () => { location.reload(); };
+
+document.getElementById("toggleFiltersBtn").onclick = () => {
+  const row = document.getElementById("filtersRow");
+  const b = document.getElementById("toggleFiltersBtn");
+  if (row.style.display === "none") {
+    row.style.display = "flex";
+    b.textContent = "Hide Filters";
+  } else {
+    row.style.display = "none";
+    b.textContent = "Show Filters";
+  }
+};
+
+document.getElementById("exportBtn").onclick = async () => {
+  showOverlay();
+  try {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Comparison");
+    const rows = [...document.querySelectorAll("#comparisonTable tr")].map(tr =>
+      [...tr.children].map(td => td.innerText.trim())
+    );
+    rows.forEach((r, i) => {
+      const row = ws.addRow(r);
+      if (i === 0) row.font = { bold: true };
+    });
+    ws.columns.forEach(c => c.width = 18);
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } finally {
+    hideOverlay();
+  }
+};
+
 loadData();
 </script>
 </body>
