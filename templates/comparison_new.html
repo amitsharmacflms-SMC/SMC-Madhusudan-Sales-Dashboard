@@ -175,7 +175,6 @@ tr.grandtotal-row td{ background:#bae6fd; font-weight:900 }
 const API_URL = "/get_data/lighthouse_sales";
 let rawData = [];
 
-// Utility functions
 function showOverlay() { document.getElementById('overlay').classList.add('show'); }
 function hideOverlay() { document.getElementById('overlay').classList.remove('show'); }
 function toNum(v) { return Number(v) || 0; }
@@ -239,15 +238,9 @@ async function loadData() {
 function initFilters() {
   const states = [...new Set(rawData.map(r => r.state))].sort();
   const parties = [...new Set(rawData.map(r => r.party))].sort();
-  const items = [...new Set(rawData.map(r => r.item))].sort((a, b) => {
-    const pa = a.split(' ')[0].toUpperCase(), pb = b.split(' ')[0].toUpperCase();
-    const order = ["DW", "DC", "GHEE", "UHT"];
-    const ia = order.indexOf(pa), ib = order.indexOf(pb);
-    if (ia === -1 && ib === -1) return pa.localeCompare(pb);
-    if (ia === -1) return 1;
-    if (ib === -1) return -1;
-    return ia - ib || a.localeCompare(b, undefined, { numeric: true });
-  });
+  const items = [...new Set(rawData.map(r => r.item))].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: 'base' })
+  ); // ✅ Alphabetical item sort
   const months = [...new Set(rawData.map(r => r.month))].sort(
     (a, b) => new Date("01 " + a) - new Date("01 " + b)
   );
@@ -320,16 +313,23 @@ function applyFilters() {
     let html = "";
     let grand = Object.fromEntries(monthsToShow.map(m => [m, 0]));
 
+    // --- Build Table ---
     stateMap.forEach((pMap, state) => {
       const st = Object.fromEntries(monthsToShow.map(m => [m, 0]));
       pMap.forEach((iMap, party) => {
         const arr = [...iMap.entries()];
         arr.forEach(([item, mon]) => {
           html += "<tr>";
-          headers.forEach(h => {
+          headers.forEach((h, idx) => {
             if (monthsToShow.includes(h)) {
               const v = mon[h] || 0;
-              html += `<td>${v ? v.toLocaleString() : ""}</td>`;
+              const prevMonth = monthsToShow[monthsToShow.indexOf(h) - 1];
+              let bg = "";
+              if (prevMonth && mon[prevMonth] !== undefined) {
+                const prev = mon[prevMonth] || 0;
+                bg = v > prev ? "background-color:#dcfce7;" : "background-color:#fee2e2;";
+              }
+              html += `<td style="${bg}">${v ? v.toLocaleString() : ""}</td>`;
               st[h] += v;
               grand[h] += v;
             } else if (h === "Δ" || h === "% Change") {
@@ -344,9 +344,7 @@ function applyFilters() {
                   const col = pct > 0 ? "#16a34a" : pct < 0 ? "#dc2626" : "#111";
                   html += `<td style="color:${col}">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
                 }
-              } else {
-                html += "<td></td>";
-              }
+              } else html += "<td></td>";
             } else if (h === "State") html += `<td>${state}</td>`;
             else if (h === "Party_Name") html += `<td>${party}</td>`;
             else if (h === "Item_Name") html += `<td>${item}</td>`;
@@ -356,7 +354,7 @@ function applyFilters() {
         });
       });
 
-      // State total
+      // --- State Total Row ---
       html += "<tr class='state-total-row'>";
       headers.forEach((h, i) => {
         if (monthsToShow.includes(h)) {
@@ -382,7 +380,7 @@ function applyFilters() {
       html += "</tr>";
     });
 
-    // Grand total
+    // --- Grand Total Row ---
     let f = "<tr class='grandtotal-row'>";
     headers.forEach((h, i) => {
       if (monthsToShow.includes(h)) {
