@@ -1,10 +1,9 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>SMC - Plant to Depot Sales Dashboard</title>
-
 <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
@@ -12,81 +11,62 @@
 
 <style>
 :root{
-  --navy:#1e3a8a;
-  --accent1:#2563eb;
-  --accent2:#4f46e5;
-  --muted:#6b7280;
-  --green-bg:#e6ffed;
-  --red-bg:#ffecec;
-  --subtotal-bg:#fff7cc;
-  --grand-bg:#bae6fd;
+  --navy:#1e3a8a; --accent1:#2563eb; --accent2:#4f46e5;
+  --green-bg: #dff7e6;
+  --red-bg:   #ffe6e6;
+  --muted: rgba(15,23,42,0.35);
 }
-
-body{
-  font-family: Inter, system-ui, Arial, sans-serif;
-  margin:0; background:#f6f9fc; color:#0f172a;
-}
-
-.header-wrap{
-  display:flex; align-items:center; justify-content:center;
-  gap:16px; padding:14px 12px;
-  background:linear-gradient(90deg,var(--accent1),var(--accent2));
-  color:#fff; box-shadow:0 4px 14px rgba(2,6,23,0.12); position:relative;
-}
-.header-wrap img.logo{ width:70px; height:70px; object-fit:contain; }
-.header-wrap h1{ margin:0; font-weight:900; font-size:1.3rem; text-align:center; }
-.toolbar{ position:absolute; right:12px; top:50%; transform:translateY(-50%);
-  display:flex; gap:8px; align-items:center; }
-.btn{ border:0; padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:700; }
-.btn-blue{ background:#fff; color:var(--navy); }
-.btn-gray{ background:#eef2ff; color:var(--navy); }
-
-main{ max-width:1400px; margin:18px auto; padding:0 12px; }
-
-.filters-row{
-  display:flex; gap:12px; align-items:flex-start; overflow:auto;
-  padding:10px 6px; scrollbar-width:thin; margin-bottom:12px;
-  transition: opacity .3s ease, max-height .3s ease;
-}
-.filters-row.hidden{ opacity:0; max-height:0; overflow:hidden; pointer-events:none; }
-
-.filter-box{
-  min-width:220px; background:linear-gradient(180deg,#fff,#f7fbff);
-  border:2px solid var(--navy); border-radius:10px; padding:10px 12px;
-  box-shadow:0 6px 14px rgba(30,58,138,0.06); display:inline-flex; flex-direction:column;
-}
-.filter-box strong{ text-align:center; color:var(--navy); font-weight:900; margin-bottom:8px; }
-.filter-box .options{ max-height:220px; overflow:auto; padding-top:6px; display:flex; flex-direction:column; gap:6px; }
-.filter-box label{ display:flex; align-items:center; gap:8px; font-weight:700; cursor:pointer; padding:4px 6px; border-radius:6px; background:#fbfeff; }
-.filter-box label.dim{ opacity:.45; }
-
-.table-wrapper{
-  background:#fff; border-radius:10px; box-shadow:0 8px 26px rgba(4,8,15,0.06);
-  overflow:auto; max-height:72vh; padding:12px;
-}
-table{ border-collapse:collapse; width:100%; min-width:1000px; }
-th, td{ border:1.5px solid #65738a; padding:8px 10px; text-align:center; font-weight:700; vertical-align:middle; }
-thead th{ position:sticky; top:0; background:linear-gradient(90deg,#e0e7ff,#c7d2fe); color:var(--navy); z-index:5; }
-td.num{ text-align:right; font-weight:800; }
-
-tr.subtotal-row td{ background:var(--subtotal-bg); font-weight:900; }
-tr.state-total-row td{ background:var(--grand-bg); font-weight:900; }
-
-.cell-positive{ background:var(--green-bg); }
-.cell-negative{ background:var(--red-bg); }
-
-@media (max-width:640px){
-  .header-wrap img.logo{ width:50px; height:50px; }
-  .header-wrap h1{ font-size:1rem; }
+*{box-sizing:border-box}
+body{font-family:Inter, system-ui, Arial;margin:0;background:#f6f9fc;color:#0f172a}
+.header-row{display:flex;align-items:center;justify-content:center;padding:12px 16px;background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff;gap:16px;flex-wrap:nowrap}
+.header-row .logo-title{display:flex;align-items:center;gap:14px;flex:0 1 auto;white-space:nowrap}
+.header-row img{height:70px; width:auto}
+.header-row h1{font-size:1.25rem;margin:0;font-weight:900;letter-spacing:.2px}
+.toolbar{position:absolute;right:12px;top:12px;display:flex;gap:8px}
+.btn{border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700}
+.btn-blue{background:#fff;color:var(--navy)}
+.btn-gray{background:#eef2ff;color:var(--navy)}
+.main{max-width:1500px;margin:16px auto;padding:12px}
+.filters-row{display:flex;gap:10px;align-items:center;overflow:auto;padding:10px 6px;border-radius:10px;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.04)}
+.filter-box{min-width:220px;background:linear-gradient(180deg,#fff,#f8fbff);border:1.5px solid rgba(30,58,138,0.08);border-radius:10px;padding:8px}
+.filter-box strong{display:block;text-align:center;color:var(--navy);font-weight:800;margin-bottom:6px}
+.filter-box .options{max-height:220px;overflow:auto}
+.inline-row{display:flex;gap:8px;align-items:center;flex-wrap:nowrap}
+.table-wrapper{background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);overflow:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%;min-width:1100px}
+th,td{border:1.4px solid #c7d2de;padding:6px 8px;text-align:left;font-weight:700}
+thead th{position:sticky;top:0;background:linear-gradient(90deg,#e0e7ff,#c7d2fe);z-index:2;color:var(--navy);text-align:center}
+td.num{ text-align:right; font-weight:800 }
+.subtotal-row td{background:#fff7cc;font-weight:900;text-align:right}
+.grandtotal-row td{background:#bae6fd;font-weight:900;text-align:right}
+.small-muted{font-size:0.9rem;color:#6b7280}
+.hidden{display:none}
+.badge{display:inline-block;padding:4px 8px;background:#eef2ff;border-radius:999px;font-weight:800;color:var(--navy)}
+.filter-controls{display:flex;gap:8px;align-items:center}
+.label{display:block;font-weight:800;margin-bottom:6px;color:#0f172a}
+.checkbox-inline{display:flex;gap:8px;flex-wrap:wrap}
+.check-label{display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;background:#fbfeff;font-weight:700;cursor:pointer;margin:4px}
+.check-label.invalid{opacity:.45}
+@media(max-width:760px){
+  .header-row{padding:10px}
+  .header-row img{height:56px}
+  .header-row h1{font-size:1rem}
+  .filter-box{min-width:160px}
+  thead th{font-size:0.85rem}
+  td,th{font-size:0.86rem}
 }
 </style>
 </head>
 <body>
 
-<div class="header-wrap">
-  <img src="{{ url_for('static', filename='onlylogo.png') }}" class="logo" alt="logo">
-  <h1>SMC - Plant to Depot Sales Dashboard</h1>
-  <div class="toolbar">
+<!-- Header -->
+<div class="header-row" role="banner">
+  <div class="logo-title" aria-hidden="false">
+    <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="SMC logo">
+    <h1>SMC - Plant to Depot Sales Dashboard</h1>
+  </div>
+
+  <div class="toolbar" role="toolbar" aria-label="actions">
     <a href="/dashboard/plant"><button class="btn btn-gray">← Back to Plant</button></a>
     <button id="exportBtn" class="btn btn-blue">Export</button>
     <button id="clearBtn" class="btn btn-gray">Clear Filters</button>
@@ -94,388 +74,528 @@ tr.state-total-row td{ background:var(--grand-bg); font-weight:900; }
   </div>
 </div>
 
-<main>
-  <div id="filters" class="filters-row">
-    <div class="filter-box">
+<main class="main">
+  <!-- Filters (single scrollable row) -->
+  <div id="filtersBar" class="filters-row" role="region" aria-label="filters">
+    <!-- Show Columns -->
+    <div class="filter-box" id="showColumnsBox" aria-label="Show Columns">
       <strong>Show Columns</strong>
-      <div class="options">
-        <label><input type="checkbox" name="SHOW_COL" value="STATE" checked> State</label>
-        <label><input type="checkbox" name="SHOW_COL" value="PARTY_NAME" checked> Party_Name</label>
-        <label><input type="checkbox" name="SHOW_COL" value="ITEM_NAME" checked> Item_Name</label>
-      </div>
+      <div class="options checkbox-inline" id="showColsOptions"></div>
     </div>
 
-    <div class="filter-box"><strong>State</strong><div class="options" id="stateOptions"></div></div>
-    <div class="filter-box"><strong>Party_Name</strong><div class="options" id="partyOptions"></div></div>
-    <div class="filter-box"><strong>Item_Name</strong><div class="options" id="itemOptions"></div></div>
-    <div class="filter-box"><strong>Comparison_Month</strong><div class="options" id="compMonthOptions"></div></div>
+    <!-- State -->
+    <div class="filter-box" id="stateBox" aria-label="State">
+      <strong>State</strong>
+      <div class="options" id="stateOptions"></div>
+    </div>
+
+    <!-- Party -->
+    <div class="filter-box" id="partyBox" aria-label="Party Name">
+      <strong>Party_Name</strong>
+      <div class="options" id="partyOptions"></div>
+    </div>
+
+    <!-- Item -->
+    <div class="filter-box" id="itemBox" aria-label="Item Name">
+      <strong>Item_Name</strong>
+      <div class="options" id="itemOptions"></div>
+    </div>
+
+    <!-- Comparison Month -->
+    <div class="filter-box" id="cmpMonthBox" aria-label="Comparison Month">
+      <strong>Comparison_Month</strong>
+      <div class="options" id="cmpMonthOptions"></div>
+    </div>
   </div>
 
-  <div class="table-wrapper">
-    <table id="comparisonTable">
+  <!-- Table -->
+  <div class="table-wrapper" role="region" aria-label="comparison table">
+    <table id="comparisonTable" role="table" aria-live="polite">
       <thead id="comparisonHead"></thead>
       <tbody id="comparisonBody"></tbody>
       <tfoot id="comparisonFoot"></tfoot>
     </table>
   </div>
-  <div style="margin-top:8px;color:var(--muted)" id="recordsInfo"></div>
 </main>
 
-<div id="overlay" style="display:none;position:fixed;inset:0;justify-content:center;align-items:center;background:rgba(255,255,255,0.7);z-index:9999;font-weight:900;color:var(--navy);">
-  Processing...
-</div>
+<div id="overlay" class="hidden">Processing...</div>
 
 <script>
-const API_URL = "/get_data/lighthouse_sales";
+/* ===================== Configuration ===================== */
+const API_URL = "/get_data/lighthouse_sales"; // uses same data source as lighthouse dashboard
+
+/* Display column names (internal) */
+const COL_STATE = "State";
+const COL_PARTY = "Party_Name";
+const COL_ITEM = "Item_Name";
+const COL_QTY = "Quantity (CS)"; // aggregated value column
+
+/* Default show columns */
+const DEFAULT_SHOW = [COL_STATE, COL_PARTY, COL_ITEM];
+
+/* Color classes (inline style will be applied) */
+const GREEN_BG = "#dff7e6";
+const RED_BG   = "#ffe6e6";
+
+/* ===================== State ===================== */
 let rawData = [];
-let monthsList = [];
-let allStates = [];
-let allParties = [];
-let allItems = [];
+let monthsAll = []; // "Sep 25" style labels sorted chronologically
+let statesList = [], partiesList = [], itemsList = [];
+let currentShowCols = new Set(DEFAULT_SHOW);
+let selectedStates = new Set(), selectedParties = new Set(), selectedItems = new Set(), selectedMonths = [];
 
-const toNum = v => Number(v) || 0;
-
-function showOverlay(){
-  document.getElementById("overlay").style.display="flex";
-}
-function hideOverlay(){
-  document.getElementById("overlay").style.display="none";
-}
-
+/* ===================== Utils ===================== */
 function parseDateFlexible(s){
   if(!s) return null;
   s = String(s).trim();
-  // ddmmyyyy format
-  if(/^\d{8}$/.test(s)){
-    const d = +s.slice(0,2);
-    const m = +s.slice(2,4);
-    const y = +s.slice(4,8);
-    return new Date(y,m-1,d);
+  if(/^\d{8}$/.test(s)){ const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8); return new Date(y,m-1,d); }
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  const d = new Date(s); return isNaN(d)?null:d;
+}
+function invoiceMonthLabelFromDate(s){
+  const dt = parseDateFlexible(s); if(!dt) return "";
+  return dt.toLocaleString('default',{month:'short', year:'2-digit'}); // e.g. "Sep 25"
+}
+function monthKeyForSort(mLabel){
+  // convert "Sep 25" -> Date for sorting (we use first day)
+  const parts = mLabel.split(' ');
+  if(parts.length<2) return 0;
+  const mon = new Date(Date.parse(parts[0] + " 1, 20" + parts[1])); // careful with 2-digit year
+  return mon.getTime();
+}
+function toNum(v){ return Number(v)||0; }
+function showOverlay(){ document.getElementById('overlay').classList.remove('hidden'); }
+function hideOverlay(){ document.getElementById('overlay').classList.add('hidden'); }
+
+/* Sort item names by prefix then numeric (DW 3 GM -> DW 9 GM -> DW 19 GM -> DW 100 GM) */
+function sortItemNames(arr){
+  const prefixOrder = {}; // dynamic order by first seen prefix (but we can also prioritize DW, DC, GHEE, UHT explicitly)
+  const known = ["DW","DC","GHEE","UHT"];
+  known.forEach((k,i)=> prefixOrder[k]=i);
+  let nextIdx = known.length;
+
+  function keyForItem(name){
+    if(!name) return [999, name];
+    // attempt capture prefix and first number
+    const m = name.match(/^([A-Za-z]+)[\s-]*([0-9]+)?/);
+    let pref = m ? m[1].toUpperCase() : name.split(' ')[0].toUpperCase();
+    if(!(pref in prefixOrder)){ prefixOrder[pref] = nextIdx++; }
+    const num = m && m[2] ? parseInt(m[2],10) : Number.MAX_SAFE_INTEGER;
+    return [prefixOrder[pref], pref, num, name];
   }
-  // YYYY-MM-DD or YYYY-M-D
-  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
-  // DD-MM-YYYY or D/M/YYYY
-  m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
-  if(m) return new Date(+m[3],+m[2]-1,+m[1]);
-  
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
+  return arr.slice().sort((a,b)=>{
+    const ka = keyForItem(a), kb = keyForItem(b);
+    if(ka[0] !== kb[0]) return ka[0]-kb[0];
+    if(ka[2] !== kb[2]) return ka[2]-kb[2];
+    return ka[3].localeCompare(kb[3]);
+  });
 }
 
-function invoiceMonthLabel(s){
-  const dt = parseDateFlexible(s);
-  if(!dt) return "";
-  return dt.toLocaleString("default",{month:"short",year:"2-digit"});
-}
-
-function sortMonthsChronologically(a,b){
-  // Convert "Jan-24" to a comparable date object (e.g., "01 Jan 2024")
-  return new Date("01 " + a) - new Date("01 " + b);
-}
-
-// More robust item sorting for alphanumeric items
-function itemSortKey(item){
-    if (!item) return { p: "", n: Infinity, s: item || "" };
-    const s = item.trim();
-    // Regex to capture leading text, an optional number, and any trailing text
-    // E.g., "WIRE_8_SWG", "ITEM 123 PROD", "ABC"
-    const m = s.match(/^([A-Za-z\W_]+?)\s*([0-9]+)?(.*)$/);
-    if (m) {
-        return {
-            p: (m[1] || "").trim().toUpperCase(), // Part before number
-            n: m[2] ? +m[2] : Infinity,          // The number itself, or Infinity if no number
-            s: (m[3] || "").trim().toUpperCase(), // Part after number
-            orig: s // Original string for stable sort if all else is equal
-        };
-    }
-    return { p: s.toUpperCase(), n: Infinity, s: "", orig: s }; // Fallback for items without clear number patterns
-}
-
-function compareItemNames(a,b){
-    const A = itemSortKey(a);
-    const B = itemSortKey(b);
-
-    if (A.p < B.p) return -1;
-    if (A.p > B.p) return 1;
-
-    if (A.n < B.n) return -1;
-    if (A.n > B.n) return 1;
-
-    if (A.s < B.s) return -1;
-    if (A.s > B.s) return 1;
-    
-    // Fallback to original string if all other keys are equal (stable sort)
-    if (A.orig < B.orig) return -1;
-    if (A.orig > B.orig) return 1;
-
-    return 0;
-}
-
-
-function escapeHtml(s){
-  return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
-}
-function escapeHtmlAttr(s){
-  return String(s).replaceAll('"',"&quot;").replaceAll("'","&#39;");
-}
-
+/* ===================== Data load & init ===================== */
 async function loadData(){
   showOverlay();
   try{
     const res = await axios.get(API_URL);
     const data = Array.isArray(res.data) ? res.data : [];
-    
-    rawData = data.map(r => {
-      const rawDate = (r.invoice_date || r.INVOICE_DATE || "").trim();
-      const parsedDateObj = parseDateFlexible(rawDate);
+    // normalize
+    rawData = data.map(r=>{
+      const rawDate = (r.invoice_date || r.INVOICE_DATE || r.Invoice_Date || "").toString().trim();
+      const dt = parseDateFlexible(rawDate);
       return {
-        state: (r.state || r.STATE || "").trim(),
-        partyName: (r.party_name || r.PARTY_NAME || "").trim(),
-        itemName: (r.item_name || r.ITEM_NAME || "").trim(),
-        invoiceMonth: invoiceMonthLabel(rawDate),
-        invoiceDateObj: parsedDateObj,
-        quantityCs: toNum(r.quantity_cs || r.Quantity_CS || 0)
+        state: (r.state || r.STATE || "").toString().trim(),
+        party: (r.party_name || r.PARTY_NAME || "").toString().trim(),
+        item:  (r.item_name || r.ITEM_NAME || "").toString().trim(),
+        invRaw: rawDate,
+        invDateObj: dt,
+        invMonthLabel: invoiceMonthLabelFromDate(rawDate),
+        qty_cs: toNum(r.quantity_cs || r.Quantity_CS || r.sum_quantity_cs || 0)
       };
-    }).filter(r => r.invoiceMonth); // Filter out records with invalid month labels
+    }).filter(x=>x.invDateObj !== null); // ensure valid dates
 
-    allStates = [...new Set(rawData.map(r => r.state))].sort();
-    allParties = [...new Set(rawData.map(r => r.partyName))].sort();
-    allItems = [...new Set(rawData.map(r => r.itemName))].sort(compareItemNames);
-    monthsList = [...new Set(rawData.map(r => r.invoiceMonth))].sort(sortMonthsChronologically);
+    // lists
+    const monthsSet = new Set(rawData.map(r=>r.invMonthLabel).filter(Boolean));
+    monthsAll = [...monthsSet].sort((a,b)=> monthKeyForSort(a) - monthKeyForSort(b));
+    statesList = [...new Set(rawData.map(r=>r.state).filter(Boolean))].sort();
+    partiesList = [...new Set(rawData.map(r=>r.party).filter(Boolean))].sort();
+    itemsList = sortItemNames([...new Set(rawData.map(r=>r.item).filter(Boolean))]);
 
-    buildFilters();
-    preselectLatestTwoMonths();
+    // build filters UI
+    buildShowCols();
+    buildCheckboxList('stateOptions', statesList, selectedStates, onFilterChange);
+    buildCheckboxList('partyOptions', partiesList, selectedParties, onFilterChange);
+    buildCheckboxList('itemOptions', itemsList, selectedItems, onFilterChange);
+    buildCmpMonths();
+
+    // default compare months: pick latest two if available
+    if(monthsAll.length >= 2){
+      selectedMonths = [monthsAll[monthsAll.length-2], monthsAll[monthsAll.length-1]];
+      markCmpMonthSelections();
+    } else {
+      selectedMonths = monthsAll.slice();
+    }
+
     applyFilters();
-  }catch(e){
-    console.error("Failed to load data:", e);
-    alert("Failed to load data. Please check the console for details.");
-  }finally{
+  } catch(err){
+    console.error("loadData error", err);
+    alert("Failed to load data (see console).");
+  } finally {
     hideOverlay();
   }
 }
 
-function buildFilters(){
-  document.getElementById("stateOptions").innerHTML = allStates.map(s => `<label><input type="checkbox" name="STATE" value="${escapeHtmlAttr(s)}">${escapeHtml(s)}</label>`).join("");
-  document.getElementById("partyOptions").innerHTML = allParties.map(s => `<label><input type="checkbox" name="PARTY" value="${escapeHtmlAttr(s)}">${escapeHtml(s)}</label>`).join("");
-  document.getElementById("itemOptions").innerHTML = allItems.map(s => `<label><input type="checkbox" name="ITEM" value="${escapeHtmlAttr(s)}">${escapeHtml(s)}</label>`).join("");
-  document.getElementById("compMonthOptions").innerHTML = monthsList.map(m => `<label><input type="checkbox" name="COMP_MONTH" value="${escapeHtmlAttr(m)}">${escapeHtml(m)}</label>`).join("");
-  
-  // Attach a single event listener to the filters container
-  document.getElementById("filters").addEventListener("change", () => {
-    clearTimeout(window._cmpDeb);
-    window._cmpDeb = setTimeout(applyFilters, 80); // Debounce filter application
+/* ===================== UI builders ===================== */
+function buildShowCols(){
+  const container = document.getElementById('showColsOptions');
+  container.innerHTML = '';
+  const choices = [COL_STATE, COL_PARTY, COL_ITEM];
+  choices.forEach(c=>{
+    const id = 'showcol_'+c.replace(/\s+/g,'_');
+    const lbl = document.createElement('label'); lbl.className='check-label';
+    const cb = document.createElement('input'); cb.type='checkbox'; cb.name='SHOWCOL'; cb.value=c; cb.checked = currentShowCols.has(c);
+    cb.addEventListener('change', ()=>{ if(cb.checked) currentShowCols.add(c); else currentShowCols.delete(c); applyFilters(); });
+    lbl.appendChild(cb);
+    const span = document.createElement('span'); span.textContent = c; lbl.appendChild(span);
+    container.appendChild(lbl);
   });
 }
 
-function preselectLatestTwoMonths(){
-  const monthCheckboxes = [...document.querySelectorAll("input[name='COMP_MONTH']")];
-  monthCheckboxes.forEach(cb => cb.checked = false); // Clear all selections first
+function buildCheckboxList(elementId, values, selectedSet, onChangeCb){
+  const cont = document.getElementById(elementId);
+  cont.innerHTML = '';
+  // add "All" quick label
+  const allLabel = document.createElement('label'); allLabel.className='check-label';
+  const allCb = document.createElement('input'); allCb.type='checkbox'; allCb.dataset.all = '1';
+  allCb.addEventListener('change', ()=>{
+    if(allCb.checked){ values.forEach(v=>selectedSet.add(v)); } else { selectedSet.clear(); }
+    // update checkboxes
+    cont.querySelectorAll("input[type=checkbox]").forEach(ch=>{
+      if(ch.dataset.all) return;
+      ch.checked = selectedSet.has(ch.value);
+    });
+    onChangeCb();
+  });
+  allLabel.appendChild(allCb); allLabel.appendChild(document.createTextNode('All'));
+  cont.appendChild(allLabel);
 
-  const len = monthsList.length;
-  if(len >= 1) {
-    monthCheckboxes.find(x => x.value === monthsList[len-1])?.checked = true; // Select latest month
-  }
-  if(len >= 2) {
-    monthCheckboxes.find(x => x.value === monthsList[len-2])?.checked = true; // Select second latest month
-  }
+  values.forEach(v=>{
+    const l = document.createElement('label'); l.className='check-label';
+    const cb = document.createElement('input'); cb.type='checkbox'; cb.name=elementId; cb.value = v;
+    cb.checked = selectedSet.has(v);
+    cb.addEventListener('change', ()=> {
+      if(cb.checked) selectedSet.add(cb.value); else selectedSet.delete(cb.value);
+      // sync "all" checkbox
+      const all = cont.querySelector("input[data-all]");
+      if(all) all.checked = values.every(x => selectedSet.has(x));
+      onChangeCb();
+    });
+    l.appendChild(cb); l.appendChild(document.createTextNode(v));
+    cont.appendChild(l);
+  });
 }
 
+/* Comparison month filter builder (multi-select) */
+function buildCmpMonths(){
+  const cont = document.getElementById('cmpMonthOptions');
+  cont.innerHTML = '';
+  // "All" not needed here; we allow multi select
+  monthsAll.forEach(m=>{
+    const l = document.createElement('label'); l.className='check-label';
+    const cb = document.createElement('input'); cb.type='checkbox'; cb.name='CMP_MONTH'; cb.value=m;
+    cb.addEventListener('change', ()=> {
+      const idx = selectedMonths.indexOf(m);
+      if(cb.checked && idx === -1) selectedMonths.push(m);
+      if(!cb.checked && idx !== -1) selectedMonths.splice(idx,1);
+      // ensure months are chronologically sorted in selection
+      selectedMonths.sort((a,b)=> monthKeyForSort(a) - monthKeyForSort(b));
+      applyFilters();
+    });
+    l.appendChild(cb); l.appendChild(document.createTextNode(m));
+    cont.appendChild(l);
+  });
+  // mark latest two by default later after data ready
+}
+
+/* helper to set checkboxes for cmp months after selectedMonths set */
+function markCmpMonthSelections(){
+  document.querySelectorAll("input[name='CMP_MONTH']").forEach(cb=> cb.checked = selectedMonths.includes(cb.value));
+}
+
+/* ===================== Filtering & cascading ===================== */
+function onFilterChange(){ applyFilters(); }
+
+/* apply filters & render */
 function applyFilters(){
   showOverlay();
   setTimeout(()=>{
-    const showColumnsSelected = [...document.querySelectorAll("input[name='SHOW_COL']:checked")].map(i => i.value);
-    const selectedStates = [...document.querySelectorAll("input[name='STATE']:checked")].map(i => i.value);
-    const selectedParties = [...document.querySelectorAll("input[name='PARTY']:checked")].map(i => i.value);
-    const selectedItems = [...document.querySelectorAll("input[name='ITEM']:checked")].map(i => i.value);
-    const selectedMonths = [...document.querySelectorAll("input[name='COMP_MONTH']:checked")].map(i => i.value).sort(sortMonthsChronologically);
+    // smart preview for cascade: apply only month selection and existing selected filters to compute valid lists
+    let preview = rawData.slice();
+    // if months selected filter preview for months
+    if(selectedMonths.length) preview = preview.filter(r => selectedMonths.includes(r.invMonthLabel));
 
-    let filteredData = rawData.filter(r => 
-      (!selectedStates.length || selectedStates.includes(r.state)) &&
-      (!selectedParties.length || selectedParties.includes(r.partyName)) &&
-      (!selectedItems.length || selectedItems.includes(r.itemName)) &&
-      (!selectedMonths.length || selectedMonths.includes(r.invoiceMonth))
-    );
-    
-    // Determine the months that should actually be shown in the table columns
-    const monthsForTable = selectedMonths.length ? selectedMonths : monthsList.slice();
+    // apply explicit selections to preview
+    if(selectedStates.size) preview = preview.filter(r => selectedStates.has(r.state));
+    if(selectedParties.size) preview = preview.filter(r => selectedParties.has(r.party));
+    if(selectedItems.size) preview = preview.filter(r => selectedItems.has(r.item));
 
-    const groupedDataMap = new Map();
-    filteredData.forEach(r => {
-      // Unique key for grouping by State, Party_Name, Item_Name
-      const key = `${r.state}||${r.partyName}||${r.itemName}`;
-      if(!groupedDataMap.has(key)) {
-        groupedDataMap.set(key, {
-          STATE: r.state,
-          PARTY_NAME: r.partyName,
-          ITEM_NAME: r.itemName,
-          monthValues: {} // Store quantities for each month
-        });
-      }
-      const itemRow = groupedDataMap.get(key);
-      itemRow.monthValues[r.invoiceMonth] = (itemRow.monthValues[r.invoiceMonth] || 0) + r.quantityCs;
+    // compute valid sets
+    const validStates = new Set(preview.map(r=>r.state));
+    const validParties = new Set(preview.map(r=>r.party));
+    const validItems = new Set(preview.map(r=>r.item));
+
+    // visually mark invalid options (do NOT remove them so multi-select remains possible)
+    document.querySelectorAll("#stateOptions .check-label").forEach(lbl => {
+      const cb = lbl.querySelector("input[type=checkbox]");
+      if(!cb || cb.dataset.all) return;
+      const val = cb.value;
+      lbl.classList.toggle('invalid', !validStates.has(val));
+    });
+    document.querySelectorAll("#partyOptions .check-label").forEach(lbl => {
+      const cb = lbl.querySelector("input[type=checkbox]");
+      if(!cb || cb.dataset.all) return;
+      const val = cb.value;
+      lbl.classList.toggle('invalid', !validParties.has(val));
+    });
+    document.querySelectorAll("#itemOptions .check-label").forEach(lbl => {
+      const cb = lbl.querySelector("input[type=checkbox]");
+      if(!cb || cb.dataset.all) return;
+      const val = cb.value;
+      lbl.classList.toggle('invalid', !validItems.has(val));
     });
 
-    const rowsForTable = [...groupedDataMap.values()].sort((a, b) => 
-      a.STATE.localeCompare(b.STATE) ||
-      a.PARTY_NAME.localeCompare(b.PARTY_NAME) ||
-      compareItemNames(a.ITEM_NAME, b.ITEM_NAME)
-    );
+    // Now final filtered data (apply months + selected filters)
+    let filtered = rawData.slice();
+    if(selectedMonths.length) filtered = filtered.filter(r => selectedMonths.includes(r.invMonthLabel));
+    if(selectedStates.size) filtered = filtered.filter(r => selectedStates.has(r.state));
+    if(selectedParties.size) filtered = filtered.filter(r => selectedParties.has(r.party));
+    if(selectedItems.size) filtered = filtered.filter(r => selectedItems.has(r.item));
 
-    const finalGroupedByStateAndParty = new Map();
-    rowsForTable.forEach(r => {
-      if (!finalGroupedByStateAndParty.has(r.STATE)) {
-        finalGroupedByStateAndParty.set(r.STATE, new Map());
-      }
-      const partyMap = finalGroupedByStateAndParty.get(r.STATE);
-      if (!partyMap.has(r.PARTY_NAME)) {
-        partyMap.set(r.PARTY_NAME, []);
-      }
-      partyMap.get(r.PARTY_NAME).push(r);
-    });
-
-    renderTable({
-      grouped: finalGroupedByStateAndParty,
-      monthsToShow: monthsForTable,
-      showCols: showColumnsSelected
-    });
+    renderAggregationTable(filtered);
     hideOverlay();
-  }, 60); // Small debounce
+  }, 30);
 }
 
-function renderTable({grouped, monthsToShow, showCols}){
-  const head = document.getElementById("comparisonHead");
-  const body = document.getElementById("comparisonBody");
-  const foot = document.getElementById("comparisonFoot");
-  
-  // Determine which columns to display (e.g., STATE, PARTY_NAME, ITEM_NAME)
-  const columnsToDisplay = showCols.length ? showCols : ["STATE", "PARTY_NAME", "ITEM_NAME"];
-  
-  // Use monthsToShow array directly from applyFilters
-  const activeMonthColumns = monthsToShow; 
-  
-  // Determine if comparison columns should be shown (requires at least two months)
-  const showComparisonColumns = activeMonthColumns.length >= 2;
-  const comparisonFirstMonth = showComparisonColumns ? activeMonthColumns[0] : null;
-  const comparisonLastMonth = showComparisonColumns ? activeMonthColumns[activeMonthColumns.length - 1] : null;
+/* ===================== Aggregation & rendering ===================== */
+function renderAggregationTable(dataset){
+  // aggregation key: State | Party | Item (we aggregate qty_cs per month)
+  // build structure: state -> party -> item -> { month: qty }
+  const monthsToShow = selectedMonths.length ? selectedMonths.slice() : monthsAll.slice(); // if none selected, show all months
+  monthsToShow.sort((a,b)=> monthKeyForSort(a) - monthKeyForSort(b));
 
-  // Build table headers
-  let headerHtml = "<tr>";
-  columnsToDisplay.forEach(c => {
-    headerHtml += `<th>${c.replace(/_/g," ")}</th>`;
+  // Build nested map
+  const stateMap = new Map();
+  dataset.forEach(r=>{
+    const st = r.state || '(Unknown)';
+    const pa = r.party || '(Unknown)';
+    const it = r.item || '(Unknown)';
+    if(!stateMap.has(st)) stateMap.set(st, new Map());
+    const pmap = stateMap.get(st);
+    if(!pmap.has(pa)) pmap.set(pa, new Map());
+    const imap = pmap.get(pa);
+    if(!imap.has(it)) imap.set(it, {});
+    const row = imap.get(it);
+    monthsToShow.forEach(m => { if(!(m in row)) row[m] = 0; });
+    // add qty to the month of this row if this row's invMonth is in monthsToShow
+    if(monthsToShow.includes(r.invMonthLabel)) row[r.invMonthLabel] = (row[r.invMonthLabel] || 0) + r.qty_cs;
   });
-  activeMonthColumns.forEach(m => {
-    headerHtml += `<th>${m}</th>`;
-  });
-  if(showComparisonColumns){
-    headerHtml += `<th>Δ (${comparisonLastMonth}-${comparisonFirstMonth})</th>`;
-    headerHtml += "<th>% Change</th>";
-  }
-  headerHtml += "</tr>";
-  head.innerHTML = headerHtml;
 
-  let tableBodyHtml = "";
-  
-  // Calculate the total number of columns for dynamic colspan in "No data" message
-  const totalColumns = columnsToDisplay.length + activeMonthColumns.length + (showComparisonColumns ? 2 : 0);
+  // Prepare header columns: fixed show columns (from currentShowCols) + month columns + Δ + % change
+  // Map internal column names to header labels
+  const showColsOrder = [];
+  // ensure defaults are present in given order
+  if(currentShowCols.has(COL_STATE)) showColsOrder.push(COL_STATE);
+  if(currentShowCols.has(COL_PARTY)) showColsOrder.push(COL_PARTY);
+  if(currentShowCols.has(COL_ITEM))  showColsOrder.push(COL_ITEM);
 
-  // Iterate through grouped data to build table rows
-  grouped.forEach((pMap, state) => {
-    pMap.forEach((items, party) => {
-      items.forEach(r => {
-        tableBodyHtml += "<tr>";
-        // Data columns (State, Party Name, Item Name)
-        columnsToDisplay.forEach(c => {
-          tableBodyHtml += `<td>${escapeHtml(r[c])}</td>`;
+  const headerCols = [...showColsOrder, ...monthsToShow, "Δ Difference", "% Change"];
+
+  // Build header HTML
+  const head = document.getElementById('comparisonHead');
+  head.innerHTML = "<tr>" + headerCols.map(h => `<th>${h}</th>`).join('') + "</tr>";
+
+  // Build body HTML with subtotals and totals
+  const body = document.getElementById('comparisonBody');
+  let html = "";
+  let grandTotals = monthsToShow.reduce((acc,m)=> (acc[m]=0,acc), {});
+  grandTotals['Δ'] = 0;
+  grandTotals['%'] = 0; // we accumulate only numeric sums; % aggregated at bottom is not meaningful but we'll leave blank
+
+  stateMap.forEach((pmap, st) => {
+    // state totals for months
+    const stateTotals = monthsToShow.reduce((acc,m)=> (acc[m]=0,acc), {});
+    pmap.forEach((imap, pa) => {
+      // party totals
+      const partyTotals = monthsToShow.reduce((acc,m)=> (acc[m]=0,acc), {});
+      // items in sorted order
+      const itemsSorted = sortItemNames([...imap.keys()]);
+      itemsSorted.forEach(it => {
+        const rowMonths = imap.get(it) || {};
+        // compute Δ and % using first and last selected month
+        const firstVal = monthsToShow.length ? (rowMonths[monthsToShow[0]] || 0) : 0;
+        const lastVal  = monthsToShow.length ? (rowMonths[monthsToShow[monthsToShow.length-1]] || 0) : 0;
+        const delta = lastVal - firstVal;
+        const pct = (firstVal !== 0) ? ((delta / firstVal) * 100) : (delta>0 ? 100 : 0);
+
+        // accumulate party/state/grand totals
+        monthsToShow.forEach(m => { partyTotals[m] += (rowMonths[m]||0); stateTotals[m] += (rowMonths[m]||0); grandTotals[m] += (rowMonths[m]||0); });
+
+        // render item row
+        html += "<tr>";
+        // show columns
+        if(currentShowCols.has(COL_STATE)) html += `<td>${escapeHtml(st)}</td>`;
+        if(currentShowCols.has(COL_PARTY)) html += `<td>${escapeHtml(pa)}</td>`;
+        if(currentShowCols.has(COL_ITEM))  html += `<td>${escapeHtml(it)}</td>`;
+
+        // month columns
+        monthsToShow.forEach(m=>{
+          const v = rowMonths[m] || 0;
+          html += `<td class="num" style="${valueBgStyle(v, getPrevMonthValue(rowMonths, m, monthsToShow))}">${v.toLocaleString()}</td>`;
         });
-        
-        // Month-wise quantity columns
-        activeMonthColumns.forEach(m => {
-          const quantity = r.monthValues[m] || 0;
-          tableBodyHtml += `<td class='num'>${quantity.toLocaleString()}</td>`;
-        });
 
-        // Comparison columns (Delta and Percentage Change)
-        if(showComparisonColumns){
-          const firstMonthValue = r.monthValues[comparisonFirstMonth] || 0;
-          const lastMonthValue = r.monthValues[comparisonLastMonth] || 0;
-          const deltaValue = lastMonthValue - firstMonthValue;
-          const percentageChange = firstMonthValue ? ((deltaValue / firstMonthValue) * 100) : null;
-          
-          let deltaCssClass = '';
-          if (deltaValue > 0) {
-            deltaCssClass = 'cell-positive';
-          } else if (deltaValue < 0) {
-            deltaCssClass = 'cell-negative';
-          }
-          
-          let percentageCssClass = '';
-          if (percentageChange !== null) { // Only apply class if percentageChange is a number
-            if (percentageChange > 0) {
-              percentageCssClass = 'cell-positive';
-            } else if (percentageChange < 0) {
-              percentageCssClass = 'cell-negative';
-            }
-          }
+        // Δ and % columns
+        html += `<td class="num" style="${deltaBgStyle(delta)}">${delta.toLocaleString()}</td>`;
+        html += `<td class="num" style="${pctBgStyle(pct)}">${(isFinite(pct) ? (pct>0?'+':'') + pct.toFixed(1)+'%' : '')}</td>`;
 
-          // Line 185 equivalent, using basic string concatenation for maximum compatibility
-          tableBodyHtml += "<td class='num " + deltaCssClass + "'>" + deltaValue.toLocaleString() + "</td>";
-          tableBodyHtml += "<td class='num " + percentageCssClass + "'>";
-          if (percentageChange === null) {
-            tableBodyHtml += "N/A";
-          } else {
-            tableBodyHtml += percentageChange.toFixed(1) + "%";
-          }
-          tableBodyHtml += "</td>";
-        }
-        tableBodyHtml += "</tr>";
+        html += "</tr>";
       });
+
+      // PARTY subtotal row (only if party has rows)
+      const partyHasRows = itemsSorted.length > 0;
+      if(partyHasRows){
+        html += "<tr class='subtotal-row'>";
+        if(currentShowCols.has(COL_STATE)) html += `<td></td>`;
+        if(currentShowCols.has(COL_PARTY)) html += `<td><b>SUM ${escapeHtml(pa)}</b></td>`;
+        if(currentShowCols.has(COL_ITEM))  html += `<td></td>`;
+        monthsToShow.forEach(m => html += `<td class="num"><b>${partyTotals[m].toLocaleString()}</b></td>`);
+        // party Δ and % (Δ = last - first)
+        const pFirst = monthsToShow.length ? (partyTotals[monthsToShow[0]]||0) : 0;
+        const pLast  = monthsToShow.length ? (partyTotals[monthsToShow[monthsToShow.length-1]]||0) : 0;
+        const pDelta = pLast - pFirst;
+        const pPct = (pFirst !== 0) ? ((pDelta / pFirst) * 100) : (pDelta>0 ? 100 : 0);
+        html += `<td class="num"><b>${pDelta.toLocaleString()}</b></td>`;
+        html += `<td class="num"><b>${isFinite(pPct) ? (pPct>0?'+':'') + pPct.toFixed(1)+'%' : ''}</b></td>`;
+        html += "</tr>";
+      }
     });
+
+    // STATE total row
+    html += "<tr class='grandtotal-row'>";
+    if(currentShowCols.has(COL_STATE)) html += `<td><b>TOTAL ${escapeHtml(st)}</b></td>`; else if(currentShowCols.has(COL_PARTY)) html += `<td></td>`;
+    if(currentShowCols.has(COL_PARTY)) html += `<td></td>`;
+    if(currentShowCols.has(COL_ITEM))  html += `<td></td>`;
+    monthsToShow.forEach(m => html += `<td class="num"><b>${stateTotals[m].toLocaleString()}</b></td>`);
+    const sFirst = monthsToShow.length ? (stateTotals[monthsToShow[0]]||0) : 0;
+    const sLast  = monthsToShow.length ? (stateTotals[monthsToShow[monthsToShow.length-1]]||0) : 0;
+    const sDelta = sLast - sFirst;
+    const sPct = (sFirst !== 0) ? ((sDelta / sFirst) * 100) : (sDelta>0 ? 100 : 0);
+    html += `<td class="num"><b>${sDelta.toLocaleString()}</b></td>`;
+    html += `<td class="num"><b>${isFinite(sPct) ? (sPct>0?'+':'') + sPct.toFixed(1)+'%' : ''}</b></td>`;
+    html += "</tr>";
   });
 
-  body.innerHTML = tableBodyHtml || `<tr><td colspan='${totalColumns}'>No data</td></tr>`;
-  foot.innerHTML = ""; // Keep foot empty as per original intention
+  // Grand total row across all states
+  // leave first cell as GRAND TOTAL label in first visible column
+  html += "<tr class='grandtotal-row'>";
+  // align label to first visible column
+  if(currentShowCols.has(COL_STATE)){
+    html += `<td><b>GRAND TOTAL</b></td>`;
+    if(currentShowCols.has(COL_PARTY)) html += `<td></td>`;
+    if(currentShowCols.has(COL_ITEM))  html += `<td></td>`;
+  } else if(currentShowCols.has(COL_PARTY)){
+    html += `<td></td><td><b>GRAND TOTAL</b></td>`;
+    if(currentShowCols.has(COL_ITEM))  html += `<td></td>`;
+  } else {
+    // only item column visible or none
+    if(currentShowCols.has(COL_ITEM)) html += `<td></td><td></td><td><b>GRAND TOTAL</b></td>`;
+    else html += `<td><b>GRAND TOTAL</b></td>`;
+  }
 
-  document.getElementById("recordsInfo").textContent=`Groups: ${[...grouped.keys()].length}`;
+  monthsToShow.forEach(m => html += `<td class="num"><b>${(grandTotals[m]||0).toLocaleString()}</b></td>`);
+  const gFirst = monthsToShow.length ? (grandTotals[monthsToShow[0]]||0) : 0;
+  const gLast  = monthsToShow.length ? (grandTotals[monthsToShow[monthsToShow.length-1]]||0) : 0;
+  const gDelta = gLast - gFirst;
+  const gPct = (gFirst !== 0) ? ((gDelta / gFirst) * 100) : (gDelta>0 ? 100 : 0);
+  html += `<td class="num"><b>${gDelta.toLocaleString()}</b></td>`;
+  html += `<td class="num"><b>${isFinite(gPct) ? (gPct>0?'+':'') + gPct.toFixed(1)+'%' : ''}</b></td>`;
+  html += "</tr>";
+
+  body.innerHTML = html;
+
+  // Footer unused (kept for compatibility)
+  document.getElementById('comparisonFoot').innerHTML = '';
 }
 
-document.getElementById("toggleFiltersBtn").addEventListener("click",()=>{
-  const f=document.getElementById("filters");
-  const btn=document.getElementById("toggleFiltersBtn");
-  const hidden=f.classList.toggle("hidden");
-  btn.textContent=hidden?"Show Filters":"Hide Filters";
+/* helper to get previous month value in row for coloring month cells */
+function getPrevMonthValue(rowMonths, currMonth, monthsOrder){
+  const idx = monthsOrder.indexOf(currMonth);
+  if(idx <= 0) return null;
+  const prev = monthsOrder[idx-1];
+  return rowMonths[prev] || 0;
+}
+function valueBgStyle(val, prevVal){
+  // if prevVal is null (first month) do neutral
+  if(prevVal === null || prevVal === undefined) return '';
+  if(val > prevVal) return `background:${GREEN_BG};`;
+  return `background:${RED_BG};`;
+}
+function deltaBgStyle(delta){
+  if(delta > 0) return `background:${GREEN_BG};`;
+  return `background:${RED_BG};`;
+}
+function pctBgStyle(pct){
+  if(!isFinite(pct)) return '';
+  if(pct > 0) return `background:${GREEN_BG};`;
+  return `background:${RED_BG};`;
+}
+
+/* safe text */
+function escapeHtml(s){ return (s===null||s===undefined) ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ===================== Buttons & interactions ===================== */
+document.getElementById('toggleFiltersBtn').addEventListener('click', ()=>{
+  const bar = document.getElementById('filtersBar');
+  const btn = document.getElementById('toggleFiltersBtn');
+  if(bar.style.display === 'none'){ bar.style.display = ''; btn.textContent = 'Hide Filters'; }
+  else { bar.style.display = 'flex'; btn.textContent = 'Hide Filters'; /* default */ }
+  // toggle actually show/hide
+  if(bar.style.opacity === '0.0'){ bar.style.opacity = '1'; btn.textContent = 'Hide Filters'; }
+  if(bar.style.display === 'none' || bar.style.opacity === '0.0'){
+    bar.style.display = 'flex'; bar.style.opacity = '1'; btn.textContent='Hide Filters';
+  } else {
+    bar.style.opacity = '0.0'; setTimeout(()=> bar.style.display='none', 220); btn.textContent='Show Filters';
+  }
 });
 
-document.getElementById("clearBtn").addEventListener("click",()=>{
-  document.querySelectorAll("input[name='STATE'],input[name='PARTY'],input[name='ITEM'],input[name='COMP_MONTH']").forEach(cb=>cb.checked=false);
-  preselectLatestTwoMonths();
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  // reset show cols and selections to defaults
+  currentShowCols = new Set(DEFAULT_SHOW);
+  selectedStates.clear(); selectedParties.clear(); selectedItems.clear();
+  // reset compare months to latest two
+  selectedMonths = monthsAll.length >= 2 ? [monthsAll[monthsAll.length-2], monthsAll[monthsAll.length-1]] : monthsAll.slice();
+  // rebuild UI checkboxes to reflect changes
+  buildShowCols();
+  // reset checkboxes in lists
+  document.querySelectorAll("#stateOptions input[type=checkbox]").forEach(cb=> cb.checked=false);
+  document.querySelectorAll("#partyOptions input[type=checkbox]").forEach(cb=> cb.checked=false);
+  document.querySelectorAll("#itemOptions input[type=checkbox]").forEach(cb=> cb.checked=false);
+  markCmpMonthSelections();
   applyFilters();
 });
 
-document.getElementById("exportBtn").addEventListener("click",async()=>{
+document.getElementById('exportBtn').addEventListener('click', async ()=>{
   showOverlay();
   try{
-    const wb=new ExcelJS.Workbook();
-    const ws=wb.addWorksheet("Comparison");
-    // Get headers from the table head
-    const headerRow = [...document.querySelectorAll("#comparisonHead th")].map(th => th.innerText.trim());
-    if (headerRow.length > 0) {
-        const wsHeader = ws.addRow(headerRow);
-        wsHeader.font = { bold: true };
-    }
-
-    // Get data rows from the table body
-    [...document.querySelectorAll("#comparisonBody tr")].forEach(tr => {
-        const rowData = [...tr.children].map(td => td.innerText.trim());
-        ws.addRow(rowData);
-    });
-    
-    ws.columns.forEach(c=>c.width=18);
-    const buf=await wb.xlsx.writeBuffer();
-    saveAs(new Blob([buf]),`comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
-  }catch(e){console.error(e);alert("Export failed");}finally{hideOverlay();}
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Comparison');
+    const rows = [...document.querySelectorAll("#comparisonTable tr")].map(tr => [...tr.children].map(td => td.innerText.trim()));
+    rows.forEach((r,i)=>{ const row = ws.addRow(r); if(i===0) row.font={bold:true}; });
+    ws.columns.forEach(c=> c.width = 16);
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }catch(e){ console.error(e); alert("Export failed"); }
+  finally{ hideOverlay(); }
 });
 
+/* ===================== Init load ===================== */
 loadData();
 </script>
 </body>
