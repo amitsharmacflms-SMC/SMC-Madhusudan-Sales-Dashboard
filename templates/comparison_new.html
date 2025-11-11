@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>SMC - Plant to Depot Sales Dashboard</title>
 <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
-<!-- libs -->
+<!-- Libraries -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
@@ -16,20 +16,18 @@
   --navy:#1e3a8a;
   --accent1:#2563eb;
   --accent2:#4f46e5;
-  --subtotal:#fff7cc;   /* pale yellow */
-  --state-total:#e6f6ff;/* light blue */
-  --grand-total:#bae6fd;/* slightly darker blue */
-  --up-bg:#dcfce7;      /* light green */
-  --down-bg:#fee2e2;    /* light red */
+  --subtotal:#fff7cc;
+  --state-total:#e6f6ff;
+  --grand-total:#bae6fd;
+  --up-bg:#dcfce7;
+  --down-bg:#fee2e2;
 }
 
+/* basic */
 *{box-sizing:border-box}
-body{
-  font-family:Inter,system-ui,Arial;
-  margin:0;background:#f6f9fc;color:#0f172a;
-}
+body{font-family:Inter,system-ui,Arial;margin:0;background:#f6f9fc;color:#0f172a}
 
-/* header */
+/* sticky header / toolbar / filters */
 header{
   display:flex;align-items:center;justify-content:center;gap:16px;
   padding:14px 16px;background:linear-gradient(90deg,var(--accent1),var(--accent2));
@@ -41,50 +39,44 @@ header h1{margin:0;font-weight:900;font-size:1.35rem}
 /* toolbar */
 .toolbar{
   display:flex;justify-content:center;gap:10px;padding:10px;background:#fff;
-  position:sticky;top:80px;z-index:1150;
+  position:sticky;top:70px;z-index:1150;
 }
 .btn{border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:800}
 .btn-blue{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff}
 .btn-gray{background:#eef2ff;color:var(--navy)}
 
 /* filters */
-#filtersWrapper{display:flex;justify-content:center;background:#f8fafc;border-bottom:1px solid #dbeafe;position:sticky;top:128px;z-index:1100}
+#filtersWrapper{
+  display:flex;justify-content:center;background:#f8fafc;border-bottom:1px solid #dbeafe;
+  position:sticky; top:130px; z-index:1100;
+}
 .filters{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding:12px;max-width:1500px;width:100%}
 .filter-box{background:#fff;border-radius:12px;padding:10px 12px;border:2px solid #c7d2fe;min-width:160px}
 .filter-box label{display:block;font-weight:800;color:var(--navy);margin-bottom:6px}
-.filter-box select{width:200px;padding:6px;border-radius:8px;border:1.5px solid #c7d2fe;background:#fff;font-weight:700; height:120px}
-
-/* table wrapper */
-.table-wrapper{
-  max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;
-  box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - 240px);
-}
+.filter-box select{width:200px;padding:6px;border-radius:8px;border:1.5px solid #c7d2fe;background:#fff;font-weight:700;height:120px}
 
 /* table */
+.table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - 260px)}
 table{border-collapse:collapse;width:100%;min-width:1100px}
 thead th, tbody td{
   text-align:center;padding:6px 8px;border:2px solid #2d3748;font-weight:700;vertical-align:middle;
 }
 thead th{
-  position:sticky;
-  /* place header below header+toolbar+filters (approx): header ~70 + toolbar 50 + filters 60 = ~180 */
-  top: 180px;
-  background:linear-gradient(90deg,#e0e7ff,#c7d2fe);
-  color:var(--navy);
-  z-index:1100;
+  position:sticky; top: 180px; /* header (70) + toolbar (60) + filters (50) ≈ 180px */
+  background:linear-gradient(90deg,#e0e7ff,#c7d2fe); color:var(--navy); z-index:1100;
 }
 
-/* visually separated rows */
+/* totals styling */
 tr.subtotal-row td{background:var(--subtotal);font-weight:900}
 tr.state-total-row td{background:var(--state-total);font-weight:900}
 tr.grandtotal-row td{background:var(--grand-total);font-weight:900}
 
-/* small adjustments */
+/* small */
 tbody td{height:34px}
 .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.75);z-index:3000;font-weight:900;color:var(--navy)}
 .overlay.show{display:flex}
 
-/* disabled option styling (for soft cascade) */
+/* disabled option style */
 select option:disabled{color:#999;background:#f3f4f6}
 </style>
 </head>
@@ -102,7 +94,6 @@ select option:disabled{color:#999;background:#f3f4f6}
   <button id="toggleFiltersBtn" class="btn btn-blue">Hide Filters</button>
 </div>
 
-<!-- filters (sticky below toolbar) -->
 <div id="filtersWrapper">
   <div class="filters" id="filtersRow">
     <div class="filter-box">
@@ -132,72 +123,61 @@ select option:disabled{color:#999;background:#f3f4f6}
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
-/* -------------------------
-  Full implementation:
-  - dedupe: aggregated by state/party/item (normalized)
-  - render: one row per item, party subtotal if >=2 visible items
-  - soft cascade: disable unrelated options but keep selections if still valid
-  - sticky header, coloring, export
----------------------------*/
-
+/* Utility + parsing + safety */
 const API_URL = "/get_data/lighthouse_sales";
-let rawData = []; // raw rows normalized
+let rawData = [];
 
 function showOverlay(){document.getElementById('overlay').classList.add('show')}
 function hideOverlay(){document.getElementById('overlay').classList.remove('show')}
 function toNum(v){return Number(v)||0}
 function debounce(fn,ms=200){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
+function escapeHTML(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
 
-/* parse various date formats to "Mon YY" */
 function parseDateFlexible(s){
   if(!s) return null;
   s = String(s).trim();
-  if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8); return new Date(y,m-1,d)}
+  if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8);return new Date(y,m-1,d)}
   const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if(m) return new Date(+m[1],+m[2]-1,+m[3]);
   const d = new Date(s);
-  return isNaN(d) ? null : d;
+  return isNaN(d)?null:d;
 }
 function invoiceMonthLabel(s){
   const dt = parseDateFlexible(s);
-  if(!dt) return "";
-  return dt.toLocaleString('default',{month:'short',year:'2-digit'});
+  return dt ? dt.toLocaleString('default',{month:'short',year:'2-digit'}) : "";
 }
 
-/* -------------------------
-   load & normalize
-   - normalize item text (collapse whitespace)
-   - keep rows that have state+party+item (month may be blank)
--------------------------*/
+/* --------------------
+   Load & normalize data
+   - preserve rows with empty month (to detect existence) but we won't render them unless monthsToShow show values
+--------------------*/
 async function loadData(){
   showOverlay();
   try{
     const res = await axios.get(API_URL);
     const rows = Array.isArray(res.data) ? res.data : [];
-
     rawData = rows.map(r=>{
       const rawDate = (r.invoice_date || r.INVOICE_DATE || "").toString().trim();
-      const month = invoiceMonthLabel(rawDate); // may be ""
+      const month = invoiceMonthLabel(rawDate); // "" if not parseable
       const state = (r.state || r.STATE || "").trim();
       const party = (r.party_name || r.PARTY_NAME || "").trim();
       const itemRaw = (r.item_name || r.ITEM_NAME || "").trim();
-      const item = itemRaw.replace(/\s+/g, ' ');
+      const item = itemRaw.replace(/\s+/g,' ');
       return { state, party, item, month, qty: toNum(r.quantity_cs || r.Quantity_CS || 0) };
     }).filter(r => r.state && r.party && r.item);
 
     initFilters();
     applyFilters();
   }catch(e){
-    console.error(e);
-    alert('Failed to load data');
+    console.error(e); alert('Failed to load data');
   }finally{
     hideOverlay();
   }
 }
 
-/* -------------------------
-   init filters: populate options
--------------------------*/
+/* --------------------
+   Init filters: populate options (alphabetical)
+--------------------*/
 function initFilters(){
   const states = [...new Set(rawData.map(r=>r.state))].sort();
   const parties = [...new Set(rawData.map(r=>r.party))].sort();
@@ -216,190 +196,150 @@ function initFilters(){
   fill('monthFilter', months);
   fill('comparisonMonth', months);
 
-  // preselect last 2 for comparison if present
   if(months.length >= 2){
     const last2 = months.slice(-2);
     [...document.getElementById('comparisonMonth').options].forEach(o => { if(last2.includes(o.value)) o.selected = true; });
   }
 }
 
-/* small helper to escape innerText for safety */
-function escapeHTML(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-
-/* -------------------------
-  Build aggregated nested map:
-   state -> party -> item -> { month: sum, ... }
-  returns Map objects
--------------------------*/
+/* --------------------
+   Build aggregated nested map: state -> party -> item -> months sums
+   Returns { map, monthsAll }
+--------------------*/
 function buildAggregation(){
-  const monthsAll = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=>new Date('01 '+a)-new Date('01 '+b));
+  const monthsAll = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
   const map = new Map();
   rawData.forEach(r=>{
-    const keyState = r.state;
-    const keyParty = r.party;
-    const keyItem = r.item;
-    if(!map.has(keyState)) map.set(keyState, new Map());
-    const pMap = map.get(keyState);
-    if(!pMap.has(keyParty)) pMap.set(keyParty, new Map());
-    const iMap = pMap.get(keyParty);
-    if(!iMap.has(keyItem)) iMap.set(keyItem, {}); // plain object for months
-    const mon = iMap.get(keyItem);
-    if(r.month){
-      mon[r.month] = (mon[r.month] || 0) + r.qty;
-    } else {
-      // no month - keep presence but don't add to months
-      mon.__no_month__ = (mon.__no_month__ || 0) + r.qty;
-    }
+    const s = r.state, p = r.party, it = r.item;
+    if(!map.has(s)) map.set(s, new Map());
+    const pMap = map.get(s);
+    if(!pMap.has(p)) pMap.set(p, new Map());
+    const iMap = pMap.get(p);
+    if(!iMap.has(it)) iMap.set(it, {});
+    const mon = iMap.get(it);
+    if(r.month) mon[r.month] = (mon[r.month] || 0) + r.qty;
+    else mon.__no_month__ = (mon.__no_month__ || 0) + r.qty;
   });
   return { map, monthsAll };
 }
 
-/* -------------------------
-  Soft cascade (Option B)
-   - For each dropdown, compute allowed options given other selections
-   - Disable options not present, but DO NOT clear user's existing selections
--------------------------*/
-function updateCascadeSelections(monthsToShow){
-  // compute allowed sets based on current selections but excluding the field being evaluated
-  // get current selections
-  const selStates = getVals('stateFilter');
-  const selParties = getVals('partyFilter');
-  const selItems = getVals('itemFilter');
-
-  // We'll compute availability from rawData but respect monthsToShow (if monthsToShow empty, use all months)
+/* --------------------
+   Soft cascade (Option B)
+   - disables options that are not present in current monthsToShow dataset,
+     but DOES NOT clear already selected options
+--------------------*/
+function updateSoftCascade(monthsToShow){
+  // compute allowed sets
   const monthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
-
-  // helper: compute sets
-  const allowed = {
-    states: new Set(),
-    parties: new Set(),
-    items: new Set()
-  };
+  const allowed = { states: new Set(), parties: new Set(), items: new Set() };
 
   rawData.forEach(r=>{
-    // include only rows that have month in monthsFilter OR we still want to allow presence of items even if month missing?
-    // To be practical, consider a row "present" if either month in monthsFilter OR row has no month but item exists in dataset.
-    const hasMonthMatch = r.month && monthsFilter.includes(r.month);
-    const consider = monthsFilter.length ? hasMonthMatch : true;
-    if(!consider) return;
-    allowed.states.add(r.state);
-    allowed.parties.add(r.party);
-    allowed.items.add(r.item);
+    // consider row present if month in monthsFilter OR if monthsFilter empty (show all), treat presence only if month matches
+    if(monthsFilter.length){
+      if(r.month && monthsFilter.includes(r.month)){
+        allowed.states.add(r.state); allowed.parties.add(r.party); allowed.items.add(r.item);
+      }
+    } else {
+      allowed.states.add(r.state); allowed.parties.add(r.party); allowed.items.add(r.item);
+    }
   });
 
-  // For each select, disable options that are not in allowed set unless they are currently selected
-  const setDisable = (selectId, allowedSet) => {
-    const sel = document.getElementById(selectId);
+  const applyDisable = (id, allowedSet) => {
+    const sel = document.getElementById(id);
     if(!sel) return;
-    [...sel.options].forEach(opt=>{
-      const val = opt.value;
-      if(!allowedSet.has(val) && !opt.selected){
-        opt.disabled = true;
-      } else {
-        opt.disabled = false;
-      }
+    [...sel.options].forEach(opt => {
+      if(!allowedSet.has(opt.value) && !opt.selected) opt.disabled = true;
+      else opt.disabled = false;
     });
   };
 
-  setDisable('stateFilter', allowed.states);
-  setDisable('partyFilter', allowed.parties);
-  setDisable('itemFilter', allowed.items);
+  applyDisable('stateFilter', allowed.states);
+  applyDisable('partyFilter', allowed.parties);
+  applyDisable('itemFilter', allowed.items);
 }
 
-/* get selected values from multi-select */
-function getVals(id){ const el=document.getElementById(id); if(!el) return []; return [...el.selectedOptions].map(o=>o.value); }
+/* helper: selected options */
+function getVals(id){ const el = document.getElementById(id); if(!el) return []; return [...el.selectedOptions].map(o=>o.value); }
 
-/* -------------------------
-  Rendering: apply filters, aggregate and build rows
--------------------------*/
+/* --------------------
+   Rendering core
+--------------------*/
 function applyFilters(){
   showOverlay();
-  setTimeout(()=> {
-    // selected show columns
+  setTimeout(()=>{
     const showCols = getVals('showColumns');
-    const selectedStates = getVals('stateFilter');
-    const selectedParties = getVals('partyFilter');
-    const selectedItems = getVals('itemFilter');
+    const selStates = getVals('stateFilter');
+    const selParties = getVals('partyFilter');
+    const selItems = getVals('itemFilter');
     const visibleMonths = getVals('monthFilter');
     const compSel = getVals('comparisonMonth');
 
-    // aggregated map and all months available in dataset
     const { map: aggMap, monthsAll } = buildAggregation();
-
-    // determine months to show: use visibleMonths if selected, else monthsAll
     const monthsToShow = visibleMonths.length ? visibleMonths : monthsAll.slice();
-
-    // set comparison pair for Δ/% Change
     const compSorted = compSel.slice().sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
     const compPair = compSorted.length >= 2 ? compSorted.slice(-2) : [];
 
-    // update soft cascade disabling based on monthsToShow
-    updateCascadeSelections(monthsToShow);
+    // update soft cascade (disabling non-relevant options)
+    updateSoftCascade(monthsToShow);
 
     // build headers
     const headers = [...showCols, ...monthsToShow];
     if(compPair.length >= 2) headers.push('Δ','% Change');
-
     const thead = document.getElementById('comparisonHead');
-    thead.innerHTML = '<tr>' + headers.map(h=>`<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
+    thead.innerHTML = '<tr>' + headers.map(h => `<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
 
-    // Build rows
+    // rows
     let html = '';
     const grand = Object.fromEntries(monthsToShow.map(m=>[m,0]));
 
-    // Helper: check visibility based on selections (State/Party/Item)
-    const stateVisible = (s) => !selectedStates.length || selectedStates.includes(s);
-    const partyVisible = (p) => !selectedParties.length || selectedParties.includes(p);
-    const itemVisible = (it) => !selectedItems.length || selectedItems.includes(it);
+    // iterate states in alphabetical order for stable output
+    const statesSorted = [...aggMap.keys()].sort((a,b)=>a.localeCompare(b));
+    for(const state of statesSorted){
+      if(selStates.length && !selStates.includes(state)) continue;
 
-    // iterate states
-    aggMap.forEach((pMap, state) => {
-      if(!stateVisible(state)) return; // skip state if not selected
+      const pMap = aggMap.get(state);
+      // check whether state has any visible data (in monthsToShow & matches party/item filters)
+      let stateHas = false;
+      for(const [party,iMap] of pMap.entries()){
+        if(selParties.length && !selParties.includes(party)) continue;
+        for(const [item, mon] of iMap.entries()){
+          if(selItems.length && !selItems.includes(item)) continue;
+          if(monthsToShow.some(m=> (mon[m] || 0) > 0 )) { stateHas = true; break; }
+        }
+        if(stateHas) break;
+      }
+      if(!stateHas) continue;
 
-      // compute state-level totals across monthsToShow to decide whether to show this state (hide if all zeros)
-      let stateHasData = false;
+      // iterate parties sorted
+      const partiesSorted = [...pMap.keys()].sort((a,b)=>a.localeCompare(b));
+      for(const party of partiesSorted){
+        if(selParties.length && !selParties.includes(party)) continue;
+        const iMap = pMap.get(party);
+        // build visible items (unique) for this party
+        const visibleItems = [];
+        for(const [item, mon] of iMap.entries()){
+          if(selItems.length && !selItems.includes(item)) continue;
+          // show only if any monthToShow has value >0
+          if(monthsToShow.length && monthsToShow.some(m => (mon[m] || 0) > 0)) visibleItems.push([item,mon]);
+        }
+        if(visibleItems.length === 0) continue;
 
-      pMap.forEach((iMap, party) => {
-        if(!partyVisible(party)) return;
-        [...iMap.entries()].forEach(([item, mon])=>{
-          if(!itemVisible(item)) return;
-          // check if any month in monthsToShow has positive value
-          const any = monthsToShow.some(m => (mon[m] || 0) > 0);
-          if(any) stateHasData = true;
-        });
-      });
-
-      if(!stateHasData) return; // skip entire state if no visible data
-
-      // party iteration
-      pMap.forEach((iMap, party) => {
-        if(!partyVisible(party)) return;
-
-        // prepare list of visible items for this party (unique items)
-        const visibleItems = [...iMap.entries()].filter(([item, mon]) => {
-          if(!itemVisible(item)) return false;
-          // show only if any of monthsToShow >0
-          return monthsToShow.some(m => (mon[m] || 0) > 0);
-        });
-
-        if(visibleItems.length === 0) return;
-
-        // for each visible item, create one row
-        visibleItems.forEach(([item, mon])=>{
+        // render each visible item row
+        visibleItems.sort((a,b)=> a[0].localeCompare(b[0]));
+        for(const [item, mon] of visibleItems){
           html += '<tr>';
-          headers.forEach(h=>{
+          for(const h of headers){
             if(h === 'State') html += `<td>${escapeHTML(state)}</td>`;
             else if(h === 'Party_Name') html += `<td>${escapeHTML(party)}</td>`;
             else if(h === 'Item_Name') html += `<td>${escapeHTML(item)}</td>`;
             else if(monthsToShow.includes(h)){
               const v = mon[h] || 0;
-              // color compare with previous visible month in monthsToShow
               const idx = monthsToShow.indexOf(h);
               let bg = '';
               if(idx > 0){
-                const prev = monthsToShow[idx - 1];
-                const prevVal = mon[prev] || 0;
-                bg = v > prevVal ? `background-color:${'var(--up-bg)'};` : `background-color:${'var(--down-bg)'};`;
+                const prev = monthsToShow[idx-1];
+                const prevV = mon[prev] || 0;
+                bg = v > prevV ? `background-color:${'var(--up-bg)'};` : `background-color:${'var(--down-bg)'};`;
               }
               html += `<td style="${bg}">${v ? v.toLocaleString() : ''}</td>`;
               grand[h] += v;
@@ -410,11 +350,11 @@ function applyFilters(){
                 if(h === 'Δ'){
                   const diff = v2 - v1;
                   const bg = diff > 0 ? 'var(--up-bg)' : 'var(--down-bg)';
-                  html += `<td style="background-color:${bg};"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
+                  html += `<td style="background-color:${bg};"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
                 } else {
                   const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
                   const col = pct > 0 ? '#16a34a' : '#dc2626';
-                  html += `<td style="color:${col}">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
+                  html += `<td style="color:${col}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;
                 }
               } else {
                 html += '<td></td>';
@@ -422,73 +362,70 @@ function applyFilters(){
             } else {
               html += '<td></td>';
             }
-          });
+          }
           html += '</tr>';
-        });
+        }
 
-        // party subtotal if visibleItems >= 2
+        // party subtotal if >=2 visible items
         if(visibleItems.length >= 2){
-          // compute party subtotal sums
           const ps = Object.fromEntries(monthsToShow.map(m=>[m,0]));
-          visibleItems.forEach(([_, mon])=> monthsToShow.forEach(m=> ps[m]+= (mon[m] || 0)));
+          visibleItems.forEach(([_, mon]) => monthsToShow.forEach(m => ps[m] += (mon[m] || 0)));
           html += '<tr class="subtotal-row">';
-          headers.forEach(h=>{
+          for(const h of headers){
             if(monthsToShow.includes(h)) html += `<td><b>${ps[h].toLocaleString()}</b></td>`;
             else if(h === 'Item_Name') html += `<td><b>SUM ${escapeHTML(party)}</b></td>`;
             else html += '<td></td>';
-          });
+          }
           html += '</tr>';
         }
-      });
+      } // end party loop
 
-      // state total (after all parties)
+      // compute and render state total
       const st = Object.fromEntries(monthsToShow.map(m=>[m,0]));
-      pMap.forEach((iMap, party)=>{
-        [...iMap.entries()].forEach(([item, mon])=>{
-          // include only visible items matching current global filters
-          if(!itemVisible(item) || !partyVisible(party) || !stateVisible(state)) return;
-          monthsToShow.forEach(m => st[m] += (mon[m] || 0));
-        });
-      });
+      for(const [party,iMap] of pMap.entries()){
+        if(selParties.length && !selParties.includes(party)) continue;
+        for(const [item,mon] of iMap.entries()){
+          if(selItems.length && !selItems.includes(item)) continue;
+          if(monthsToShow.length){
+            monthsToShow.forEach(m => st[m] += (mon[m] || 0));
+          }
+        }
+      }
       html += '<tr class="state-total-row">';
-      headers.forEach(h=>{
+      for(const h of headers){
         if(monthsToShow.includes(h)) html += `<td><b>${st[h].toLocaleString()}</b></td>`;
         else if(h === 'Item_Name') html += `<td><b>TOTAL ${escapeHTML(state)}</b></td>`;
         else html += '<td></td>';
-      });
+      }
       html += '</tr>';
-    });
+    } // end state loop
 
-    // grand total row
+    // grand total
     let f = '<tr class="grandtotal-row">';
-    headers.forEach(h=>{
+    for(const h of headers){
       if(monthsToShow.includes(h)) f += `<td><b>${grand[h].toLocaleString()}</b></td>`;
       else if(h === 'Item_Name') f += `<td><b>GRAND TOTAL</b></td>`;
       else f += '<td></td>';
-    });
+    }
     f += '</tr>';
 
     document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
     document.getElementById('comparisonFoot').innerHTML = f;
     hideOverlay();
-  }, 100);
+  }, 80);
 }
 
-/* -------------------------
-  Event bindings + cascade + export
--------------------------*/
-const debouncedApply = debounce(()=>{
-  // applyFilters will also call updateCascadeSelections internally (for months used)
-  applyFilters();
-}, 200);
+/* Event bindings + soft cascade integration */
+const debounced = debounce(() => applyFilters(), 200);
 
-["showColumns","stateFilter","partyFilter","itemFilter","monthFilter","comparisonMonth"]
-  .forEach(id => document.getElementById(id).addEventListener('change', () => {
-    // soft cascade: recompute disables but keep selected options active
+["showColumns","stateFilter","partyFilter","itemFilter","monthFilter","comparisonMonth"].forEach(id=>{
+  document.getElementById(id).addEventListener('change', ()=>{
+    // soft cascade update (based on months currently selected)
     const monthsToShow = getVals('monthFilter');
-    updateCascadeSelections(monthsToShow);
-    debouncedApply();
-  }));
+    updateSoftCascade(monthsToShow);
+    debounced();
+  });
+});
 
 document.getElementById('clearBtn').onclick = () => location.reload();
 
@@ -504,17 +441,16 @@ document.getElementById('exportBtn').onclick = async () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Comparison');
     const rows = [...document.querySelectorAll('#comparisonTable tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
-    rows.forEach((r,i)=>{ const row = ws.addRow(r); if(i===0) row.font = { bold: true }; });
-    ws.columns.forEach(c=>c.width = 18);
+    rows.forEach((r,i) => { const row = ws.addRow(r); if(i===0) row.font = { bold: true }; });
+    ws.columns.forEach(c => c.width = 18);
     const buf = await wb.xlsx.writeBuffer();
     saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
-  }catch(e){ console.error('Export failed', e); alert('Export failed'); }
+  }catch(e){ console.error(e); alert('Export failed'); }
   finally{ hideOverlay(); }
 };
 
 /* init */
 loadData();
 </script>
-
 </body>
 </html>
