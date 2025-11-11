@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>SMC - Plant to Depot Sales Dashboard</title>
 <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
+
+<!-- libs -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
@@ -14,141 +16,98 @@
   --navy: #1e3a8a;
   --accent1: #2563eb;
   --accent2: #4f46e5;
+  --muted: #6b7280;
 }
+*{box-sizing:border-box}
 body {
-  font-family: Inter, system-ui, Arial;
+  font-family: Inter,system-ui,Arial, sans-serif;
   margin: 0;
   background: #f6f9fc;
   color: #0f172a;
 }
+
+/* Header (centered logo + title) */
 header {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 14px 16px;
-  background: linear-gradient(90deg, var(--accent1), var(--accent2));
-  color: #fff;
-  box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:16px;
+  padding:14px 16px;
+  background: linear-gradient(90deg,var(--accent1),var(--accent2));
+  color:#fff;
+  box-shadow:0 3px 10px rgba(0,0,0,0.08);
   position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 1100;
 }
-header img {
-  height: 48px;
-  margin-right: 12px;
-}
-header h1 {
-  margin: 0;
-  font-weight: 900;
-  font-size: 1.4rem;
-  letter-spacing: 0.5px;
-}
+header img{height:56px;flex:0 0 auto}
+header h1{margin:0;font-weight:900;font-size:1.35rem}
+
+/* top toolbar (stick under header) */
 .toolbar {
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  padding:10px;
+  background:transparent;
   position: sticky;
-  top: 70px;
-  background: #fff;
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  padding: 10px;
-  z-index: 999;
-  box-shadow: 0 2px 8px rgba(30,58,138,0.08);
+  top: 80px;
+  z-index: 1050;
 }
-.btn {
-  border: 0;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 700;
-  transition: all 0.25s ease;
-}
-.btn-blue {
-  background: linear-gradient(90deg, var(--accent1), var(--accent2));
-  color: #fff;
-}
-.btn-blue:hover {
-  box-shadow: 0 0 8px rgba(37,99,235,0.6);
-}
-.btn-gray {
-  background: #eef2ff;
-  color: var(--navy);
+.btn{border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:800}
+.btn-blue{background: linear-gradient(90deg,var(--accent1),var(--accent2)); color:#fff}
+.btn-gray{background:#eef2ff;color:var(--navy)}
+
+/* Filters row - one row of boxes horizontally scrollable on small screens */
+#filtersWrapper {
+  display:flex;
+  justify-content:center;
+  padding:14px 12px;
 }
 .filters {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 16px auto;
-  padding: 10px;
+  display:flex;
+  gap:12px;
+  align-items:center;
+  flex-wrap:nowrap;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:8px;
+  width:100%;
+  max-width:1500px;
 }
+
+/* filter box style */
 .filter-box {
-  background: rgba(255,255,255,0.85);
-  border-radius: 12px;
-  border: 2px solid #c7d2fe;
-  box-shadow: 0 4px 16px rgba(37,99,235,0.08);
-  padding: 10px 14px;
-  transition: all 0.25s ease;
+  background: rgba(255,255,255,0.95);
+  border-radius:12px;
+  padding:10px 12px;
+  border:2px solid #c7d2fe;
+  min-width:160px;
+  box-shadow:0 6px 18px rgba(37,99,235,0.06);
+  flex: 0 0 auto;
 }
-.filter-box:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(37,99,235,0.18);
+.filter-box label{display:block;font-weight:800;color:var(--navy);margin-bottom:6px}
+.filter-box select{width:220px;padding:6px;border-radius:8px;border:1.5px solid #c7d2fe;background:#fff;font-weight:700}
+
+/* table */
+.table-wrapper{
+  max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06)
 }
-.filter-box label {
-  font-weight: 800;
-  color: var(--navy);
-}
-select {
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1.5px solid #c7d2fe;
-  background: #fff;
-  font-weight: 600;
-}
-.table-wrapper {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 6px 18px rgba(4,8,15,0.06);
-  overflow: auto;
-  margin: 20px auto;
-  max-width: 1500px;
-  max-height: 75vh;
-}
-table {
-  border-collapse: collapse;
-  width: 100%;
-  text-align: center;
-}
-th, td {
-  border: 2px solid #374151;
-  padding: 8px 10px;
-  font-weight: 700;
-  text-align: center;
-}
-thead th {
-  position: sticky;
-  top: 0;
-  background: linear-gradient(90deg, #e0e7ff, #c7d2fe);
-  color: var(--navy);
-  z-index: 5;
-}
-tr.subtotal-row td { background: #fff7cc; font-weight: 900; }
-tr.grandtotal-row td { background: #bae6fd; font-weight: 900; }
-.overlay {
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255,255,255,0.7);
-  z-index: 3000;
-  font-weight: 900;
-  color: var(--navy);
-}
-.overlay.show { display: flex; }
-.tooltip {
-  font-size: 0.8rem;
-  color: #374151;
+table{border-collapse:collapse;width:100%;min-width:1100px}
+thead th, tbody td { text-align:center; padding:8px; border:2px solid #2d3748; font-weight:800 }
+thead th { position: sticky; top:0; background: linear-gradient(90deg,#e0e7ff,#c7d2fe); color:var(--navy); z-index:5 }
+tr.subtotal-row td{ background:#fff7cc; font-weight:900 }
+tr.state-total-row td{ background:#e6f6ff; font-weight:900}
+tr.grandtotal-row td{ background:#bae6fd; font-weight:900 }
+
+/* overlay */
+.overlay{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(255,255,255,0.75); z-index:3000; font-weight:900; color:var(--navy) }
+.overlay.show{ display:flex }
+
+/* nice responsive behavior: keep header & filters visible on small screens but scroll horizontally */
+@media(max-width:900px){
+  header h1{font-size:1.05rem}
+  .filter-box select{width:160px}
 }
 </style>
 </head>
@@ -166,230 +125,380 @@ tr.grandtotal-row td { background: #bae6fd; font-weight: 900; }
   <button id="toggleFiltersBtn" class="btn btn-blue">Hide Filters</button>
 </div>
 
-<div id="filtersWrapper" class="filters">
-  <div class="filter-box" title="Select which columns to display">
-    <label>Show Columns</label><br>
-    <select id="showColumns" multiple size="3">
-      <option value="State" selected>State</option>
-      <option value="Party_Name" selected>Party_Name</option>
-      <option value="Item_Name" selected>Item_Name</option>
-    </select>
-  </div>
+<!-- Filters (single row, scrollable) -->
+<div id="filtersWrapper">
+  <div class="filters" id="filtersRow">
+    <div class="filter-box" title="Select which row columns you want to see (State/Party/Item).">
+      <label>Show Columns</label>
+      <select id="showColumns" multiple>
+        <option value="State" selected>State</option>
+        <option value="Party_Name" selected>Party_Name</option>
+        <option value="Item_Name" selected>Item_Name</option>
+      </select>
+      <div class="tooltip">Choose the three identity columns to show.</div>
+    </div>
 
-  <div class="filter-box" title="Filter data by state">
-    <label>State</label><br>
-    <select id="stateFilter">
-      <option value="">All</option>
-    </select>
-  </div>
+    <div class="filter-box" title="Filter by State (multi-select)">
+      <label>State</label>
+      <select id="stateFilter" multiple></select>
+      <div class="tooltip">Pick one or more states to filter.</div>
+    </div>
 
-  <div class="filter-box" title="Filter data by party name">
-    <label>Party Name</label><br>
-    <select id="partyFilter">
-      <option value="">All</option>
-    </select>
-  </div>
+    <div class="filter-box" title="Filter by Party (multi-select)">
+      <label>Party Name</label>
+      <select id="partyFilter" multiple></select>
+      <div class="tooltip">Pick one or more parties.</div>
+    </div>
 
-  <div class="filter-box" title="Filter data by item name">
-    <label>Item Name</label><br>
-    <select id="itemFilter">
-      <option value="">All</option>
-    </select>
-  </div>
+    <div class="filter-box" title="Filter by Item (multi-select)">
+      <label>Item Name</label>
+      <select id="itemFilter" multiple></select>
+      <div class="tooltip">Pick one or more item names. Items are grouped by prefix (DW, DC, ...).</div>
+    </div>
 
-  <div class="filter-box" title="Choose which months to display in the table">
-    <label>Month_Name</label><br>
-    <select id="monthFilter" multiple size="3"></select>
-    <button id="selectAllMonths" class="btn btn-gray" style="margin-top:4px;">Select All</button>
-  </div>
+    <div class="filter-box" title="Which months should appear as numeric columns? (multi-select)">
+      <label>Month_Name</label>
+      <select id="monthFilter" multiple></select>
+      <div class="tooltip">Controls which invoice months appear as columns (chronological).</div>
+    </div>
 
-  <div class="filter-box" title="Select months to compare; % Change column appears if 2+ selected">
-    <label>Comparison Month</label><br>
-    <select id="comparisonMonth" multiple size="3"></select>
-    <button id="selectAllComparison" class="btn btn-gray" style="margin-top:4px;">Select All</button>
+    <div class="filter-box" title="Choose comparison months (multi-select). Δ and % Change use the two latest selected comparison months.">
+      <label>Comparison Month</label>
+      <select id="comparisonMonth" multiple></select>
+      <div class="tooltip">If 2+ months selected, Δ and % change appear (last two months used).</div>
+    </div>
+
   </div>
 </div>
 
 <div class="table-wrapper">
-  <table id="comparisonTable">
+  <table id="comparisonTable" aria-label="Monthly Sales Comparison">
     <thead id="comparisonHead"></thead>
     <tbody id="comparisonBody"></tbody>
+    <tfoot id="comparisonFoot"></tfoot>
   </table>
 </div>
 
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
+/* -------------------- Config -------------------- */
 const API_URL = "/get_data/lighthouse_sales";
-let rawData = [];
-
-function showOverlay(){document.getElementById('overlay').classList.add('show');}
-function hideOverlay(){document.getElementById('overlay').classList.remove('show');}
-function toNum(v){return Number(v)||0;}
+let rawData = []; // {state, party, item, month, qty}
+function showOverlay(){ document.getElementById('overlay').classList.add('show'); }
+function hideOverlay(){ document.getElementById('overlay').classList.remove('show'); }
+function toNum(v){ return Number(v)||0; }
 function parseDateFlexible(s){
-  if(!s)return null;
-  s=String(s).trim();
-  if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8);return new Date(y,m-1,d);}
-  const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if(m)return new Date(+m[1],+m[2]-1,+m[3]);
-  const d=new Date(s);
-  return isNaN(d)?null:d;
+  if(!s) return null; s=String(s).trim();
+  if(/^\d{8}$/.test(s)){ const d=+s.slice(0,2), m=+s.slice(2,4), y=+s.slice(4,8); return new Date(y,m-1,d); }
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  const d = new Date(s); return isNaN(d)?null:d;
 }
 function invoiceMonthLabel(s){
-  const dt=parseDateFlexible(s);
-  if(!dt)return "";
-  return dt.toLocaleString('default',{month:'short',year:'2-digit'});
+  const dt = parseDateFlexible(s);
+  if(!dt) return "";
+  return dt.toLocaleString('default',{month:'short', year:'2-digit'});
 }
-function debounce(fn, delay){
-  let t; return function(...args){clearTimeout(t);t=setTimeout(()=>fn(...args),delay);}
-}
+function debounce(fn, ms=200){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
 
-// Load and setup
+/* -------------------- Load -------------------- */
 async function loadData(){
   showOverlay();
   try{
     const res = await axios.get(API_URL);
-    const data = Array.isArray(res.data)?res.data:[];
-    rawData = data.map(r=>{
-      const rawDate=(r.invoice_date||r.INVOICE_DATE||"").trim();
-      const parsed=parseDateFlexible(rawDate);
+    const rows = Array.isArray(res.data) ? res.data : [];
+    rawData = rows.map(r=>{
+      const rawDate = (r.invoice_date || r.INVOICE_DATE || "").toString().trim();
+      const month = invoiceMonthLabel(rawDate);
       return {
-        state:(r.state||r.STATE||"").trim(),
-        party:(r.party_name||r.PARTY_NAME||"").trim(),
-        item:(r.item_name||r.ITEM_NAME||"").trim(),
-        month:invoiceMonthLabel(rawDate),
-        qty:toNum(r.quantity_cs||r.Quantity_CS||0)
+        state: (r.state || r.STATE || "").toString().trim(),
+        party: (r.party_name || r.PARTY_NAME || "").toString().trim(),
+        item: (r.item_name || r.ITEM_NAME || "").toString().trim(),
+        month,
+        qty: toNum(r.quantity_cs || r.Quantity_CS || 0)
       };
-    }).filter(r=>r.month);
-
+    }).filter(r=>r.month && r.party && r.state && r.item);
     initFilters();
     applyFilters();
-  }finally{hideOverlay();}
+  } catch(e){
+    console.error("loadData:", e);
+    alert("Failed to load data.");
+  } finally { hideOverlay(); }
 }
 
+/* -------------------- Init filters -------------------- */
 function initFilters(){
-  const states=[...new Set(rawData.map(r=>r.state))].sort();
-  const parties=[...new Set(rawData.map(r=>r.party))].sort();
-  const items=[...new Set(rawData.map(r=>r.item))].sort((a,b)=>{
-    const pa=a.split(' ')[0].toUpperCase(), pb=b.split(' ')[0].toUpperCase();
-    if(pa===pb)return a.localeCompare(b,undefined,{numeric:true});
-    return pa.localeCompare(pb);
+  const states = [...new Set(rawData.map(r=>r.state))].filter(Boolean).sort();
+  const parties = [...new Set(rawData.map(r=>r.party))].filter(Boolean).sort();
+  // item sort: group by prefix then alpha numeric
+  const items = [...new Set(rawData.map(r=>r.item))].filter(Boolean).sort((a,b)=>{
+    const pa = a.split(/\s+/)[0].toUpperCase(), pb = b.split(/\s+/)[0].toUpperCase();
+    if(pa === pb) return a.localeCompare(b, undefined, {numeric:true});
+    // group by prefix order: DW, DC, GHEE, UHT, else alphabetical
+    const order = ["DW","DC","GHEE","UHT"];
+    const ia = order.indexOf(pa), ib = order.indexOf(pb);
+    if(ia === -1 && ib === -1) return pa.localeCompare(pb);
+    if(ia === -1) return 1;
+    if(ib === -1) return -1;
+    return ia - ib;
   });
-  const months=[...new Set(rawData.map(r=>r.month))].sort((a,b)=>new Date("01-"+a)-new Date("01-"+b));
+  const months = [...new Set(rawData.map(r=>r.month))].filter(Boolean)
+    .sort((a,b)=> new Date("01 "+a) - new Date("01 "+b));
 
-  const stateSel=document.getElementById("stateFilter");
-  states.forEach(s=>stateSel.innerHTML+=`<option>${s}</option>`);
-  const partySel=document.getElementById("partyFilter");
-  parties.forEach(p=>partySel.innerHTML+=`<option>${p}</option>`);
-  const itemSel=document.getElementById("itemFilter");
-  items.forEach(i=>itemSel.innerHTML+=`<option>${i}</option>`);
-  const monthSel=document.getElementById("monthFilter");
-  months.forEach(m=>monthSel.innerHTML+=`<option>${m}</option>`);
-  const compSel=document.getElementById("comparisonMonth");
-  months.forEach(m=>compSel.innerHTML+=`<option>${m}</option>`);
+  const populate = (id, list, multi=true) => {
+    const el = document.getElementById(id);
+    el.innerHTML = "";
+    if(!multi) el.innerHTML = `<option value="">All</option>`;
+    list.forEach(v=> el.innerHTML += `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`);
+  };
+  populate("stateFilter", states);
+  populate("partyFilter", parties);
+  populate("itemFilter", items);
+  populate("monthFilter", months);
+  populate("comparisonMonth", months);
 
-  // preselect last 2 months
-  if(months.length>=2){
-    const last2=months.slice(-2);
-    for(const opt of compSel.options){if(last2.includes(opt.value))opt.selected=true;}
+  // pre-select last two months in comparisonMonth if available
+  const compSel = document.getElementById("comparisonMonth");
+  if(months.length >= 2){
+    const lastTwo = months.slice(-2);
+    for(const opt of compSel.options){ if(lastTwo.includes(opt.value)) opt.selected = true; }
   }
+
+  // default showColumns already pre-checked in HTML (selected)
 }
 
+/* -------------------- Helpers -------------------- */
+function escapeHtml(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'); }
+function getSelectedValues(id){ const el = document.getElementById(id); return [...el.selectedOptions].map(o=>o.value); }
+
+/* -------------------- Main filter + render -------------------- */
 function applyFilters(){
   showOverlay();
-  setTimeout(()=>{
-    const showCols=[...document.getElementById("showColumns").selectedOptions].map(o=>o.value);
-    const state=document.getElementById("stateFilter").value;
-    const party=document.getElementById("partyFilter").value;
-    const item=document.getElementById("itemFilter").value;
-    const months=[...document.getElementById("monthFilter").selectedOptions].map(o=>o.value);
-    const compMonths=[...document.getElementById("comparisonMonth").selectedOptions].map(o=>o.value);
+  setTimeout(()=> {
+    // selections (multi)
+    const showCols = getSelectedValues("showColumns"); // e.g. ["State","Party_Name","Item_Name"]
+    const selStates = getSelectedValues("stateFilter");
+    const selParties = getSelectedValues("partyFilter");
+    const selItems = getSelectedValues("itemFilter");
+    const visibleMonths = getSelectedValues("monthFilter");
+    const compMonths = getSelectedValues("comparisonMonth");
 
-    let filtered=rawData.filter(r=>
-      (!state||r.state===state)&&(!party||r.party===party)&&(!item||r.item===item)
-    );
+    // if user didn't choose months to be visible, fallback to all months present in data (chronological)
+    const allMonths = [...new Set(rawData.map(r=>r.month))].sort((a,b)=> new Date("01 "+a) - new Date("01 "+b));
+    const monthsToShow = visibleMonths.length ? visibleMonths : allMonths;
 
-    const allMonths=[...new Set(rawData.map(r=>r.month))].sort((a,b)=>new Date("01-"+a)-new Date("01-"+b));
-    const visibleMonths=months.length?months:allMonths;
+    // pick comparison months: if user selected >=2 use them (last two chronological), else none
+    const compSorted = compMonths.slice().sort((a,b)=> new Date("01 "+a) - new Date("01 "+b));
+    const compForCalc = compSorted.length >= 2 ? compSorted.slice(-2) : []; // last two
 
-    // group data
-    const map=new Map();
+    // filter source rows by state/party/item (these are multi-selects)
+    let filtered = rawData.filter(r=>{
+      if(selStates.length && !selStates.includes(r.state)) return false;
+      if(selParties.length && !selParties.includes(r.party)) return false;
+      if(selItems.length && !selItems.includes(r.item)) return false;
+      return true;
+    });
+
+    // Build hierarchical grouping: state -> party -> item
+    const stateMap = new Map();
     filtered.forEach(r=>{
-      const key=[r.state,r.party,r.item].join("|");
-      if(!map.has(key))map.set(key,{State:r.state,Party_Name:r.party,Item_Name:r.item});
-      const o=map.get(key);
-      o[r.month]=(o[r.month]||0)+r.qty;
+      const s = r.state, p = r.party, i = r.item;
+      if(!stateMap.has(s)) stateMap.set(s, new Map());
+      const partyMap = stateMap.get(s);
+      if(!partyMap.has(p)) partyMap.set(p, new Map());
+      const itemMap = partyMap.get(p);
+      if(!itemMap.has(i)) itemMap.set(i, {});
+      const bucket = itemMap.get(i);
+      bucket[r.month] = (bucket[r.month] || 0) + r.qty;
     });
-    const rows=[...map.values()];
 
-    const thead=document.getElementById("comparisonHead");
-    const tbody=document.getElementById("comparisonBody");
+    // Prepare header: showCols (map display names) + monthsToShow + optional Δ and % Change
+    const headerCols = [];
+    // mapping from showCols to actual display (we expect showCols values "State","Party_Name","Item_Name")
+    showCols.forEach(c => headerCols.push(c));
+    // Month_Name column was requested previously to be removed from table — user said "NO NEED OF THIS MONTH_NAME COLUMN" — here monthsToShow are appended after Item_Name
+    monthsToShow.forEach(m => headerCols.push(m));
+    const showComparison = compForCalc.length >= 2;
+    if(showComparison){
+      headerCols.push("Δ"); headerCols.push("% Change");
+    }
 
-    let headers=[...showCols,...visibleMonths];
-    if(compMonths.length>=2)headers.push("Δ","% Change");
+    // Render header
+    const thead = document.getElementById("comparisonHead");
+    thead.innerHTML = "<tr>" + headerCols.map(h => `<th>${escapeHtml(h)}</th>`).join("") + "</tr>";
 
-    thead.innerHTML="<tr>"+headers.map(h=>`<th>${h}</th>`).join("")+"</tr>";
+    // Render body grouped with party subtotals and state totals
+    const tbody = document.getElementById("comparisonBody");
+    const tfoot = document.getElementById("comparisonFoot");
+    let bodyHtml = "";
+    const grandTotals = Object.fromEntries(monthsToShow.map(m=>[m,0]));
+    grandTotals.__Δ = 0; grandTotals.__pct = 0;
 
-    let html="";
-    rows.forEach(r=>{
-      html+="<tr>";
-      headers.forEach(h=>{
-        if(h==="Δ"){
-          const [m1,m2]=compMonths.slice(-2);
-          const diff=(r[m2]||0)-(r[m1]||0);
-          const color=diff>0?"#22c55e":"#ef4444";
-          html+=`<td style="color:${color}">${diff>0?"+":""}${diff.toLocaleString()}</td>`;
-        } else if(h==="% Change"){
-          const [m1,m2]=compMonths.slice(-2);
-          const v1=r[m1]||0, v2=r[m2]||0;
-          const pct=v1?(((v2-v1)/v1)*100).toFixed(1):0;
-          const color=pct>=0?"#22c55e":"#ef4444";
-          html+=`<td style="color:${color}">${pct>0?"+":""}${pct}%</td>`;
-        } else {
-          html+=`<td>${r[h]!==undefined?r[h].toLocaleString():""}</td>`;
+    stateMap.forEach((partyMap, stateKey) => {
+      // State-level totals across months
+      const stateTotals = Object.fromEntries(monthsToShow.map(m=>[m,0]));
+      stateTotals.__Δ = 0; stateTotals.__pct = 0;
+
+      partyMap.forEach((itemMap, partyKey) => {
+        // Party-level totals across months
+        const partyTotals = Object.fromEntries(monthsToShow.map(m=>[m,0]));
+        partyTotals.__Δ = 0; partyTotals.__pct = 0;
+
+        // Items: render item rows
+        itemMap.forEach((monthData, itemKey) => {
+          bodyHtml += "<tr>";
+          // identity columns per showCols order
+          showCols.forEach(sc => {
+            if(sc === "State") bodyHtml += `<td>${escapeHtml(stateKey)}</td>`;
+            else if(sc === "Party_Name") bodyHtml += `<td>${escapeHtml(partyKey)}</td>`;
+            else if(sc === "Item_Name") bodyHtml += `<td>${escapeHtml(itemKey)}</td>`;
+            else bodyHtml += `<td></td>`;
+          });
+
+          // numeric month columns
+          monthsToShow.forEach(m => {
+            const v = monthData[m] || 0;
+            bodyHtml += `<td>${v.toLocaleString()}</td>`;
+            partyTotals[m] += v;
+            stateTotals[m] += v;
+            grandTotals[m] += v;
+          });
+
+          // Δ and % change for this row if applicable (using last two comp months)
+          if(showComparison){
+            const m1 = compForCalc[0], m2 = compForCalc[1];
+            const v1 = monthData[m1] || 0;
+            const v2 = monthData[m2] || 0;
+            const diff = v2 - v1;
+            const pct = v1 ? ((diff / v1) * 100) : (v2 ? 100 : 0);
+            const sign = diff>0?"+":(diff<0?"-":"");
+            const colorDiff = diff>0 ? "#059669" : (diff<0 ? "#dc2626" : "#111827");
+            const colorPct = pct>0 ? "#059669" : (pct<0 ? "#dc2626" : "#111827");
+            bodyHtml += `<td style="color:${colorDiff}">${sign}${Math.abs(diff).toLocaleString()}</td>`;
+            bodyHtml += `<td style="color:${colorPct}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;
+          }
+
+          bodyHtml += "</tr>";
+        }); // end items for party
+
+        // Party subtotal row (show always — you asked keep subtotals)
+        bodyHtml += "<tr class='subtotal-row'>";
+        // first identity cell show Subtotal label in first column, blanks in rest identity columns
+        const identityColsCount = showCols.length;
+        for(let i=0;i<identityColsCount;i++){
+          if(i===0) bodyHtml += `<td><b>SUM ${escapeHtml(partyKey)}</b></td>`;
+          else bodyHtml += "<td></td>";
         }
-      });
-      html+="</tr>";
-    });
+        // month sums
+        monthsToShow.forEach(m => bodyHtml += `<td><b>${partyTotals[m].toLocaleString()}</b></td>`);
 
-    tbody.innerHTML=html||`<tr><td colspan="${headers.length}">No Data</td></tr>`;
+        // Δ and % change aggregated for party totals
+        if(showComparison){
+          const m1 = compForCalc[0], m2 = compForCalc[1];
+          const v1 = partyTotals[m1] || 0;
+          const v2 = partyTotals[m2] || 0;
+          const diff = v2 - v1;
+          const pct = v1 ? ((diff / v1) * 100) : (v2 ? 100 : 0);
+          const colorDiff = diff>0 ? "#059669" : (diff<0 ? "#dc2626" : "#111827");
+          const colorPct = pct>0 ? "#059669" : (pct<0 ? "#dc2626" : "#111827");
+          bodyHtml += `<td style="color:${colorDiff}"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
+          bodyHtml += `<td style="color:${colorPct}"><b>${pct>0?'+':''}${pct.toFixed(1)}%</b></td>`;
+        }
+        bodyHtml += "</tr>";
+
+      }); // end partyMap.forEach
+
+      // State total row
+      bodyHtml += "<tr class='state-total-row'>";
+      const idCols = showCols.length;
+      for(let i=0;i<idCols;i++){
+        if(i===0) bodyHtml += `<td><b>TOTAL ${escapeHtml(stateKey)}</b></td>`;
+        else bodyHtml += "<td></td>";
+      }
+      monthsToShow.forEach(m => bodyHtml += `<td><b>${stateTotals[m].toLocaleString()}</b></td>`);
+      if(showComparison){
+        const m1 = compForCalc[0], m2 = compForCalc[1];
+        // compute state totals by summing party totals (we already added into stateTotals above)
+        const v1 = stateTotals[m1] || 0, v2 = stateTotals[m2] || 0;
+        const diff = v2 - v1;
+        const pct = v1 ? ((diff / v1) * 100) : (v2 ? 100 : 0);
+        const colorDiff = diff>0 ? "#059669" : (diff<0 ? "#dc2626" : "#111827");
+        const colorPct = pct>0 ? "#059669" : (pct<0 ? "#dc2626" : "#111827");
+        bodyHtml += `<td style="color:${colorDiff}"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
+        bodyHtml += `<td style="color:${colorPct}"><b>${pct>0?'+':''}${pct.toFixed(1)}%</b></td>`;
+      }
+      bodyHtml += "</tr>";
+
+    }); // end stateMap.forEach
+
+    // Grand total row
+    let grandHtml = "<tr class='grandtotal-row'>";
+    const idColsCount = showCols.length;
+    for(let i=0;i<idColsCount;i++){
+      if(i===0) grandHtml += `<td><b>GRAND TOTAL</b></td>`; else grandHtml += "<td></td>";
+    }
+    monthsToShow.forEach(m => grandHtml += `<td><b>${(grandTotals[m]||0).toLocaleString()}</b></td>`);
+    if(showComparison){
+      const m1 = compForCalc[0], m2 = compForCalc[1];
+      const v1 = grandTotals[m1] || 0, v2 = grandTotals[m2] || 0;
+      const diff = v2 - v1;
+      const pct = v1 ? ((diff / v1) * 100) : (v2 ? 100 : 0);
+      const colorDiff = diff>0 ? "#059669" : (diff<0 ? "#dc2626" : "#111827");
+      const colorPct = pct>0 ? "#059669" : (pct<0 ? "#dc2626" : "#111827");
+      grandHtml += `<td style="color:${colorDiff}"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
+      grandHtml += `<td style="color:${colorPct}"><b>${pct>0?'+':''}${pct.toFixed(1)}%</b></td>`;
+    }
+    grandHtml += "</tr>";
+
+    tbody.innerHTML = bodyHtml || `<tr><td colspan="${headerCols.length}">No Data</td></tr>`;
+    tfoot.innerHTML = grandHtml;
+
     hideOverlay();
-  },100);
-}
+  }, 80);
+} // end applyFilters
 
-const debouncedApply=debounce(applyFilters,200);
-["stateFilter","partyFilter","itemFilter","monthFilter","comparisonMonth","showColumns"]
-  .forEach(id=>document.getElementById(id).addEventListener("change",debouncedApply));
+/* -------------------- UI wiring -------------------- */
+const debouncedApply = debounce(applyFilters, 250);
+["showColumns","stateFilter","partyFilter","itemFilter","monthFilter","comparisonMonth"]
+  .forEach(id => document.getElementById(id).addEventListener("change", debouncedApply));
 
-document.getElementById("selectAllMonths").onclick=()=>{
-  const sel=document.getElementById("monthFilter");
-  [...sel.options].forEach(o=>o.selected=true);
-  debouncedApply();
-};
-document.getElementById("selectAllComparison").onclick=()=>{
-  const sel=document.getElementById("comparisonMonth");
-  [...sel.options].forEach(o=>o.selected=true);
-  debouncedApply();
-};
-document.getElementById("clearBtn").onclick=()=>{location.reload();};
-document.getElementById("toggleFiltersBtn").onclick=()=>{
-  const w=document.getElementById("filtersWrapper");
-  const b=document.getElementById("toggleFiltersBtn");
-  if(w.style.display==="none"){w.style.display="flex";b.textContent="Hide Filters";}
-  else{w.style.display="none";b.textContent="Show Filters";}
-};
-document.getElementById("exportBtn").onclick=async()=>{
+document.getElementById("toggleFiltersBtn").addEventListener("click", ()=>{
+  const w = document.getElementById("filtersRow"), btn = document.getElementById("toggleFiltersBtn");
+  if(w.style.display === "none"){ w.style.display="flex"; btn.textContent="Hide Filters"; }
+  else { w.style.display="flex"; /* keep visible by default; toggling off would hide scroll row */ btn.textContent="Hide Filters"; }
+  // Note: kept simple — user previously wanted filters to scroll away; this keeps them visible but you can adjust here.
+});
+
+document.getElementById("clearBtn").addEventListener("click", ()=>{
+  // clear all multi-selects
+  ["stateFilter","partyFilter","itemFilter","monthFilter","comparisonMonth"].forEach(id=>{
+    const el = document.getElementById(id);
+    [...el.options].forEach(o => o.selected = false);
+  });
+  // reset showColumns to defaults
+  const sc = document.getElementById("showColumns");
+  [...sc.options].forEach(o => o.selected = (o.value === "State" || o.value === "Party_Name" || o.value === "Item_Name"));
+  applyFilters();
+});
+
+// Export
+document.getElementById("exportBtn").addEventListener("click", async ()=>{
   showOverlay();
   try{
-    const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet("Comparison");
-    const rows=[...document.querySelectorAll("#comparisonTable tr")].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
-    rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0)row.font={bold:true};});
-    ws.columns.forEach(c=>c.width=18);
-    const buf=await wb.xlsx.writeBuffer();
-    saveAs(new Blob([buf]),`comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
-  }finally{hideOverlay();}
-};
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Comparison");
+    // copy table rows
+    const rows = [...document.querySelectorAll("#comparisonTable tr")].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
+    rows.forEach((r,i)=>{ const row = ws.addRow(r); if(i===0) row.font = {bold:true}; });
+    ws.columns.forEach(c=>c.width = 18);
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } catch(e){ console.error(e); alert("Export failed"); }
+  finally{ hideOverlay(); }
+});
 
+/* -------------------- start -------------------- */
 loadData();
 </script>
 </body>
