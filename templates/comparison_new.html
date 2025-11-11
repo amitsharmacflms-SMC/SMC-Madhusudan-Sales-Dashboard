@@ -239,7 +239,22 @@ let f="<tr class='grandtotal-row'>";headers.forEach((h,i)=>{if(monthsToShow.incl
 
 
 
-else {
+else if (h === "Δ" || h === "% Change") {
+  if (compPair.length >= 2) {
+    const [v1, v2] = [grand[compPair[0]] || 0, grand[compPair[1]] || 0];
+    if (h === "Δ") {
+      const diff = v2 - v1;
+      const col = diff > 0 ? "#16a34a" : "#dc2626";
+      f += `<td style="color:${col}"><b>${diff > 0 ? "+" : ""}${diff.toLocaleString()}</b></td>`;
+    } else {
+      const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
+      const col = pct > 0 ? "#16a34a" : "#dc2626";
+      f += `<td style="color:${col}"><b>${pct > 0 ? "+" : ""}${pct.toFixed(1)}%</b></td>`;
+    }
+  } else {
+    f += "<td></td>";
+  }
+} else {
   if (i === 0) f += `<td><b>GRAND TOTAL</b></td>`;
   else f += "<td></td>";
 }
