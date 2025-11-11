@@ -4,61 +4,49 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>SMC - Plant to Depot Sales Dashboard</title>
-<link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
+<link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 
 <style>
-:root {
-  --navy:#1e3a8a; --accent1:#2563eb; --accent2:#4f46e5;
-  --green:#dff7e6; --red:#ffe6e6;
-}
-body {font-family: Inter, system-ui, Arial; margin:0; background:#f6f9fc; color:#0f172a;}
-header {
-  background:linear-gradient(90deg,var(--accent1),var(--accent2));
-  color:#fff; text-align:center; padding:10px;
-  display:flex; align-items:center; justify-content:center; flex-wrap:nowrap; gap:12px;
-}
-header img {height:70px; width:auto;}
-header h1 {margin:0; font-size:1.35rem; font-weight:900; letter-spacing:.5px;}
-.toolbar {position:absolute; top:12px; right:12px; display:flex; gap:8px;}
-.btn {border:0; padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:700;}
-.btn-blue {background:#fff; color:var(--navy);}
-.btn-gray {background:#eef2ff; color:var(--navy);}
-main {max-width:1500px; margin:14px auto; padding:0 12px;}
-.filters-row {
-  display:flex; gap:10px; align-items:center; overflow:auto;
-  background:#fff; box-shadow:0 6px 18px rgba(4,8,15,0.05);
-  border-radius:10px; padding:10px;
-}
-.filter-box {
-  min-width:200px; background:linear-gradient(180deg,#fff,#f8fbff);
-  border:2px solid #dbeafe; border-radius:10px; padding:8px;
-}
-.filter-box strong {
-  display:block; text-align:center; color:var(--navy);
-  font-weight:900; margin-bottom:4px; border-bottom:2px solid #e6eef9; padding-bottom:4px;
-}
-.filter-box .options {max-height:180px; overflow:auto;}
-.filter-box label {display:block; padding:5px; margin:4px; border-radius:8px; background:#fbfeff; font-weight:700; cursor:pointer;}
-.filter-box label.invalid {opacity:.45;}
-.table-wrapper {
-  background:#fff; border-radius:10px; box-shadow:0 6px 18px rgba(4,8,15,0.05);
-  overflow:auto; max-height:75vh; margin-top:14px;
-}
-table {border-collapse:collapse; width:100%; min-width:1100px;}
-th,td {border:1.5px solid #65738a; padding:6px 8px; text-align:center; font-weight:800;}
-thead th {position:sticky; top:0; background:linear-gradient(90deg,#e0e7ff,#c7d2fe); color:var(--navy);}
-tr.subtotal-row td {background:#fff7cc; font-weight:900;}
-tr.grandtotal-row td {background:#bae6fd; font-weight:900;}
-.overlay {position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(255,255,255,0.7); z-index:3000; font-weight:900; color:#1e3a8a;}
-.overlay.show {display:flex;}
+:root{--navy:#1e3a8a;--accent1:#2563eb;--accent2:#4f46e5;}
+body{font-family:Inter,system-ui,Arial;margin:0;background:#f6f9fc;color:#0f172a;}
+header{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;
+background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff;padding:10px;}
+header img{height:50px;margin-right:10px;}
+header h1{font-weight:900;font-size:1.4rem;margin:0;white-space:nowrap;text-align:center;}
+.toolbar{display:flex;gap:8px;justify-content:center;align-items:center;margin:12px 0;}
+.btn{border:0;padding:8px 10px;border-radius:8px;cursor:pointer;font-weight:700;}
+.btn-blue{background:#fff;color:var(--navy);}
+.btn-gray{background:#eef2ff;color:#1e3a8a;}
+main{max-width:1600px;margin:0 auto;padding:0 12px;}
+#filtersWrapper{transition:all .3s ease;}
+#filtersContainer{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px;}
+.filter-box{background:linear-gradient(180deg,#fff,#f0f4ff);border:2px solid var(--navy);
+border-radius:12px;padding:10px 12px;flex:1 1 240px;box-shadow:0 6px 18px rgba(30,58,138,0.06);}
+.filter-box strong{display:block;text-align:center;color:var(--navy);font-weight:900;
+margin-bottom:6px;border-bottom:2px solid #e6eef9;padding-bottom:4px;}
+.filter-box .options{max-height:220px;overflow:auto;padding-top:4px;}
+.filter-box label{display:block;padding:4px 6px;margin:4px 0;border-radius:8px;background:#fbfeff;
+font-weight:700;cursor:pointer;}
+.table-wrapper{background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);
+overflow:auto;max-height:72vh;}
+table{border-collapse:collapse;width:100%;min-width:1000px;}
+th,td{border:1.5px solid #65738a;padding:6px 8px;font-weight:800;}
+thead th{position:sticky;top:0;background:linear-gradient(90deg,#e0e7ff,#c7d2fe);color:#1e3a8a;}
+td{text-align:center;}
+tr.subtotal-row td{background:#fff7cc;font-weight:900;}
+tr.grandtotal-row td{background:#bae6fd;font-weight:900;}
+.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+background:rgba(255,255,255,0.7);z-index:3000;font-weight:900;color:#1e3a8a;}
+.overlay.show{display:flex;}
 @media(max-width:900px){
-  .filter-box{min-width:160px}
-  header img{height:55px}
-  header h1{font-size:1rem}
+  header{flex-direction:column;}
+  header img{margin:0 0 6px 0;}
+  #filtersContainer{flex-direction:column;}
+  th,td{font-size:.85rem;}
 }
 </style>
 </head>
@@ -67,46 +55,24 @@ tr.grandtotal-row td {background:#bae6fd; font-weight:900;}
 <header>
   <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo">
   <h1>SMC - Plant to Depot Sales Dashboard</h1>
-  <div class="toolbar">
-    <a href="/dashboard/plant"><button class="btn btn-gray">← Back to Plant</button></a>
-    <button id="exportBtn" class="btn btn-blue">Export</button>
-    <button id="clearBtn" class="btn btn-gray">Clear</button>
-    <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
-  </div>
 </header>
 
+<div class="toolbar">
+  <a href="/dashboard/plant"><button class="btn btn-gray">← Back to Plant</button></a>
+  <button id="exportBtn" class="btn btn-blue">Export</button>
+  <button id="clearBtn" class="btn btn-gray">Clear</button>
+  <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
+</div>
+
 <main>
-  <div id="filtersWrapper" class="filters-row">
-    <div class="filter-box" title="Select which columns to display in the table.">
-      <strong>Show Columns</strong>
-      <div id="showColumns"></div>
-    </div>
-    <div class="filter-box" title="Filter sales data by state.">
-      <strong>State</strong>
-      <div id="stateFilter"></div>
-    </div>
-    <div class="filter-box" title="Filter data by distributor or party.">
-      <strong>Party_Name</strong>
-      <div id="partyFilter"></div>
-    </div>
-    <div class="filter-box" title="Filter data by product or SKU.">
-      <strong>Item_Name</strong>
-      <div id="itemFilter"></div>
-    </div>
-    <div class="filter-box" title="Show or hide Month_Name column in the table.">
-      <strong>Month_Name</strong>
-      <label><input type="checkbox" id="monthNameToggle"> Show Month_Name</label>
-    </div>
-    <div class="filter-box" title="Select months for comparison.">
-      <strong>Comparison_Month</strong>
-      <div id="cmpMonthFilter"></div>
-    </div>
+  <div id="filtersWrapper">
+    <div id="filtersContainer"></div>
   </div>
 
   <div class="table-wrapper">
     <table id="comparisonTable">
-      <thead id="tableHead"></thead>
-      <tbody id="tableBody"></tbody>
+      <thead id="comparisonHead"></thead>
+      <tbody id="comparisonBody"></tbody>
     </table>
   </div>
 </main>
@@ -114,28 +80,159 @@ tr.grandtotal-row td {background:#bae6fd; font-weight:900;}
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
-const API_URL = "/get_data/lighthouse_sales";
-const GREEN = "#dff7e6", RED = "#ffe6e6";
-const DEFAULT_COLS = ["State","Party_Name","Item_Name"];
-let rawData=[], allMonths=[], states=[], parties=[], items=[];
-let selectedCols=new Set(DEFAULT_COLS), selectedStates=new Set(), selectedParties=new Set(), selectedItems=new Set(), selectedMonths=[];
-let showMonthName=false;
+const API_URL="/get_data/lighthouse_sales";
+let rawData=[],comparisonMonths=[],showMonthNameColumn=false;
 
-function parseDateFlexible(s){if(!s)return null;s=String(s).trim();if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8);return new Date(y,m-1,d);}const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);const d=new Date(s);return isNaN(d)?null:d;}
-function invoiceMonthLabel(s){const dt=parseDateFlexible(s);if(!dt)return"";return dt.toLocaleString('default',{month:'short',year:'2-digit'});}
-function monthKey(m){const [mon,yr]=m.split(" ");return new Date(Date.parse(mon+" 1, 20"+yr)).getTime();}
+function showOverlay(){document.getElementById('overlay').classList.add('show');}
+function hideOverlay(){document.getElementById('overlay').classList.remove('show');}
 function toNum(v){return Number(v)||0;}
-function showOverlay(){document.getElementById("overlay").classList.add("show");}
-function hideOverlay(){document.getElementById("overlay").classList.remove("show");}
-function sortItems(arr){return arr.slice().sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:"base"}));}
-function buildCheckbox(id,list,selSet,cb){const el=document.getElementById(id);el.innerHTML="";list.forEach(v=>{const l=document.createElement("label");l.innerHTML=`<input type="checkbox" value="${v}"> ${v}`;const c=l.querySelector("input");c.checked=selSet.has(v);c.onchange=()=>{if(c.checked)selSet.add(v);else selSet.delete(v);cb();};el.appendChild(l);});}
-async function loadData(){showOverlay();const res=await axios.get(API_URL);const d=res.data;rawData=d.map(r=>{const raw=r.invoice_date||r.INVOICE_DATE||"";const dt=parseDateFlexible(raw);return{state:r.state||r.STATE||"",party:r.party_name||r.PARTY_NAME||"",item:r.item_name||r.ITEM_NAME||"",month:invoiceMonthLabel(raw),qty:toNum(r.quantity_cs||r.Quantity_CS||0)};}).filter(x=>x.month);states=[...new Set(rawData.map(r=>r.state))].sort();parties=[...new Set(rawData.map(r=>r.party))].sort();items=sortItems([...new Set(rawData.map(r=>r.item))]);allMonths=[...new Set(rawData.map(r=>r.month))].sort((a,b)=>monthKey(a)-monthKey(b));if(allMonths.length>=2){selectedMonths=[allMonths[allMonths.length-2],allMonths[allMonths.length-1]];}buildUI();applyFilters();hideOverlay();}
-function buildUI(){const showC=document.getElementById("showColumns");showC.innerHTML="";["State","Party_Name","Item_Name"].forEach(c=>{const l=document.createElement("label");l.innerHTML=`<input type="checkbox" value="${c}" checked> ${c}`;l.querySelector("input").onchange=e=>{if(e.target.checked)selectedCols.add(c);else selectedCols.delete(c);applyFilters();};showC.appendChild(l);});buildCheckbox("stateFilter",states,selectedStates,applyFilters);buildCheckbox("partyFilter",parties,selectedParties,applyFilters);buildCheckbox("itemFilter",items,selectedItems,applyFilters);const cmp=document.getElementById("cmpMonthFilter");cmp.innerHTML="";allMonths.forEach(m=>{const l=document.createElement("label");l.innerHTML=`<input type="checkbox" value="${m}"> ${m}`;const c=l.querySelector("input");c.checked=selectedMonths.includes(m);c.onchange=()=>{if(c.checked){selectedMonths.push(m);}else{selectedMonths=selectedMonths.filter(x=>x!==m);}selectedMonths.sort((a,b)=>monthKey(a)-monthKey(b));applyFilters();};cmp.appendChild(l);});document.getElementById("monthNameToggle").onchange=e=>{showMonthName=e.target.checked;applyFilters();};}
-function applyFilters(){let f=rawData.slice();if(selectedStates.size)f=f.filter(x=>selectedStates.has(x.state));if(selectedParties.size)f=f.filter(x=>selectedParties.has(x.party));if(selectedItems.size)f=f.filter(x=>selectedItems.has(x.item));if(selectedMonths.length)f=f.filter(x=>selectedMonths.includes(x.month));renderTable(f);}
-function renderTable(f){const months=selectedMonths.slice().sort((a,b)=>monthKey(a)-monthKey(b));const head=document.getElementById("tableHead"),body=document.getElementById("tableBody");const cols=[...selectedCols];if(showMonthName)cols.push("Month_Name");cols.push(...months,"Δ Difference","% Change");head.innerHTML="<tr>"+cols.map(c=>`<th>${c}</th>`).join("")+"</tr>";const map=new Map();f.forEach(r=>{const k=`${r.state}|${r.party}|${r.item}`;if(!map.has(k))map.set(k,{state:r.state,party:r.party,item:r.item,vals:{}});const o=map.get(k);o.vals[r.month]=(o.vals[r.month]||0)+r.qty;});let html="";map.forEach(o=>{const v=o.vals;const first=months[0],last=months[months.length-1];const d=(v[last]||0)-(v[first]||0);const p=(v[first]?((d/v[first])*100):0);html+="<tr>";if(selectedCols.has("State"))html+=`<td>${o.state}</td>`;if(selectedCols.has("Party_Name"))html+=`<td>${o.party}</td>`;if(selectedCols.has("Item_Name"))html+=`<td>${o.item}</td>`;if(showMonthName)html+=`<td>${first}</td>`;months.forEach(m=>{const val=v[m]||0;const prev=m===months[0]?val:v[months[months.indexOf(m)-1]]||0;html+=`<td style="background:${val>=prev?GREEN:RED}">${val}</td>`;});html+=`<td style="background:${d>0?GREEN:RED}">${d}</td>`;html+=`<td style="background:${p>0?GREEN:RED}">${p.toFixed(1)}%</td>`;html+="</tr>";});body.innerHTML=html||`<tr><td colspan="${cols.length}">No data</td></tr>`;}
-document.getElementById("clearBtn").onclick=()=>{selectedStates.clear();selectedParties.clear();selectedItems.clear();selectedMonths=allMonths.slice(-2);showMonthName=false;loadData();};
-document.getElementById("toggleFiltersBtn").onclick=()=>{const w=document.getElementById("filtersWrapper");w.style.display=w.style.display==="none"?"flex":"none";document.getElementById("toggleFiltersBtn").textContent=w.style.display==="none"?"Show Filters":"Hide Filters";};
-document.getElementById("exportBtn").onclick=async()=>{showOverlay();const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet("Comparison");const rows=[...document.querySelectorAll("#comparisonTable tr")].map(tr=>[...tr.children].map(td=>td.innerText));rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0)row.font={bold:true};});ws.columns.forEach(c=>c.width=16);const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`comparison_${new Date().toISOString().slice(0,10)}.xlsx`);hideOverlay();};
+function escapeHtml(s){return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');}
+function parseDateFlexible(s){if(!s)return null;s=String(s).trim();if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8);return new Date(y,m-1,d);}const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);const d=new Date(s);return isNaN(d)?null:d;}
+function invoiceMonthLabel(s){const dt=parseDateFlexible(s);if(!dt)return"";return dt.toLocaleString('default',{month:'short',year:'2-digit'}).replace(' ','-');}
+function customItemSort(a,b){const prefixes=["DW","DC","GHEE","UHT"];const preA=prefixes.find(p=>a.toUpperCase().startsWith(p))||null;const preB=prefixes.find(p=>b.toUpperCase().startsWith(p))||null;if(preA&&preB){if(preA!==preB)return prefixes.indexOf(preA)-prefixes.indexOf(preB);return a.localeCompare(b,undefined,{numeric:true});}if(preA&&!preB)return-1;if(!preA&&preB)return 1;return a.localeCompare(b,undefined,{numeric:true});}
+
+async function loadData(){
+  showOverlay();
+  try{
+    const res=await axios.get(API_URL);
+    const data=Array.isArray(res.data)?res.data:[];
+    rawData=data.map(r=>{
+      const rawDate=(r.invoice_date||r.INVOICE_DATE||"").toString().trim();
+      const parsed=parseDateFlexible(rawDate);
+      return{
+        state:(r.state||r.STATE||"").trim(),
+        partyName:(r.party_name||r.PARTY_NAME||"").trim(),
+        itemName:(r.item_name||r.ITEM_NAME||"").trim(),
+        invoiceMonth:invoiceMonthLabel(rawDate),
+        quantityCs:toNum(r.quantity_cs||r.Quantity_CS||0)
+      };
+    }).filter(r=>r.invoiceMonth);
+
+    buildFilters();
+    preselectLastTwoMonths();
+    renderComparisonTable();
+  }catch(e){console.error("Error loading data",e);alert("Failed to load data.");}
+  finally{hideOverlay();}
+}
+
+function preselectLastTwoMonths(){
+  const months=[...new Set(rawData.map(r=>r.invoiceMonth))].sort((a,b)=>{
+    const da=new Date("01 "+a.replace('-',' '));
+    const db=new Date("01 "+b.replace('-',' '));
+    return da-db;
+  });
+  comparisonMonths=months.slice(-2);
+}
+
+function buildFilters(){
+  const c=document.getElementById("filtersContainer");
+  c.innerHTML="";
+  const boxes=[
+    {key:"Show Columns",vals:["State","Party_Name","Item_Name"],tooltip:"Select which columns to display"},
+    {key:"State",vals:[...new Set(rawData.map(r=>r.state))].filter(Boolean).sort(),tooltip:"Filter data by state"},
+    {key:"Party_Name",vals:[...new Set(rawData.map(r=>r.partyName))].filter(Boolean).sort(),tooltip:"Filter data by party"},
+    {key:"Item_Name",vals:[...new Set(rawData.map(r=>r.itemName))].filter(Boolean).sort(customItemSort),tooltip:"Filter data by item"},
+    {key:"Month_Name",vals:["Show Month_Name Column"],tooltip:"Show or hide the Month_Name column"},
+    {key:"Comparison_Month",vals:[...new Set(rawData.map(r=>r.invoiceMonth))].sort((a,b)=>{
+      const da=new Date("01 "+a.replace('-',' '));const db=new Date("01 "+b.replace('-',' '));return da-db;}),tooltip:"Select months for comparison"}
+  ];
+  boxes.forEach(b=>{
+    const div=document.createElement("div");
+    div.className="filter-box";
+    div.title=b.tooltip;
+    div.innerHTML=`<strong>${b.key}</strong><div class='options'>`+
+      b.vals.map(v=>`<label><input type='checkbox' name='${b.key}' value='${v}' ${(b.key==="Show Columns"&&["State","Party_Name","Item_Name"].includes(v))?"checked":""}> ${v}</label>`).join("")+`</div>`;
+    c.appendChild(div);
+  });
+  c.addEventListener("change",applyFilters);
+}
+
+function applyFilters(){
+  showMonthNameColumn=document.querySelector("input[name='Month_Name']:checked");
+  const compSel=[...document.querySelectorAll("input[name='Comparison_Month']:checked")].map(i=>i.value);
+  comparisonMonths=compSel.length?compSel.slice().sort((a,b)=>{
+    const da=new Date("01 "+a.replace('-',' '));const db=new Date("01 "+b.replace('-',' '));return da-db;
+  }):comparisonMonths;
+  renderComparisonTable();
+}
+
+function renderComparisonTable(){
+  const head=document.getElementById("comparisonHead");
+  const body=document.getElementById("comparisonBody");
+  if(!rawData.length){head.innerHTML="<tr><th>No data available</th></tr>";body.innerHTML="";return;}
+
+  const months=comparisonMonths;
+  const includeMonthNameCol=!!showMonthNameColumn;
+  head.innerHTML="<tr><th>State</th><th>Party_Name</th><th>Item_Name</th>"+
+    (includeMonthNameCol?"<th>Month_Name</th>":"")+
+    months.map(m=>`<th>${m}</th>`).join("")+
+    "<th>Δ Difference</th><th>% Change</th></tr>";
+
+  const stateMap=new Map();
+  rawData.forEach(r=>{
+    const {state,partyName,itemName,invoiceMonth,quantityCs}=r;
+    if(!months.includes(invoiceMonth))return;
+    if(!stateMap.has(state))stateMap.set(state,new Map());
+    const partyMap=stateMap.get(state);
+    if(!partyMap.has(partyName))partyMap.set(partyName,new Map());
+    const itemMap=partyMap.get(partyName);
+    if(!itemMap.has(itemName))itemMap.set(itemName,{});
+    itemMap.get(itemName)[invoiceMonth]=(itemMap.get(itemName)[invoiceMonth]||0)+quantityCs;
+  });
+
+  let html="";
+  stateMap.forEach((partyMap,state)=>{
+    const stateTotals=Object.fromEntries(months.map(m=>[m,0]));
+    partyMap.forEach((itemMap,party)=>{
+      const partyTotals=Object.fromEntries(months.map(m=>[m,0]));
+      const items=Array.from(itemMap.keys()).sort(customItemSort);
+      items.forEach(item=>{
+        const monthData=itemMap.get(item);
+        html+=`<tr><td>${escapeHtml(state)}</td><td>${escapeHtml(party)}</td><td>${escapeHtml(item)}</td>`;
+        if(includeMonthNameCol)html+=`<td>${months.join(", ")}</td>`;
+        months.forEach(m=>{
+          const v=monthData[m]||0;
+          html+=`<td>${v.toLocaleString()}</td>`;
+          partyTotals[m]+=v;stateTotals[m]+=v;
+        });
+        let delta=0,pct=0;
+        if(months.length>=2){
+          const firstVal=monthData[months[0]]||0,lastVal=monthData[months[months.length-1]]||0;
+          delta=lastVal-firstVal;
+          pct=firstVal!==0?(delta/firstVal)*100:(delta>0?100:(delta<0?-100:0));
+        }
+        const cmpColor=(months.length>=2)?(((monthData[months[months.length-1]]||0)>(monthData[months[months.length-2]]||0))?'background:#dff6e0':'background:#ffecec'):'';
+        const pctColor=pct>0?'background:#dff6e0':'background:#ffecec';
+        html+=`<td style="${cmpColor}">${delta.toLocaleString()}</td><td style="${pctColor}">${pct===0?'0%':(pct>0?'+':'')+pct.toFixed(1)+'%'}</td></tr>`;
+      });
+      html+=`<tr class='subtotal-row'><td></td><td><b>SUM ${escapeHtml(party)}</b></td><td></td>${includeMonthNameCol?"<td></td>":""}${months.map(m=>`<td><b>${partyTotals[m].toLocaleString()}</b></td>`).join("")}<td></td><td></td></tr>`;
+    });
+    html+=`<tr class='grandtotal-row'><td><b>TOTAL ${escapeHtml(state)}</b></td><td></td><td></td>${includeMonthNameCol?"<td></td>":""}${months.map(m=>`<td><b>${stateTotals[m].toLocaleString()}</b></td>`).join("")}<td></td><td></td></tr>`;
+  });
+  body.innerHTML=html;
+}
+
+document.getElementById("toggleFiltersBtn").addEventListener("click",()=>{
+  const w=document.getElementById("filtersWrapper");
+  const btn=document.getElementById("toggleFiltersBtn");
+  if(w.style.display==="none"){w.style.display="block";btn.textContent="Hide Filters";}else{w.style.display="none";btn.textContent="Show Filters";}
+});
+
+document.getElementById("clearBtn").addEventListener("click",()=>{
+  buildFilters();preselectLastTwoMonths();renderComparisonTable();
+});
+
+document.getElementById("exportBtn").addEventListener("click",async()=>{
+  showOverlay();
+  try{
+    const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet("Comparison");
+    const rows=[...document.querySelectorAll("#comparisonTable tr")].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
+    rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0)row.font={bold:true};});
+    ws.columns.forEach(c=>c.width=16);
+    const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }catch(e){console.error("Export failed",e);alert("Export failed: "+e.message);}finally{hideOverlay();}
+});
+
 loadData();
 </script>
 </body>
