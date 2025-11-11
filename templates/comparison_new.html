@@ -254,20 +254,22 @@ hideOverlay();
 
 /* --- Event bindings --- */
 const debouncedApply = debounce(applyFilters, 250);
-["showColumns", "stateFilter", "partyFilter", "itemFilter", "monthFilter", "comparisonMonth"]
+["showColumns","stateFilter","partyFilter","itemFilter","monthFilter","comparisonMonth"]
   .forEach(id => document.getElementById(id).addEventListener("change", debouncedApply));
 
-document.getElementById("clearBtn").onclick = () => { location.reload(); };
+document.getElementById("clearBtn").onclick = () => {
+  location.reload();
+};
 
 document.getElementById("toggleFiltersBtn").onclick = () => {
   const row = document.getElementById("filtersRow");
-  const b = document.getElementById("toggleFiltersBtn");
+  const btn = document.getElementById("toggleFiltersBtn");
   if (row.style.display === "none") {
     row.style.display = "flex";
-    b.textContent = "Hide Filters";
+    btn.textContent = "Hide Filters";
   } else {
     row.style.display = "none";
-    b.textContent = "Show Filters";
+    btn.textContent = "Show Filters";
   }
 };
 
@@ -286,6 +288,9 @@ document.getElementById("exportBtn").onclick = async () => {
     ws.columns.forEach(c => c.width = 18);
     const buf = await wb.xlsx.writeBuffer();
     saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } catch (err) {
+    console.error("Export failed:", err);
+    alert("Export failed");
   } finally {
     hideOverlay();
   }
