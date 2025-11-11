@@ -16,6 +16,7 @@
   --navy: #1e3a8a;
   --accent1: #2563eb;
   --accent2: #4f46e5;
+  --muted: #6b7280;
 }
 * { box-sizing: border-box; }
 body {
@@ -52,106 +53,51 @@ header h1 { margin: 0; font-weight: 900; font-size: 1.35rem; }
   top: 80px;
   z-index: 1050;
 }
-.btn {
-  border: 0;
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 800;
-}
-.btn-blue {
-  background: linear-gradient(90deg, var(--accent1), var(--accent2));
-  color: #fff;
-}
-.btn-gray {
-  background: #eef2ff;
-  color: var(--navy);
-}
+.btn { border: 0; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 800; }
+.btn-blue { background: linear-gradient(90deg, var(--accent1), var(--accent2)); color: #fff; }
+.btn-gray { background: #eef2ff; color: var(--navy); }
 
 /* Filters */
-#filtersWrapper {
-  display: flex;
-  justify-content: center;
-  background: #f8fafc;
-  border-bottom: 1px solid #dbeafe;
-}
-.filters {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  padding: 12px;
-  max-width: 1500px;
-  width: 100%;
-  scrollbar-width: thin;
-  scrollbar-color: #93c5fd #f3f4f6;
-}
-.filters::-webkit-scrollbar { height: 8px; }
-.filters::-webkit-scrollbar-thumb { background: #93c5fd; border-radius: 4px; }
-.filter-box {
-  background: #fff;
-  border-radius: 12px;
-  padding: 10px 12px;
-  border: 2px solid #c7d2fe;
-  min-width: 160px;
-  box-shadow: 0 4px 12px rgba(37,99,235,0.06);
-  flex: 0 0 auto;
-}
-.filter-box label {
-  display: block;
-  font-weight: 800;
-  color: var(--navy);
-  margin-bottom: 6px;
-}
-.filter-box select {
-  width: 200px;
-  padding: 6px;
-  border-radius: 8px;
-  border: 1.5px solid #c7d2fe;
-  background: #fff;
-  font-weight: 700;
-}
+#filtersWrapper { display:flex; justify-content:center; background:#f8fafc; border-bottom:1px solid #dbeafe; }
+.filters { display:flex; gap:12px; align-items:flex-start; flex-wrap:nowrap; overflow-x:auto; padding:12px; max-width:1500px; width:100%; scrollbar-width:thin; scrollbar-color:#93c5fd #f3f4f6; }
+.filters::-webkit-scrollbar { height:8px }
+.filters::-webkit-scrollbar-thumb { background:#93c5fd;border-radius:4px }
+.filter-box { background:#fff; border-radius:12px; padding:10px 12px; border:2px solid #c7d2fe; min-width:160px; box-shadow:0 4px 12px rgba(37,99,235,0.06); flex:0 0 auto; }
+.filter-box label { display:block; font-weight:800; color:var(--navy); margin-bottom:6px }
+.filter-box select { width:200px; padding:6px; border-radius:8px; border:1.5px solid #c7d2fe; background:#fff; font-weight:700 }
 
 /* Table */
-.table-wrapper {
-  max-width: 1500px;
-  margin: 18px auto;
-  border-radius: 8px;
-  overflow: auto;
-  background: #fff;
-  box-shadow: 0 6px 18px rgba(4,8,15,0.06);
-}
-table {
-  border-collapse: collapse;
-  width: 100%;
-  min-width: 1100px;
-}
+.table-wrapper { max-width:1500px; margin:18px auto; border-radius:8px; overflow:auto; background:#fff; box-shadow:0 6px 18px rgba(4,8,15,0.06); }
+table { border-collapse:collapse; width:100%; min-width:1100px; }
 thead th, tbody td {
-  text-align: center;
-  padding: 4px 6px;
+  text-align: center;          /* center all numeric & cells */
+  padding: 4px 6px;            /* compact rows */
   border: 2px solid #2d3748;
   font-weight: 700;
   vertical-align: middle;
+  height: 28px;
 }
 thead th {
   position: sticky;
   top: 0;
-  background: linear-gradient(90deg, #e0e7ff, #c7d2fe);
+  background: linear-gradient(90deg,#e0e7ff,#c7d2fe);
   color: var(--navy);
-  z-index: 10;
+  z-index: 20;
 }
-tr.subtotal-row td { background: #fff7cc; font-weight: 900; }
-tr.state-total-row td { background: #e6f6ff; font-weight: 900; }
-tr.grandtotal-row td { background: #bae6fd; font-weight: 900; }
+tr.subtotal-row td { background:#fff7cc; font-weight:900; }
+tr.state-total-row td { background:#e6f6ff; font-weight:900; }
+tr.grandtotal-row td { background:#bae6fd; font-weight:900; }
+
+/* optional subtle group separation */
+tr + tr { } /* nothing intrusive */
+
 .overlay {
   position: fixed; inset: 0;
-  display: none; align-items: center; justify-content: center;
+  display: none; align-items:center; justify-content:center;
   background: rgba(255,255,255,0.75);
-  z-index: 3000;
-  font-weight: 900; color: var(--navy);
+  z-index: 3000; font-weight:900; color:var(--navy);
 }
-.overlay.show { display: flex; }
+.overlay.show{display:flex}
 </style>
 </head>
 
@@ -198,167 +144,322 @@ tr.grandtotal-row td { background: #bae6fd; font-weight: 900; }
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
+/* -----------------------------------------
+   Data handling + rendering
+   - normalization to avoid duplicate item keys
+   - keep items even if some months are missing
+   - merged State/Party cells (rowspan)
+   ----------------------------------------- */
+
 const API_URL = "/get_data/lighthouse_sales";
 let rawData = [];
+
 function showOverlay(){document.getElementById('overlay').classList.add('show');}
 function hideOverlay(){document.getElementById('overlay').classList.remove('show');}
 function toNum(v){return Number(v)||0;}
-function parseDateFlexible(s){if(!s)return null;s=String(s).trim();if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8);return new Date(y,m-1,d);}const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);const d=new Date(s);return isNaN(d)?null:d;}
-function invoiceMonthLabel(s){const dt=parseDateFlexible(s);if(!dt)return"";return dt.toLocaleString('default',{month:'short',year:'2-digit'});}
 function debounce(fn,ms=200){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);}}
 
-/* --- Load Data --- */
+/* parse date formats to "Mon YY" label */
+function parseDateFlexible(s){
+  if(!s) return null;
+  s = String(s).trim();
+  if(/^\d{8}$/.test(s)){
+    const d = +s.slice(0,2), m = +s.slice(2,4), y = +s.slice(4,8);
+    return new Date(y,m-1,d);
+  }
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  const d = new Date(s);
+  return isNaN(d)?null:d;
+}
+function invoiceMonthLabel(s){
+  const dt = parseDateFlexible(s);
+  if(!dt) return "";
+  return dt.toLocaleString('default',{month:'short',year:'2-digit'});
+}
+
+/* -------------------------
+   LOAD DATA
+   - normalize item keys (collapse whitespace)
+   - DO NOT discard rows with missing month (so items remain)
+   ------------------------- */
 async function loadData(){
   showOverlay();
   try{
     const res = await axios.get(API_URL);
-    const rows = Array.isArray(res.data)?res.data:[];
+    const rows = Array.isArray(res.data) ? res.data : [];
+
     rawData = rows.map(r=>{
-      const rawDate=(r.invoice_date||r.INVOICE_DATE||"").toString().trim();
-      const month=invoiceMonthLabel(rawDate);
-      return{
-        state:(r.state||r.STATE||"").trim(),
-        party:(r.party_name||r.PARTY_NAME||"").trim(),
-        item:(r.item_name||r.ITEM_NAME||"").trim(),
-        month,
-        qty:toNum(r.quantity_cs||r.Quantity_CS||0)
+      const rawDate = (r.invoice_date || r.INVOICE_DATE || "").toString().trim();
+      const month = invoiceMonthLabel(rawDate); // may be ""
+      const state = (r.state || r.STATE || "").trim();
+      const party = (r.party_name || r.PARTY_NAME || "").trim();
+      const itemRaw = (r.item_name || r.ITEM_NAME || "").trim();
+      // normalize item for grouping: collapse multiple spaces (but keep display in same case)
+      const item = itemRaw.replace(/\s+/g, ' ');
+      return {
+        state,
+        party,
+        item,
+        month,          // may be "" — keep it
+        qty: toNum(r.quantity_cs || r.Quantity_CS || 0)
       };
-    }).filter(r=>r.month&&r.state&&r.party&&r.item);
-    initFilters(); applyFilters();
-  }catch(e){console.error(e);alert("Failed to load data.");}
-  finally{hideOverlay();}
+    }).filter(r=>r.state && r.party && r.item); // keep rows even if month blank
+
+    initFilters();
+    applyFilters();
+  }catch(e){
+    console.error(e);
+    alert("Failed to load data.");
+  }finally{
+    hideOverlay();
+  }
 }
 
-/* --- Filters --- */
+/* -------------------------
+   FILTERS init
+   ------------------------- */
 function initFilters(){
-  const states=[...new Set(rawData.map(r=>r.state))].sort();
-  const parties=[...new Set(rawData.map(r=>r.party))].sort();
-  const items=[...new Set(rawData.map(r=>r.item))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
-  const months=[...new Set(rawData.map(r=>r.month))].sort((a,b)=>new Date("01 "+a)-new Date("01 "+b));
-  const fill=(id,list)=>{const el=document.getElementById(id);el.innerHTML='';list.forEach(v=>el.innerHTML+=`<option>${v}</option>`);};
-  fill('stateFilter',states); fill('partyFilter',parties); fill('itemFilter',items); fill('monthFilter',months); fill('comparisonMonth',months);
-  if(months.length>=2){const last2=months.slice(-2);[...document.getElementById('comparisonMonth').options].forEach(o=>{if(last2.includes(o.value))o.selected=true;});}
+  // Unique sets from rawData
+  const states = [...new Set(rawData.map(r=>r.state))].sort();
+  const parties = [...new Set(rawData.map(r=>r.party))].sort();
+  const items = [...new Set(rawData.map(r=>r.item))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+  // months: build from rawData months but remove empty strings
+  const months = [...new Set(rawData.map(r=>r.month).filter(m=>m))].sort((a,b)=>new Date("01 "+a)-new Date("01 "+b));
+
+  const fill = (id, list) => {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    list.forEach(v => el.innerHTML += `<option>${v}</option>`);
+  };
+
+  fill('stateFilter', states);
+  fill('partyFilter', parties);
+  fill('itemFilter', items);
+  fill('monthFilter', months);
+  fill('comparisonMonth', months);
+
+  if(months.length >= 2){
+    const last2 = months.slice(-2);
+    [...document.getElementById('comparisonMonth').options].forEach(o=>{ if(last2.includes(o.value)) o.selected = true; });
+  }
 }
 
-/* --- Apply Filters & Render Table --- */
-function getVals(id){return[...document.getElementById(id).selectedOptions].map(o=>o.value);}
+/* -------------------------
+   APPLY FILTERS & RENDER
+   - group by state -> party -> item
+   - ensure one row per item
+   - add party subtotal if party has >1 items
+   - add state totals and grand total
+   - merge state & party cells via rowspan
+   ------------------------- */
+function getVals(id){ return [...document.getElementById(id).selectedOptions].map(o=>o.value); }
+
 function applyFilters(){
   showOverlay();
   setTimeout(()=>{
-    const showCols=getVals("showColumns"),states=getVals("stateFilter"),parties=getVals("partyFilter"),items=getVals("itemFilter"),visible=getVals("monthFilter"),comp=getVals("comparisonMonth");
-    const allMonths=[...new Set(rawData.map(r=>r.month))].sort((a,b)=>new Date("01 "+a)-new Date("01 "+b));
-    const monthsToShow=visible.length?visible:allMonths;
-    const compSorted=comp.slice().sort((a,b)=>new Date("01 "+a)-new Date("01 "+b));
-    const compPair=compSorted.length>=2?compSorted.slice(-2):[];
-    const filtered=rawData.filter(r=>(!states.length||states.includes(r.state))&&(!parties.length||parties.includes(r.party))&&(!items.length||items.includes(r.item)));
-    const stateMap=new Map();
+    const showCols = getVals("showColumns"),
+          statesSel = getVals("stateFilter"),
+          partiesSel = getVals("partyFilter"),
+          itemsSel = getVals("itemFilter"),
+          visible = getVals("monthFilter"),
+          comp = getVals("comparisonMonth");
+
+    // months available in dataset (non-empty)
+    const allMonths = [...new Set(rawData.map(r=>r.month).filter(m=>m))].sort((a,b)=>new Date("01 "+a)-new Date("01 "+b));
+    const monthsToShow = visible.length ? visible : allMonths;
+    const compSorted = comp.slice().sort((a,b)=>new Date("01 "+a)-new Date("01 "+b));
+    const compPair = compSorted.length >= 2 ? compSorted.slice(-2) : [];
+
+    // Filter rows by state/party/item only (do NOT filter out rows with missing month)
+    const filtered = rawData.filter(r =>
+      (!statesSel.length || statesSel.includes(r.state)) &&
+      (!partiesSel.length || partiesSel.includes(r.party)) &&
+      (!itemsSel.length || itemsSel.includes(r.item))
+    );
+
+    // Group into nested Map: state -> party -> itemKey -> monthMap
+    // Normalize item key strictly: collapse whitespace (we already did), use exact trimmed value
+    const stateMap = new Map();
     filtered.forEach(r=>{
-      if(!stateMap.has(r.state))stateMap.set(r.state,new Map());
-      const p=stateMap.get(r.state);
-      if(!p.has(r.party))p.set(r.party,new Map());
-      const i=p.get(r.party);
-      if(!i.has(r.item))i.set(r.item,{});
-      i.get(r.item)[r.month]=(i.get(r.item)[r.month]||0)+r.qty;
+      if(!stateMap.has(r.state)) stateMap.set(r.state, new Map());
+      const pMap = stateMap.get(r.state);
+      if(!pMap.has(r.party)) pMap.set(r.party, new Map());
+      const iMap = pMap.get(r.party);
+
+      const itemKey = r.item; // normalized in loadData
+      if(!iMap.has(itemKey)) iMap.set(itemKey, {}); // store months sums in plain object
+      const mon = iMap.get(itemKey);
+      if(r.month){ // only accumulate when month is present
+        mon[r.month] = (mon[r.month] || 0) + r.qty;
+      } else {
+        // if the row has no month but qty exists, accumulate into a special key so item still has a presence
+        // (we don't show that special key as a column; it's only to ensure item exists)
+        mon.__no_month__ = (mon.__no_month__ || 0) + r.qty;
+      }
     });
 
-    const thead=document.getElementById("comparisonHead"),tbody=document.getElementById("comparisonBody"),tfoot=document.getElementById("comparisonFoot");
-    const headers=[...showCols,...monthsToShow]; if(compPair.length>=2)headers.push("Δ","% Change");
-    thead.innerHTML="<tr>"+headers.map(h=>`<th>${h}</th>`).join("")+"</tr>";
+    // Prepare headers
+    const thead = document.getElementById("comparisonHead"),
+          tbody = document.getElementById("comparisonBody"),
+          tfoot = document.getElementById("comparisonFoot");
 
-    let html="",grand=Object.fromEntries(monthsToShow.map(m=>[m,0]));
+    const headers = [...showCols, ...monthsToShow];
+    if(compPair.length >= 2) headers.push("Δ","% Change");
+    thead.innerHTML = "<tr>" + headers.map(h=>`<th>${h}</th>`).join("") + "</tr>";
 
-    /* === BUILD TABLE WITH MERGED CELLS === */
-    stateMap.forEach((pMap,state)=>{
-      const st=Object.fromEntries(monthsToShow.map(m=>[m,0]));
-      const partiesArr=[...pMap.entries()];
-      let stateRowCount=0;
-      partiesArr.forEach(([_,iMap])=>stateRowCount+=iMap.size+(iMap.size>1?1:0));
-      let stateAdded=false;
-      partiesArr.forEach(([party,iMap])=>{
-        const arr=[...iMap.entries()];
-        const ps=Object.fromEntries(monthsToShow.map(m=>[m,0]));
-        let partyAdded=false;
-        arr.forEach(([item,mon])=>{
-          html+="<tr>";
+    // Render rows
+    let html = "";
+    let grand = Object.fromEntries(monthsToShow.map(m=>[m,0]));
+
+    stateMap.forEach((pMap, state)=>{
+      // state totals
+      const st = Object.fromEntries(monthsToShow.map(m=>[m,0]));
+      const partiesArr = [...pMap.entries()];
+
+      // compute how many rows state will produce (for rowspan)
+      let stateRowCount = 0;
+      partiesArr.forEach(([_, iMap]) => {
+        // for each item: one row; if party has >1 item then +1 for subtotal
+        stateRowCount += iMap.size + (iMap.size > 1 ? 1 : 0);
+      });
+
+      let stateAdded = false;
+
+      partiesArr.forEach(([party, iMap])=>{
+        const arr = [...iMap.entries()]; // [ [itemKey, monObj], ... ]
+        const ps = Object.fromEntries(monthsToShow.map(m=>[m,0])); // party subtotal
+        let partyAdded = false;
+
+        arr.forEach(([item, mon])=>{
+          html += "<tr>";
+
           headers.forEach(h=>{
-            if(h==="State"){ if(!stateAdded){ html+=`<td rowspan="${stateRowCount}" style="font-weight:900;">${state}</td>`; stateAdded=true; } }
-            else if(h==="Party_Name"){ if(!partyAdded){ const rowspan=arr.length+(arr.length>1?1:0); html+=`<td rowspan="${rowspan}" style="font-weight:800;">${party}</td>`; partyAdded=true; } }
-            else if(h==="Item_Name"){ html+=`<td>${item}</td>`; }
-            else if(monthsToShow.includes(h)){
-              const v=mon[h]||0; const prevMonth=monthsToShow[monthsToShow.indexOf(h)-1]; let bg="";
-              if(prevMonth&&mon[prevMonth]!==undefined){const prev=mon[prevMonth]||0; bg=v>prev?"background-color:#dcfce7;":"background-color:#fee2e2;";}
-              html+=`<td style="${bg}">${v?v.toLocaleString():""}</td>`;
-              ps[h]+=v; st[h]+=v; grand[h]+=v;
+            if(h === "State"){
+              if(!stateAdded){
+                html += `<td rowspan="${stateRowCount}" style="font-weight:900;">${state}</td>`;
+                stateAdded = true;
+              }
             }
-            else if(h==="Δ"||h==="% Change"){
-              if(compPair.length>=2){
-                const[v1,v2]=[mon[compPair[0]]||0,mon[compPair[1]]||0];
-                if(h==="Δ"){const diff=v2-v1;const bg=diff>0?"background-color:#dcfce7;":"background-color:#fee2e2;";html+=`<td style="${bg}"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;}
-                else{const pct=v1?(((v2-v1)/v1)*100):(v2?100:0);const col=pct>0?"#16a34a":"#dc2626";html+=`<td style="color:${col}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;}
-              } else html+="<td></td>";
-            } else html+="<td></td>";
+            else if(h === "Party_Name"){
+              if(!partyAdded){
+                const rowspan = arr.length + (arr.length > 1 ? 1 : 0);
+                html += `<td rowspan="${rowspan}" style="font-weight:800;">${party}</td>`;
+                partyAdded = true;
+              }
+            }
+            else if(h === "Item_Name"){
+              html += `<td>${item}</td>`;
+            }
+            else if(monthsToShow.includes(h)){
+              // show value (0/blank) for each month column
+              const v = mon[h] || 0;
+              const prevMonth = monthsToShow[monthsToShow.indexOf(h) - 1];
+              let bg = "";
+              if(prevMonth && mon[prevMonth] !== undefined){
+                const prev = mon[prevMonth] || 0;
+                bg = v > prev ? "background-color:#dcfce7;" : "background-color:#fee2e2;";
+              }
+              html += `<td style="${bg}">${v ? v.toLocaleString() : ""}</td>`;
+              ps[h] += v;
+              st[h] += v;
+              grand[h] += v;
+            }
+            else if(h === "Δ" || h === "% Change"){
+              if(compPair.length >= 2){
+                const v1 = mon[compPair[0]] || 0;
+                const v2 = mon[compPair[1]] || 0;
+                if(h === "Δ"){
+                  const diff = v2 - v1;
+                  const bg = diff > 0 ? "background-color:#dcfce7;" : "background-color:#fee2e2;";
+                  html += `<td style="${bg}"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
+                } else {
+                  const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
+                  const col = pct > 0 ? "#16a34a" : "#dc2626";
+                  html += `<td style="color:${col}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;
+                }
+              } else {
+                html += "<td></td>";
+              }
+            } else {
+              html += "<td></td>";
+            }
           });
-          html+="</tr>";
+
+          html += "</tr>";
         });
-        if(arr.length>1){
-          html+="<tr class='subtotal-row'>";
+
+        // party subtotal row only if more than 1 item
+        if(arr.length > 1){
+          html += "<tr class='subtotal-row'>";
           headers.forEach((h,i)=>{
-            if(monthsToShow.includes(h))html+=`<td><b>${ps[h].toLocaleString()}</b></td>`;
-            else if(h==="Δ"||h==="% Change")html+="<td></td>";
-            else if(h==="Item_Name")html+=`<td><b>SUM ${party}</b></td>`;
-            else html+="<td></td>";
+            if(monthsToShow.includes(h)) html += `<td><b>${ps[h].toLocaleString()}</b></td>`;
+            else if(h==="Δ"||h==="% Change") html += "<td></td>";
+            else if(h === "Item_Name") html += `<td><b>SUM ${party}</b></td>`;
+            else html += "<td></td>";
           });
-          html+="</tr>";
+          html += "</tr>";
         }
-      });
-      html+="<tr class='state-total-row'>";
+      }); // end party
+
+      // state total row
+      html += "<tr class='state-total-row'>";
       headers.forEach((h,i)=>{
-        if(monthsToShow.includes(h))html+=`<td><b>${st[h].toLocaleString()}</b></td>`;
-        else if(h==="Δ"||h==="% Change")html+="<td></td>";
-        else if(h==="Item_Name")html+=`<td><b>TOTAL ${state}</b></td>`;
-        else html+="<td></td>";
+        if(monthsToShow.includes(h)) html += `<td><b>${st[h].toLocaleString()}</b></td>`;
+        else if(h==="Δ"||h==="% Change") html += "<td></td>";
+        else if(h === "Item_Name") html += `<td><b>TOTAL ${state}</b></td>`;
+        else html += "<td></td>";
       });
-      html+="</tr>";
-    });
+      html += "</tr>";
+    }); // end state
 
-    /* === GRAND TOTAL === */
-    let f="<tr class='grandtotal-row'>";
+    // grand total
+    let f = "<tr class='grandtotal-row'>";
     headers.forEach((h,i)=>{
-      if(monthsToShow.includes(h)){f+=`<td><b>${grand[h].toLocaleString()}</b></td>`;}
-      else if(h==="Δ"||h==="% Change")f+="<td></td>";
-      else if(h==="Item_Name")f+=`<td><b>GRAND TOTAL</b></td>`;
-      else f+="<td></td>";
+      if(monthsToShow.includes(h)) f += `<td><b>${grand[h].toLocaleString()}</b></td>`;
+      else if(h==="Δ"||h==="% Change") f += "<td></td>";
+      else if(h === "Item_Name") f += `<td><b>GRAND TOTAL</b></td>`;
+      else f += "<td></td>";
     });
-    f+="</tr>";
+    f += "</tr>";
 
-    tbody.innerHTML=html||`<tr><td colspan="${headers.length}">No Data</td></tr>`;
-    tfoot.innerHTML=f;
+    tbody.innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
+    tfoot.innerHTML = f;
     hideOverlay();
-  },100);
+  }, 100);
 }
 
-/* --- Event Bindings --- */
-const debouncedApply=debounce(applyFilters,250);
-["showColumns","stateFilter","partyFilter","itemFilter","monthFilter","comparisonMonth"].forEach(id=>document.getElementById(id).addEventListener("change",debouncedApply));
-document.getElementById("clearBtn").onclick=()=>location.reload();
-document.getElementById("toggleFiltersBtn").onclick=()=>{
-  const row=document.getElementById("filtersRow");
-  const btn=document.getElementById("toggleFiltersBtn");
-  if(row.style.display==="none"){row.style.display="flex";btn.textContent="Hide Filters";}
-  else{row.style.display="none";btn.textContent="Show Filters";}
+/* -------------------------
+   Events + export
+   ------------------------- */
+const debouncedApply = debounce(applyFilters, 250);
+["showColumns","stateFilter","partyFilter","itemFilter","monthFilter","comparisonMonth"]
+  .forEach(id => document.getElementById(id).addEventListener("change", debouncedApply));
+
+document.getElementById("clearBtn").onclick = () => location.reload();
+
+document.getElementById("toggleFiltersBtn").onclick = () => {
+  const row = document.getElementById("filtersRow");
+  const btn = document.getElementById("toggleFiltersBtn");
+  if (row.style.display === "none") { row.style.display = "flex"; btn.textContent = "Hide Filters"; }
+  else { row.style.display = "none"; btn.textContent = "Show Filters"; }
 };
-document.getElementById("exportBtn").onclick=async()=>{
+
+document.getElementById("exportBtn").onclick = async () => {
   showOverlay();
-  try{
-    const wb=new ExcelJS.Workbook(); const ws=wb.addWorksheet("Comparison");
-    const rows=[...document.querySelectorAll("#comparisonTable tr")].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
-    rows.forEach((r,i)=>{const row=ws.addRow(r);if(i===0)row.font={bold:true};});
-    ws.columns.forEach(c=>c.width=18);
-    const buf=await wb.xlsx.writeBuffer();
-    saveAs(new Blob([buf]),`comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
-  }catch(err){console.error("Export failed:",err);alert("Export failed");}
-  finally{hideOverlay();}
+  try {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Comparison");
+    const rows = [...document.querySelectorAll("#comparisonTable tr")].map(tr => [...tr.children].map(td => td.innerText.trim()));
+    rows.forEach((r, i) => { const row = ws.addRow(r); if(i === 0) row.font = { bold: true }; });
+    ws.columns.forEach(c => c.width = 18);
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } catch (err) {
+    console.error("Export failed:", err); alert("Export failed");
+  } finally { hideOverlay(); }
 };
+
 loadData();
 </script>
 </body>
