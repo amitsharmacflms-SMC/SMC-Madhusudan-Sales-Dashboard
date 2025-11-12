@@ -4,9 +4,8 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>SMC - Plant to Depot Sales Dashboard</title>
-<link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
-<!-- Libraries -->
+<!-- libs -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
@@ -21,25 +20,31 @@
   --grand-total:#bae6fd;
   --up-bg:#dcfce7;
   --down-bg:#fee2e2;
+
+  /* adjust these if you change header/toolbar/filter heights */
+  --header-h:72px;
+  --toolbar-h:56px;
+  --filters-h:140px;
+  --thead-top: calc(var(--header-h) + var(--toolbar-h) + var(--filters-h));
 }
 
-/* basic */
 *{box-sizing:border-box}
 body{font-family:Inter,system-ui,Arial;margin:0;background:#f6f9fc;color:#0f172a}
 
-/* sticky header / toolbar / filters */
+/* page header */
 header{
   display:flex;align-items:center;justify-content:center;gap:16px;
   padding:14px 16px;background:linear-gradient(90deg,var(--accent1),var(--accent2));
-  color:#fff;position:sticky;top:0;z-index:1200;
+  color:#fff;position:sticky;top:0;z-index:1300;height:var(--header-h);
 }
 header img{height:56px}
 header h1{margin:0;font-weight:900;font-size:1.35rem}
 
 /* toolbar */
 .toolbar{
-  display:flex;justify-content:center;gap:10px;padding:10px;background:#fff;
-  position:sticky;top:70px;z-index:1150;
+  display:flex;justify-content:center;gap:10px;padding:8px 10px;background:#fff;
+  position:sticky;top:var(--header-h);z-index:1250;height:var(--toolbar-h);
+  align-items:center;
 }
 .btn{border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:800}
 .btn-blue{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff}
@@ -48,22 +53,32 @@ header h1{margin:0;font-weight:900;font-size:1.35rem}
 /* filters */
 #filtersWrapper{
   display:flex;justify-content:center;background:#f8fafc;border-bottom:1px solid #dbeafe;
-  position:sticky; top:130px; z-index:1100;
+  position:sticky; top: calc(var(--header-h) + var(--toolbar-h)); z-index:1200;
+  height:var(--filters-h);
+  align-items:flex-start;
 }
-.filters{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding:12px;max-width:1500px;width:100%}
+.filters{
+  display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding:12px;max-width:1500px;width:100%
+}
 .filter-box{background:#fff;border-radius:12px;padding:10px 12px;border:2px solid #c7d2fe;min-width:160px}
 .filter-box label{display:block;font-weight:800;color:var(--navy);margin-bottom:6px}
 .filter-box select{width:200px;padding:6px;border-radius:8px;border:1.5px solid #c7d2fe;background:#fff;font-weight:700;height:120px}
+select option:disabled{color:#999;background:#f3f4f6}
+
+/* table wrapper */
+.table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - (var(--header-h) + var(--toolbar-h) + var(--filters-h) + 60px));}
 
 /* table */
-.table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - 260px)}
 table{border-collapse:collapse;width:100%;min-width:1100px}
 thead th, tbody td{
   text-align:center;padding:6px 8px;border:2px solid #2d3748;font-weight:700;vertical-align:middle;
 }
 thead th{
-  position:sticky; top: 180px; /* header (70) + toolbar (60) + filters (50) ≈ 180px */
-  background:linear-gradient(90deg,#e0e7ff,#c7d2fe); color:var(--navy); z-index:1100;
+  position:sticky;
+  top: var(--thead-top); /* reliable offset */
+  background:linear-gradient(90deg,#e0e7ff,#c7d2fe);
+  color:var(--navy);
+  z-index:1199;
 }
 
 /* totals styling */
@@ -75,9 +90,6 @@ tr.grandtotal-row td{background:var(--grand-total);font-weight:900}
 tbody td{height:34px}
 .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.75);z-index:3000;font-weight:900;color:var(--navy)}
 .overlay.show{display:flex}
-
-/* disabled option style */
-select option:disabled{color:#999;background:#f3f4f6}
 </style>
 </head>
 <body>
@@ -123,34 +135,26 @@ select option:disabled{color:#999;background:#f3f4f6}
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
-/* Utility + parsing + safety */
+/* ========== Utilities ========== */
 const API_URL = "/get_data/lighthouse_sales";
 let rawData = [];
 
 function showOverlay(){document.getElementById('overlay').classList.add('show')}
 function hideOverlay(){document.getElementById('overlay').classList.remove('show')}
 function toNum(v){return Number(v)||0}
-function debounce(fn,ms=200){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms)}}
+function debounce(fn,ms=200){let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }}
 function escapeHTML(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
 
 function parseDateFlexible(s){
-  if(!s) return null;
-  s = String(s).trim();
-  if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8);return new Date(y,m-1,d)}
+  if(!s) return null; s = String(s).trim();
+  if(/^\d{8}$/.test(s)){ const d=+s.slice(0,2), m=+s.slice(2,4), y=+s.slice(4,8); return new Date(y,m-1,d); }
   const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if(m) return new Date(+m[1],+m[2]-1,+m[3]);
-  const d = new Date(s);
-  return isNaN(d)?null:d;
+  const d = new Date(s); return isNaN(d)?null:d;
 }
-function invoiceMonthLabel(s){
-  const dt = parseDateFlexible(s);
-  return dt ? dt.toLocaleString('default',{month:'short',year:'2-digit'}) : "";
-}
+function invoiceMonthLabel(s){ const dt = parseDateFlexible(s); return dt ? dt.toLocaleString('default',{month:'short',year:'2-digit'}) : ""; }
 
-/* --------------------
-   Load & normalize data
-   - preserve rows with empty month (to detect existence) but we won't render them unless monthsToShow show values
---------------------*/
+/* ========== Load & normalize ========== */
 async function loadData(){
   showOverlay();
   try{
@@ -158,7 +162,7 @@ async function loadData(){
     const rows = Array.isArray(res.data) ? res.data : [];
     rawData = rows.map(r=>{
       const rawDate = (r.invoice_date || r.INVOICE_DATE || "").toString().trim();
-      const month = invoiceMonthLabel(rawDate); // "" if not parseable
+      const month = invoiceMonthLabel(rawDate);
       const state = (r.state || r.STATE || "").trim();
       const party = (r.party_name || r.PARTY_NAME || "").trim();
       const itemRaw = (r.item_name || r.ITEM_NAME || "").trim();
@@ -168,28 +172,21 @@ async function loadData(){
 
     initFilters();
     applyFilters();
-  }catch(e){
-    console.error(e); alert('Failed to load data');
-  }finally{
-    hideOverlay();
-  }
+  }catch(e){ console.error(e); alert('Failed to load data'); }
+  finally{ hideOverlay(); }
 }
 
-/* --------------------
-   Init filters: populate options (alphabetical)
---------------------*/
+/* ========== Filters init ========== */
 function initFilters(){
   const states = [...new Set(rawData.map(r=>r.state))].sort();
   const parties = [...new Set(rawData.map(r=>r.party))].sort();
-  const items = [...new Set(rawData.map(r=>r.item))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
-  const months = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
+  const items = [...new Set(rawData.map(r=>r.item))].sort((a,b)=>a.localeCompare(b));
+  const months = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=>new Date('01 '+a) - new Date('01 '+b));
 
   const fill = (id, list) => {
-    const el = document.getElementById(id);
-    el.innerHTML = '';
+    const el = document.getElementById(id); el.innerHTML = '';
     list.forEach(v => el.innerHTML += `<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`);
   };
-
   fill('stateFilter', states);
   fill('partyFilter', parties);
   fill('itemFilter', items);
@@ -202,12 +199,9 @@ function initFilters(){
   }
 }
 
-/* --------------------
-   Build aggregated nested map: state -> party -> item -> months sums
-   Returns { map, monthsAll }
---------------------*/
+/* ========== Aggregation ========== */
 function buildAggregation(){
-  const monthsAll = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
+  const monthsAll = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=>new Date('01 '+a) - new Date('01 '+b));
   const map = new Map();
   rawData.forEach(r=>{
     const s = r.state, p = r.party, it = r.item;
@@ -223,18 +217,11 @@ function buildAggregation(){
   return { map, monthsAll };
 }
 
-/* --------------------
-   Soft cascade (Option B)
-   - disables options that are not present in current monthsToShow dataset,
-     but DOES NOT clear already selected options
---------------------*/
+/* ========== Soft cascade disable ========== */
 function updateSoftCascade(monthsToShow){
-  // compute allowed sets
   const monthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
   const allowed = { states: new Set(), parties: new Set(), items: new Set() };
-
   rawData.forEach(r=>{
-    // consider row present if month in monthsFilter OR if monthsFilter empty (show all), treat presence only if month matches
     if(monthsFilter.length){
       if(r.month && monthsFilter.includes(r.month)){
         allowed.states.add(r.state); allowed.parties.add(r.party); allowed.items.add(r.item);
@@ -243,7 +230,6 @@ function updateSoftCascade(monthsToShow){
       allowed.states.add(r.state); allowed.parties.add(r.party); allowed.items.add(r.item);
     }
   });
-
   const applyDisable = (id, allowedSet) => {
     const sel = document.getElementById(id);
     if(!sel) return;
@@ -252,18 +238,15 @@ function updateSoftCascade(monthsToShow){
       else opt.disabled = false;
     });
   };
-
   applyDisable('stateFilter', allowed.states);
   applyDisable('partyFilter', allowed.parties);
   applyDisable('itemFilter', allowed.items);
 }
 
-/* helper: selected options */
-function getVals(id){ const el = document.getElementById(id); if(!el) return []; return [...el.selectedOptions].map(o=>o.value); }
+/* ========== Helpers ========== */
+function getVals(id){ const el=document.getElementById(id); if(!el) return []; return [...el.selectedOptions].map(o=>o.value); }
 
-/* --------------------
-   Rendering core
---------------------*/
+/* ========== Rendering ========== */
 function applyFilters(){
   showOverlay();
   setTimeout(()=>{
@@ -279,30 +262,27 @@ function applyFilters(){
     const compSorted = compSel.slice().sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
     const compPair = compSorted.length >= 2 ? compSorted.slice(-2) : [];
 
-    // update soft cascade (disabling non-relevant options)
     updateSoftCascade(monthsToShow);
 
-    // build headers
+    // build header once
     const headers = [...showCols, ...monthsToShow];
     if(compPair.length >= 2) headers.push('Δ','% Change');
     const thead = document.getElementById('comparisonHead');
     thead.innerHTML = '<tr>' + headers.map(h => `<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
 
-    // rows
+    // build rows from aggregated map (sorted stable order)
     let html = '';
     const grand = Object.fromEntries(monthsToShow.map(m=>[m,0]));
-
-    // iterate states in alphabetical order for stable output
     const statesSorted = [...aggMap.keys()].sort((a,b)=>a.localeCompare(b));
     for(const state of statesSorted){
       if(selStates.length && !selStates.includes(state)) continue;
-
       const pMap = aggMap.get(state);
-      // check whether state has any visible data (in monthsToShow & matches party/item filters)
+
+      // check any visible data for this state
       let stateHas = false;
       for(const [party,iMap] of pMap.entries()){
         if(selParties.length && !selParties.includes(party)) continue;
-        for(const [item, mon] of iMap.entries()){
+        for(const [item,mon] of iMap.entries()){
           if(selItems.length && !selItems.includes(item)) continue;
           if(monthsToShow.some(m=> (mon[m] || 0) > 0 )) { stateHas = true; break; }
         }
@@ -310,22 +290,21 @@ function applyFilters(){
       }
       if(!stateHas) continue;
 
-      // iterate parties sorted
+      // parties
       const partiesSorted = [...pMap.keys()].sort((a,b)=>a.localeCompare(b));
       for(const party of partiesSorted){
         if(selParties.length && !selParties.includes(party)) continue;
         const iMap = pMap.get(party);
-        // build visible items (unique) for this party
+
         const visibleItems = [];
-        for(const [item, mon] of iMap.entries()){
+        for(const [item,mon] of iMap.entries()){
           if(selItems.length && !selItems.includes(item)) continue;
-          // show only if any monthToShow has value >0
           if(monthsToShow.length && monthsToShow.some(m => (mon[m] || 0) > 0)) visibleItems.push([item,mon]);
         }
         if(visibleItems.length === 0) continue;
 
-        // render each visible item row
-        visibleItems.sort((a,b)=> a[0].localeCompare(b[0]));
+        // item rows
+        visibleItems.sort((a,b)=>a[0].localeCompare(b[0]));
         for(const [item, mon] of visibleItems){
           html += '<tr>';
           for(const h of headers){
@@ -356,17 +335,13 @@ function applyFilters(){
                   const col = pct > 0 ? '#16a34a' : '#dc2626';
                   html += `<td style="color:${col}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;
                 }
-              } else {
-                html += '<td></td>';
-              }
-            } else {
-              html += '<td></td>';
-            }
+              } else html += '<td></td>';
+            } else html += '<td></td>';
           }
           html += '</tr>';
         }
 
-        // party subtotal if >=2 visible items
+        // party subtotal (if >=2 items)
         if(visibleItems.length >= 2){
           const ps = Object.fromEntries(monthsToShow.map(m=>[m,0]));
           visibleItems.forEach(([_, mon]) => monthsToShow.forEach(m => ps[m] += (mon[m] || 0)));
@@ -380,15 +355,13 @@ function applyFilters(){
         }
       } // end party loop
 
-      // compute and render state total
+      // state total
       const st = Object.fromEntries(monthsToShow.map(m=>[m,0]));
       for(const [party,iMap] of pMap.entries()){
         if(selParties.length && !selParties.includes(party)) continue;
         for(const [item,mon] of iMap.entries()){
           if(selItems.length && !selItems.includes(item)) continue;
-          if(monthsToShow.length){
-            monthsToShow.forEach(m => st[m] += (mon[m] || 0));
-          }
+          monthsToShow.forEach(m => st[m] += (mon[m] || 0));
         }
       }
       html += '<tr class="state-total-row">';
@@ -412,37 +385,35 @@ function applyFilters(){
     document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
     document.getElementById('comparisonFoot').innerHTML = f;
     hideOverlay();
-  }, 80);
+  }, 100);
 }
 
-/* Event bindings + soft cascade integration */
-const debounced = debounce(() => applyFilters(), 200);
+/* ========== events ========== */
+const debouncedApply = debounce(()=>applyFilters(), 200);
 
-["showColumns","stateFilter","partyFilter","itemFilter","monthFilter","comparisonMonth"].forEach(id=>{
+['showColumns','stateFilter','partyFilter','itemFilter','monthFilter','comparisonMonth'].forEach(id=>{
   document.getElementById(id).addEventListener('change', ()=>{
-    // soft cascade update (based on months currently selected)
     const monthsToShow = getVals('monthFilter');
     updateSoftCascade(monthsToShow);
-    debounced();
+    debouncedApply();
   });
 });
 
-document.getElementById('clearBtn').onclick = () => location.reload();
-
-document.getElementById('toggleFiltersBtn').onclick = () => {
+document.getElementById('clearBtn').onclick = ()=>location.reload();
+document.getElementById('toggleFiltersBtn').onclick = ()=>{
   const row = document.getElementById('filtersRow'), btn = document.getElementById('toggleFiltersBtn');
   if(row.style.display === 'none'){ row.style.display = 'flex'; btn.textContent = 'Hide Filters'; }
   else { row.style.display = 'none'; btn.textContent = 'Show Filters'; }
 };
 
-document.getElementById('exportBtn').onclick = async () => {
+document.getElementById('exportBtn').onclick = async ()=>{
   showOverlay();
   try{
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Comparison');
-    const rows = [...document.querySelectorAll('#comparisonTable tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
-    rows.forEach((r,i) => { const row = ws.addRow(r); if(i===0) row.font = { bold: true }; });
-    ws.columns.forEach(c => c.width = 18);
+    const rows = [...document.querySelectorAll('#comparisonTable tr')].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
+    rows.forEach((r,i)=>{ const row = ws.addRow(r); if(i===0) row.font = { bold: true }; });
+    ws.columns.forEach(c=>c.width = 18);
     const buf = await wb.xlsx.writeBuffer();
     saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
   }catch(e){ console.error(e); alert('Export failed'); }
