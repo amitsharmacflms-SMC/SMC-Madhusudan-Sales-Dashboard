@@ -65,12 +65,27 @@ select option:disabled{color:#999;background:#f3f4f6}
 
 /* table */
 table{border-collapse:collapse;width:100%;min-width:1100px}
-thead th, tbody td{
-  text-align:center;padding:6px 8px;border:2px solid #2d3748;font-weight:700;vertical-align:top;
+/* Header and cell alignment */
+thead th {
+  text-align: center;               /* center header text */
+  vertical-align: middle;
+  padding: 6px 8px;
+  border: 2px solid #2d3748;
+  font-weight: 800;
+  background: linear-gradient(90deg, #e0e7ff, #c7d2fe);
+  color: var(--navy);
+  position: sticky;
+  top: var(--thead-top);
+  z-index: 1310;
 }
-thead th{
-  position:sticky; top: var(--thead-top); background:linear-gradient(90deg,#e0e7ff,#c7d2fe);
-  color:var(--navy); z-index:1310;
+
+/* Data cell alignment */
+tbody td {
+  text-align: center;               /* center data text */
+  vertical-align: middle;
+  padding: 6px 8px;
+  border: 2px solid #2d3748;
+  font-weight: 600;
 }
 
 /* zebra striping (applies to all rows incl subtotals/totals) */
