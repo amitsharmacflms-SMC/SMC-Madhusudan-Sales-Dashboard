@@ -16,82 +16,66 @@
   --navy:#1e3a8a;
   --accent1:#2563eb;
   --accent2:#4f46e5;
-
-  --up-bg: rgba(220,252,231,0.9);    /* light green */
-  --down-bg: rgba(254,226,226,0.9);  /* light red */
-
-  --subtotal-overlay: rgba(255,247,204,0.55);  /* pale yellow overlay */
-  --state-overlay: rgba(230,246,255,0.55);     /* light blue overlay */
-  --grand-overlay: rgba(186,230,253,0.6);      /* darker blue blue overlay */
-
-  /* computed top sticky value will be set dynamically by JS */
-  --thead-top: 200px;
+  --up-bg:rgba(220,252,231,0.9);
+  --down-bg:rgba(254,226,226,0.9);
+  --subtotal-bg:rgba(255,247,204,0.55);
+  --state-bg:rgba(230,246,255,0.55);
+  --grand-bg:rgba(186,230,253,0.6);
+  --thead-top:200px;
 }
 
-/* base */
-*{box-sizing:border-box}
-body{font-family:Inter,system-ui,Arial;margin:0;background:#f6f9fc;color:#0f172a}
+/* basics */
+*{box-sizing:border-box;}
+body{font-family:Inter,system-ui,Arial;margin:0;background:#f6f9fc;color:#0f172a;}
 
 /* header */
-header{
-  display:flex;align-items:center;justify-content:center;gap:16px;
+header{display:flex;align-items:center;justify-content:center;gap:16px;
   padding:14px 16px;background:linear-gradient(90deg,var(--accent1),var(--accent2));
-  color:#fff;position:sticky;top:0;z-index:1400;
-}
-header img{height:56px}
-header h1{margin:0;font-weight:900;font-size:1.35rem}
+  color:#fff;position:sticky;top:0;z-index:1400;}
+header img{height:56px;}
+header h1{margin:0;font-weight:900;font-size:1.35rem;}
 
 /* toolbar */
-.toolbar{
-  display:flex;justify-content:center;gap:10px;padding:8px;background:#fff;position:sticky;top:64px;z-index:1350;align-items:center;
-}
-.btn{border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:800}
-.btn-blue{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff}
-.btn-gray{background:#eef2ff;color:var(--navy)}
+.toolbar{display:flex;justify-content:center;gap:10px;padding:8px;background:#fff;
+  position:sticky;top:64px;z-index:1350;align-items:center;}
+.btn{border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:800;}
+.btn-blue{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff;}
+.btn-gray{background:#eef2ff;color:var(--navy);}
 
-/* filters (sticky) */
-#filtersWrapper{
-  display:flex;justify-content:center;background:#f8fafc;border-bottom:1px solid #dbeafe;
-  position:sticky; top: calc(64px + 48px); z-index:1320;
-}
-.filters{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding:12px;max-width:1500px;width:100%}
-.filter-box{background:#fff;border-radius:12px;padding:10px 12px;border:2px solid #c7d2fe;min-width:160px}
-.filter-box label{display:block;font-weight:800;color:var(--navy);margin-bottom:6px}
-.filter-box select{width:200px;padding:6px;border-radius:8px;border:1.5px solid #c7d2fe;background:#fff;font-weight:700;height:120px}
-select option:disabled{color:#999;background:#f3f4f6}
-
-/* table wrapper */
-.table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - 260px);}
+/* filters */
+#filtersWrapper{display:flex;justify-content:center;background:#f8fafc;
+  border-bottom:1px solid #dbeafe;position:sticky;top:calc(64px + 48px);z-index:1320;}
+.filters{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding:12px;
+  max-width:1500px;width:100%;}
+.filter-box{background:#fff;border-radius:12px;padding:10px 12px;
+  border:2px solid #c7d2fe;min-width:160px;}
+.filter-box label{display:block;font-weight:800;color:var(--navy);margin-bottom:6px;}
+.filter-box select{width:200px;padding:6px;border-radius:8px;border:1.5px solid #c7d2fe;
+  background:#fff;font-weight:700;height:120px;}
+select option:disabled{color:#999;background:#f3f4f6;}
 
 /* table */
-table{border-collapse:collapse;width:100%;min-width:1100px}
-thead th, tbody td{
-  text-align:center;padding:6px 8px;border:2px solid #2d3748;font-weight:700;vertical-align:middle;
-}
-thead th{
-  position:sticky; top: var(--thead-top); background:linear-gradient(90deg,#e0e7ff,#c7d2fe);
-  color:var(--navy); z-index:1310;
-}
-
-/* zebra striping (applies to all rows incl subtotals/totals) */
-tbody tr:nth-child(odd) { background: #ffffff; }
-tbody tr:nth-child(even) { background: #f9fafb; }
-
-/* overlays for subtotal/state/grand rows -- semi-transparent so zebra shows through */
-tr.subtotal-row td { background: var(--subtotal-overlay); font-weight:900; }
-tr.state-total-row td { background: var(--state-overlay); font-weight:900; }
-tr.grandtotal-row td { background: var(--grand-overlay); font-weight:900; }
-
-/* compact */
-tbody td{height:34px}
-
-/* overlay indicator */
-.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.75);z-index:3000;font-weight:900;color:var(--navy)}
-.overlay.show{display:flex}
+.table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;
+  background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06);height:calc(100vh - 260px);}
+table{border-collapse:collapse;width:100%;min-width:1100px;}
+thead th, tbody td{text-align:center;padding:6px 8px;border:2px solid #2d3748;
+  font-weight:700;vertical-align:middle;}
+thead th{position:sticky;top:var(--thead-top);
+  background:linear-gradient(90deg,#e0e7ff,#c7d2fe);color:var(--navy);z-index:1310;}
+tbody tr:nth-child(odd){background:#ffffff;}
+tbody tr:nth-child(even){background:#f9fafb;}
+tr.subtotal-row td{background:var(--subtotal-bg);font-weight:900;}
+tr.state-total-row td{background:var(--state-bg);font-weight:900;}
+tr.grandtotal-row td{background:var(--grand-bg);font-weight:900;}
+tr.state-total-row td:first-child{border-top:3px solid var(--navy);}
+tr.subtotal-row td:first-child{border-top:2px solid var(--navy);}
+tbody td{height:34px;}
+.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(255,255,255,0.75);z-index:3000;font-weight:900;color:var(--navy);}
+.overlay.show{display:flex;}
 </style>
 </head>
 <body>
-
 <header>
   <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo">
   <h1>SMC - Plant to Depot Sales Dashboard</h1>
@@ -104,37 +88,21 @@ tbody td{height:34px}
   <button id="toggleFiltersBtn" class="btn btn-blue">Hide Filters</button>
 </div>
 
-<!-- filters -->
 <div id="filtersWrapper">
   <div class="filters" id="filtersRow">
     <div class="filter-box">
-      <label for="showColumns">Show Columns</label>
-      <select id="showColumns" multiple aria-label="Select columns to display">
+      <label>Show Columns</label>
+      <select id="showColumns" multiple>
         <option value="State" selected>State</option>
         <option value="Party_Name" selected>Party_Name</option>
         <option value="Item_Name" selected>Item_Name</option>
       </select>
     </div>
-    <div class="filter-box">
-      <label for="stateFilter">State</label>
-      <select id="stateFilter" multiple aria-label="Filter by State"></select>
-    </div>
-    <div class="filter-box">
-      <label for="partyFilter">Party Name</label>
-      <select id="partyFilter" multiple aria-label="Filter by Party Name"></select>
-    </div>
-    <div class="filter-box">
-      <label for="itemFilter">Item Name</label>
-      <select id="itemFilter" multiple aria-label="Filter by Item Name"></select>
-    </div>
-    <div class="filter-box">
-      <label for="monthFilter">Month_Name</label>
-      <select id="monthFilter" multiple aria-label="Filter by Month Name"></select>
-    </div>
-    <div class="filter-box">
-      <label for="comparisonMonth">Comparison Month</label>
-      <select id="comparisonMonth" multiple aria-label="Select months for comparison"></select>
-    </div>
+    <div class="filter-box"><label>State</label><select id="stateFilter" multiple></select></div>
+    <div class="filter-box"><label>Party Name</label><select id="partyFilter" multiple></select></div>
+    <div class="filter-box"><label>Item Name</label><select id="itemFilter" multiple></select></div>
+    <div class="filter-box"><label>Month_Name</label><select id="monthFilter" multiple></select></div>
+    <div class="filter-box"><label>Comparison Month</label><select id="comparisonMonth" multiple></select></div>
   </div>
 </div>
 
@@ -149,51 +117,17 @@ tbody td{height:34px}
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
-/* ---------------------
-  FINAL robust implementation
-  - sums duplicates per (state,party,item,month)
-  - single thead only
-  - soft-cascade (disable unrelated options, keep selected)
-  - dynamic sticky header top computed at runtime
-  - zebra (applies to all rows) + semi-transparent subtotal/state/grand overlays
-  - **MAJOR UPDATE**: Aggregates data dynamically based on selected 'Show Columns'
-    to display one row per group, and correctly renders totals/subtotals.
-----------------------*/
-
 const API_URL = "/get_data/lighthouse_sales";
 let rawData = [];
 
-function showOverlay(){document.getElementById('overlay').classList.add('show')}
-function hideOverlay(){document.getElementById('overlay').classList.remove('show')}
-function toNum(v){return Number(v)||0}
-function debounce(fn, ms=200){let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }}
-function escapeHTML(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+function showOverlay(){document.getElementById('overlay').classList.add('show');}
+function hideOverlay(){document.getElementById('overlay').classList.remove('show');}
+function toNum(v){return Number(v)||0;}
+function debounce(fn,ms=200){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+function escapeHTML(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');}
+function parseDateFlexible(s){if(!s)return null;s=String(s).trim();if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8);return new Date(y,m-1,d);}const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);const d=new Date(s);return isNaN(d)?null:d;}
+function invoiceMonthLabel(s){const dt=parseDateFlexible(s);return dt?dt.toLocaleString('default',{month:'short',year:'2-digit'}):"";}
 
-/* parse dates to "Mon YY" */
-function parseDateFlexible(s){
-  if(!s) return null;
-  s = String(s).trim();
-  if(/^\d{8}$/.test(s)){ const d=+s.slice(0,2), m=+s.slice(2,4), y=+s.slice(4,8); return new Date(y,m-1,d); }
-  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
-  const d = new Date(s); return isNaN(d) ? null : d;
-}
-function invoiceMonthLabel(s){ const dt = parseDateFlexible(s); return dt ? dt.toLocaleString('default',{month:'short',year:'2-digit'}) : ""; }
-
-/* compute and set sticky top dynamically */
-function setDynamicTheadTop(){
-  const header = document.querySelector('header');
-  const toolbar = document.querySelector('.toolbar');
-  const filters = document.getElementById('filtersWrapper');
-  let topVal = 0;
-  if(header) topVal += header.getBoundingClientRect().height;
-  if(toolbar) topVal += toolbar.getBoundingClientRect().height;
-  if(filters) topVal += filters.getBoundingClientRect().height;
-  topVal = Math.max(0, topVal + 0);
-  document.documentElement.style.setProperty('--thead-top', topVal + 'px');
-}
-
-/* load data and normalize items */
 async function loadData(){
   showOverlay();
   try{
@@ -204,8 +138,7 @@ async function loadData(){
       const month = invoiceMonthLabel(rawDate);
       const state = (r.state || r.STATE || "").trim();
       const party = (r.party_name || r.PARTY_NAME || "").trim();
-      const itemRaw = (r.item_name || r.ITEM_NAME || "").trim();
-      const item = itemRaw.replace(/\s+/g,' ');
+      const item = (r.item_name || r.ITEM_NAME || "").trim().replace(/\s+/g,' ');
       return { state, party, item, month, qty: toNum(r.quantity_cs || r.Quantity_CS || 0) };
     }).filter(r => r.state && r.party && r.item);
 
@@ -214,149 +147,70 @@ async function loadData(){
     window.addEventListener('resize', debounce(setDynamicTheadTop, 200));
     applyFilters();
   }catch(e){
-    console.error(e);
-    alert('Failed to load data');
+    console.error(e); alert('Failed to load data');
+  }finally{
     hideOverlay();
   }
 }
 
-/* populate filters */
+function setDynamicTheadTop(){
+  const header = document.querySelector('header');
+  const toolbar = document.querySelector('.toolbar');
+  const filters = document.getElementById('filtersWrapper');
+  let topVal = 0;
+  if(header) topVal += header.getBoundingClientRect().height;
+  if(toolbar) topVal += toolbar.getBoundingClientRect().height;
+  if(filters) topVal += filters.getBoundingClientRect().height;
+  document.documentElement.style.setProperty('--thead-top', Math.max(0, topVal) + 'px');
+}
+
 function initFilters(){
-  const states = [...new Set(rawData.map(r=>r.state))].sort((a,b)=>a.localeCompare(b));
-  const parties = [...new Set(rawData.map(r=>r.party))].sort((a,b)=>a.localeCompare(b));
-  const items = [...new Set(rawData.map(r=>r.item))].sort((a,b)=>a.localeCompare(b));
-  const months = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
-
-  const fill = (id,list) => {
-    const el = document.getElementById(id); el.innerHTML = '';
-    list.forEach(v => el.innerHTML += `<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`);
-  };
-
-  fill('stateFilter', states);
-  fill('partyFilter', parties);
-  fill('itemFilter', items);
-  fill('monthFilter', months);
-  fill('comparisonMonth', months);
-
+  const states = [...new Set(rawData.map(r=>r.state))].sort();
+  const parties = [...new Set(rawData.map(r=>r.party))].sort();
+  const items = [...new Set(rawData.map(r=>r.item))].sort();
+  const months = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=>new Date('01 '+a)-new Date('01 '+b));
+  const fill = (id,list)=>{const el=document.getElementById(id);el.innerHTML='';list.forEach(v=>el.innerHTML+=`<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`);};
+  fill('stateFilter', states); fill('partyFilter', parties); fill('itemFilter', items); fill('monthFilter', months); fill('comparisonMonth', months);
   if(months.length >= 2){
     const last2 = months.slice(-2);
     [...document.getElementById('comparisonMonth').options].forEach(o=>{ if(last2.includes(o.value)) o.selected = true; });
   }
 }
 
-/* build aggregated nested map for soft cascade: state -> party -> item -> { month: summedQty, ... } */
-function buildAggregationForSoftCascade(){
+/* build grouped array (one entry per unique state|party|item) */
+function groupData(){
   const map = new Map();
-  rawData.forEach(r=>{
-    const s = r.state, p = r.party, it = r.item;
-    if(!map.has(s)) map.set(s, new Map());
-    const pMap = map.get(s);
-    if(!pMap.has(p)) pMap.set(p, new Map());
-    const iMap = pMap.get(p);
-    if(!iMap.has(it)) iMap.set(it, {});
-    const mon = iMap.get(it);
-    if(r.month){
-      mon[r.month] = (mon[r.month] || 0) + r.qty;
-    } else {
-      mon.__no_month__ = (mon.__no_month__ || 0) + r.qty;
-    }
-  });
-  return map;
+  for(const r of rawData){
+    const key = `${r.state}||${r.party}||${r.item}`;
+    if(!map.has(key)) map.set(key,{state:r.state,party:r.party,item:r.item,months:{}});
+    const g = map.get(key);
+    if(r.month) g.months[r.month] = (g.months[r.month]||0) + r.qty;
+    else g.months.__no_month__ = (g.months.__no_month__||0) + r.qty;
+  }
+  return [...map.values()];
 }
 
-/* soft-cascade disabling: disable options not relevant but keep selected ones */
 function updateSoftCascade(monthsToShow){
-  const actualMonthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
-
-  const allowed = { states: new Set(), parties: new Set(), items: new Set() };
-
+  const monthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
+  const allowed = { states:new Set(), parties:new Set(), items:new Set() };
   rawData.forEach(r=>{
-    if(r.month && actualMonthsFilter.includes(r.month)){
-      allowed.states.add(r.state);
-      allowed.parties.add(r.party);
-      allowed.items.add(r.item);
+    if(monthsFilter.length){
+      if(r.month && monthsFilter.includes(r.month)){
+        allowed.states.add(r.state); allowed.parties.add(r.party); allowed.items.add(r.item);
+      }
+    } else {
+      allowed.states.add(r.state); allowed.parties.add(r.party); allowed.items.add(r.item);
     }
   });
-
-  const applyDisable = (id, setAllowed) => {
-    const sel = document.getElementById(id);
-    if(!sel) return;
-    [...sel.options].forEach(opt => {
-      if(!setAllowed.has(opt.value) && !opt.selected) opt.disabled = true;
-      else opt.disabled = false;
-    });
+  const applyDisable = (id,setAllowed)=>{
+    const sel = document.getElementById(id); if(!sel) return;
+    [...sel.options].forEach(opt => { if(!setAllowed.has(opt.value) && !opt.selected) opt.disabled = true; else opt.disabled = false; });
   };
-  applyDisable('stateFilter', allowed.states);
-  applyDisable('partyFilter', allowed.parties);
-  applyDisable('itemFilter', allowed.items);
+  applyDisable('stateFilter', allowed.states); applyDisable('partyFilter', allowed.parties); applyDisable('itemFilter', allowed.items);
 }
 
 function getVals(id){ const el=document.getElementById(id); if(!el) return []; return [...el.selectedOptions].map(o=>o.value); }
 
-// Helper function to render total rows (party subtotal, state total, grand total)
-function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow, compPair) {
-    let rowHtml = '';
-    let rowClass = '';
-    let itemLabel = ''; // For the Item_Name column in total rows (e.g., SUM Party, TOTAL State)
-
-    if (type === 'party') {
-        rowClass = 'subtotal-row';
-        itemLabel = `SUM ${escapeHTML(label)}`;
-    } else if (type === 'state') {
-        rowClass = 'state-total-row';
-        itemLabel = `TOTAL ${escapeHTML(label)}`;
-    } else if (type === 'grand') {
-        rowClass = 'grandtotal-row';
-        itemLabel = label; // "GRAND TOTAL"
-    }
-
-    rowHtml += `<tr class="${rowClass}">`;
-    for (const h of headers) {
-        if (showCols.includes(h)) {
-            // For 'Show Columns' headers (State, Party_Name, Item_Name)
-            if (h === 'Item_Name') {
-                rowHtml += `<td><b>${itemLabel}</b></td>`;
-            } else if (h === 'State' && type === 'state') {
-                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`; // Display state name in State column for state total
-            } else if (h === 'Party_Name' && (type === 'state' || type === 'grand')) {
-                rowHtml += '<td></td>'; // Party column empty for state/grand total
-            } else if (h === 'State' && type === 'grand') {
-                rowHtml += '<td></td>'; // State column empty for grand total
-            } else if (h === 'Party_Name' && type === 'party') {
-                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`; // Party name in Party column for party subtotal
-            } else {
-                rowHtml += '<td></td>'; // Other showCols empty for total rows
-            }
-        } else if (monthsToShow.includes(h)) {
-            // For month columns
-            rowHtml += `<td><b>${(totalsMap[h] || 0).toLocaleString()}</b></td>`;
-        } else if (h === 'Δ' || h === '% Change') {
-            // For comparison columns
-            if (compPair.length >= 2) {
-                const v1 = totalsMap[compPair[0]] || 0;
-                const v2 = totalsMap[compPair[1]] || 0;
-                if (h === 'Δ') {
-                    const diff = v2 - v1;
-                    const bg = diff > 0 ? 'var(--up-bg)' : (diff < 0 ? 'var(--down-bg)' : '');
-                    rowHtml += `<td style="background:${bg};"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
-                } else {
-                    const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
-                    const col = pct > 0 ? '#16a34a' : (pct < 0 ? '#dc2626' : '');
-                    rowHtml += `<td style="color:${col}">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
-                }
-            } else {
-                rowHtml += '<td></td>';
-            }
-        } else {
-            rowHtml += '<td></td>'; // Fallback for any other unexpected header
-        }
-    }
-    rowHtml += '</tr>';
-    return rowHtml;
-}
-
-
-/* render final table */
 function applyFilters(){
   showOverlay();
   setTimeout(()=>{
@@ -364,180 +218,129 @@ function applyFilters(){
     const selStates = getVals('stateFilter');
     const selParties = getVals('partyFilter');
     const selItems = getVals('itemFilter');
-    const visibleMonths = getVals('monthFilter');
+    const monthsSel = getVals('monthFilter');
     const compSel = getVals('comparisonMonth');
 
-    // Use rawData directly and apply filters, then group for display
-    const monthsAll = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
-    const monthsToShow = visibleMonths.length ? visibleMonths : monthsAll.slice();
-    const compSorted = compSel.slice().sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
+    const data = groupData();
+    const monthsAll = [...new Set(rawData.map(r=>r.month))].filter(Boolean).sort((a,b)=>new Date('01 '+a)-new Date('01 '+b));
+    const monthsToShow = monthsSel.length ? monthsSel : monthsAll;
+    const compSorted = compSel.slice().sort((a,b)=>new Date('01 '+a)-new Date('01 '+b));
     const compPair = compSorted.length >= 2 ? compSorted.slice(-2) : [];
 
     updateSoftCascade(monthsToShow);
 
-    // --- Dynamic Aggregation based on showCols ---
-    const groupedData = new Map(); // key -> { State: ..., Party_Name: ..., Item_Name: ..., month1: sum, month2: sum }
-
-    rawData.forEach(r => {
-        // Apply initial selection filters to raw data before grouping
-        if (selStates.length && !selStates.includes(r.state)) return;
-        if (selParties.length && !selParties.includes(r.party)) return;
-        if (selItems.length && !selItems.includes(r.item)) return;
-
-        let groupKeyParts = [];
-        let groupRow = {};
-
-        showCols.forEach(col => {
-            let val;
-            if (col === 'State') val = r.state;
-            else if (col === 'Party_Name') val = r.party;
-            else if (col === 'Item_Name') val = r.item;
-            
-            if (val) {
-                groupKeyParts.push(val);
-                groupRow[col] = val;
-            } else {
-                groupKeyParts.push(""); 
-                groupRow[col] = "";
-            }
-        });
-
-        const groupKey = groupKeyParts.join('___');
-
-        if (!groupedData.has(groupKey)) {
-            groupedData.set(groupKey, { ...groupRow });
-            monthsToShow.forEach(m => groupedData.get(groupKey)[m] = 0);
-        }
-
-        const currentGroup = groupedData.get(groupKey);
-        if (r.month && monthsToShow.includes(r.month)) { // Only sum if month is visible
-            currentGroup[r.month] = (currentGroup[r.month] || 0) + r.qty;
-        }
-    });
-
-    const sortedGroupKeys = [...groupedData.keys()].sort();
-
-    // Headers (unchanged)
     const headers = [...showCols, ...monthsToShow];
     if(compPair.length >= 2) headers.push('Δ','% Change');
     document.getElementById('comparisonHead').innerHTML = '<tr>' + headers.map(h=>`<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
 
+    // filter and sort grouped data
+    const filtered = data.filter(d=>
+      (!selStates.length || selStates.includes(d.state)) &&
+      (!selParties.length || selParties.includes(d.party)) &&
+      (!selItems.length || selItems.includes(d.item))
+    ).sort((a,b)=>{
+      if(a.state !== b.state) return a.state.localeCompare(b.state);
+      if(a.party !== b.party) return a.party.localeCompare(b.party);
+      return a.item.localeCompare(b.item);
+    });
+
     let html = '';
     const grand = Object.fromEntries(monthsToShow.map(m=>[m,0]));
 
-    // For state and party subtotals, we need to track values dynamically as we iterate
-    const stateTotals = new Map(); // state -> { month: sum, ... }
-    const partyTotals = new Map(); // state_party -> { month: sum, ... }
+    let currentState = null;
+    let currentParty = null;
+    let partySums = null;
+    let stateSums = null;
 
-    let lastState = null;
-    let lastParty = null;
+    const flushPartySubtotal = () => {
+      if(!partySums) return;
+      html += '<tr class="subtotal-row">';
+      for(const h of headers){
+        if(monthsToShow.includes(h)) html += `<td><b>${partySums[h].toLocaleString()}</b></td>`;
+        else if(['State','Party_Name','Item_Name'].includes(h)) html += `<td><b>SUM ${escapeHTML(currentParty)}</b></td>`;
+        else html += '<td></td>';
+      }
+      html += '</tr>';
+      partySums = null;
+    };
 
-    for (const groupKey of sortedGroupKeys) {
-        const rowData = groupedData.get(groupKey);
+    const flushStateTotal = () => {
+      if(!stateSums) return;
+      html += '<tr class="state-total-row">';
+      for(const h of headers){
+        if(monthsToShow.includes(h)) html += `<td><b>${stateSums[h].toLocaleString()}</b></td>`;
+        else if(['State','Party_Name','Item_Name'].includes(h)) html += `<td><b>TOTAL ${escapeHTML(currentState)}</b></td>`;
+        else html += '<td></td>';
+      }
+      html += '</tr>';
+      stateSums = null;
+    };
 
-        // Check if this row has any non-zero values for monthsToShow, otherwise skip
-        if (!monthsToShow.some(m => (rowData[m] || 0) > 0)) continue;
+    for(const g of filtered){
+      // check visibility: only show rows that have at least one non-zero in monthsToShow
+      const hasVisibleValue = monthsToShow.length ? monthsToShow.some(m => (g.months[m]||0) > 0) : true;
+      if(!hasVisibleValue) continue;
 
-        const currentState = rowData.State;
-        const currentParty = rowData.Party_Name;
+      if(currentState && g.state !== currentState){
+        flushPartySubtotal();
+        flushStateTotal();
+      }
+      if(currentParty && g.party !== currentParty){
+        flushPartySubtotal();
+      }
+      if(!stateSums || g.state !== currentState) stateSums = Object.fromEntries(monthsToShow.map(m=>[m,0]));
+      if(!partySums || g.party !== currentParty) partySums = Object.fromEntries(monthsToShow.map(m=>[m,0]));
 
-        // Render Party Subtotal if party changes (within the same state) OR state changes
-        if (lastParty && (currentParty !== lastParty || currentState !== lastState)) {
-             const ptKey = lastState + '___' + lastParty;
-             const pt = partyTotals.get(ptKey) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-             if (monthsToShow.some(m => pt[m] > 0)) {
-                 html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
-             }
-             partyTotals.delete(ptKey); // Clear party total after rendering
-        }
-
-        // Render State Total if state changes AND lastState was not null
-        if (lastState && currentState !== lastState) {
-            const st = stateTotals.get(lastState) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-            if(monthsToShow.some(m => st[m] > 0)){
-                html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
-            }
-            stateTotals.delete(lastState); // Clear state total after rendering
-            // Also ensure any remaining party totals for the old state are cleared
-            partyTotals.forEach((v,k) => { if(k.startsWith(lastState + '___')) partyTotals.delete(k); });
-        }
-
-
-        // --- Main Grouped Data Row ---
-        html += '<tr>';
-        for(const h of headers){
-          if(showCols.includes(h)) {
-              html += `<td>${escapeHTML(rowData[h] || '')}</td>`;
+      // render row
+      html += '<tr>';
+      for(const h of headers){
+        if(h === 'State') html += `<td>${escapeHTML(g.state)}</td>`;
+        else if(h === 'Party_Name') html += `<td>${escapeHTML(g.party)}</td>`;
+        else if(h === 'Item_Name') html += `<td>${escapeHTML(g.item)}</td>`;
+        else if(monthsToShow.includes(h)){
+          const v = g.months[h] || 0;
+          const idx = monthsToShow.indexOf(h);
+          let bg = '';
+          if(idx > 0){
+            const prev = monthsToShow[idx-1];
+            const prevV = g.months[prev] || 0;
+            bg = v > prevV ? `background:${'var(--up-bg)'};` : `background:${'var(--down-bg)'};`;
           }
-          else if(monthsToShow.includes(h)){
-            const v = rowData[h] || 0;
-            const idx = monthsToShow.indexOf(h);
-            let bg = '';
-            if(compPair.length === 0 && idx > 0){
-              const prev = monthsToShow[idx-1];
-              const prevV = rowData[prev] || 0;
-              bg = v > prevV ? `background:${'var(--up-bg)'};` : (v < prevV ? `background:${'var(--down-bg)'};` : '');
+          html += `<td style="${bg}">${v ? v.toLocaleString() : ''}</td>`;
+          partySums[h] += v; stateSums[h] += v; grand[h] += v;
+        } else if(h === 'Δ' || h === '% Change'){
+          if(compPair.length >= 2){
+            const v1 = g.months[compPair[0]] || 0;
+            const v2 = g.months[compPair[1]] || 0;
+            if(h === 'Δ'){
+              const diff = v2 - v1;
+              const bg = diff > 0 ? 'var(--up-bg)' : 'var(--down-bg)';
+              html += `<td style="background:${bg};">${diff>0?'+':''}${diff.toLocaleString()}</td>`;
+            } else {
+              const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
+              const col = pct > 0 ? '#16a34a' : '#dc2626';
+              html += `<td style="color:${col}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;
             }
-            html += `<td style="${bg}">${v ? v.toLocaleString() : ''}</td>`;
-            grand[h] += v; // Accumulate grand total
-
-            // Accumulate state and party totals
-            if (currentState) {
-                const stateT = stateTotals.get(currentState) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-                stateT[h] += v;
-                stateTotals.set(currentState, stateT);
-            }
-            if (currentParty) { // Only accumulate party total if Party_Name is actually displayed
-                const partyTKey = currentState + '___' + currentParty; // Key for party total
-                const partyT = partyTotals.get(partyTKey) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-                partyT[h] += v;
-                partyTotals.set(partyTKey, partyT);
-            }
-          } else if(h === 'Δ' || h === '% Change'){
-            if(compPair.length >= 2){
-              const v1 = rowData[compPair[0]] || 0;
-              const v2 = rowData[compPair[1]] || 0;
-              if(h === 'Δ'){
-                const diff = v2 - v1;
-                const bg = diff > 0 ? 'var(--up-bg)' : (diff < 0 ? 'var(--down-bg)' : '');
-                html += `<td style="background:${bg};"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
-              } else {
-                const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
-                const col = pct > 0 ? '#16a34a' : (pct < 0 ? '#dc2626' : '');
-                html += `<td style="color:${col}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;
-              }
-            } else html += '<td></td>';
           } else html += '<td></td>';
-        }
-        html += '</tr>';
+        } else html += '<td></td>';
+      }
+      html += '</tr>';
 
-        lastState = currentState;
-        lastParty = currentParty;
-    }
+      currentState = g.state;
+      currentParty = g.party;
+    } // end loop
 
-    // After loop, render any remaining Party Subtotal (for the very last group)
-    if (lastParty) {
-        const ptKey = lastState + '___' + lastParty;
-        const pt = partyTotals.get(ptKey) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-        if (monthsToShow.some(m => pt[m] > 0)) {
-            html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
-        }
-    }
-
-    // After loop, render any remaining State Total (for the very last state)
-    if (lastState) {
-        const st = stateTotals.get(lastState) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-        if(monthsToShow.some(m => st[m] > 0)){
-            html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
-        }
-    }
+    flushPartySubtotal();
+    flushStateTotal();
 
     // grand total
-    let f = '';
-    const grandTotalHasData = monthsToShow.some(m => grand[m] > 0);
-    if (grandTotalHasData) {
-      f += renderTotalRow('grand', 'GRAND TOTAL', grand, headers, showCols, monthsToShow, compPair);
+    let f = '<tr class="grandtotal-row">';
+    for(const h of headers){
+      if(monthsToShow.includes(h)) f += `<td><b>${grand[h].toLocaleString()}</b></td>`;
+      else if(['State','Party_Name','Item_Name'].includes(h)) f += `<td><b>GRAND TOTAL</b></td>`;
+      else f += '<td></td>';
     }
+    f += '</tr>';
 
     document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
     document.getElementById('comparisonFoot').innerHTML = f;
@@ -545,55 +348,58 @@ function applyFilters(){
   }, 80);
 }
 
-/* events + soft cascade + export */
-const debouncedApply = debounce(()=>applyFilters(), 200);
-
+/* events */
 ['showColumns','stateFilter','partyFilter','itemFilter','monthFilter','comparisonMonth'].forEach(id=>{
   document.getElementById(id).addEventListener('change', ()=>{
     const monthsToShow = getVals('monthFilter');
     updateSoftCascade(monthsToShow);
-    debouncedApply();
+    debounce(applyFilters, 150)();
   });
 });
 
-document.getElementById('clearBtn').onclick = () => location.reload();
-
-document.getElementById('toggleFiltersBtn').onclick = () => {
-  const row = document.getElementById('filtersRow'), btn = document.getElementById('toggleFiltersBtn');
-  if(row.style.display === 'none'){
-    row.style.display = 'flex';
-    btn.textContent = 'Hide Filters';
-  }
-  else {
-    row.style.display = 'none';
-    btn.textContent = 'Show Filters';
-  }
-  setDynamicTheadTop();
+document.getElementById('clearBtn').onclick = ()=> location.reload();
+document.getElementById('toggleFiltersBtn').onclick = ()=>{
+  const row = document.getElementById('filtersRow'), btn=document.getElementById('toggleFiltersBtn');
+  if(row.style.display==='none'){ row.style.display='flex'; btn.textContent='Hide Filters'; }
+  else { row.style.display='none'; btn.textContent='Show Filters'; }
 };
 
-document.getElementById('exportBtn').onclick = async () => {
+/* Export (Excel) */
+document.getElementById('exportBtn').onclick = async ()=>{
   showOverlay();
   try{
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Comparison');
-    const headerRow = [...document.querySelectorAll('#comparisonHead tr th')].map(th => th.innerText.trim());
-    ws.addRow(headerRow).font = { bold: true };
-
-    const bodyRows = [...document.querySelectorAll('#comparisonBody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
-    bodyRows.forEach(r => ws.addRow(r));
-
-    const footerRows = [...document.querySelectorAll('#comparisonFoot tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
-    footerRows.forEach(r => ws.addRow(r).font = { bold: true });
-
-
-    ws.columns.forEach(c => c.width = 18);
+    const rows = [...document.querySelectorAll('#comparisonTable tr')].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
+    rows.forEach((r,i)=>{ const row = ws.addRow(r); if(i===0) row.font = { bold: true }; });
+    ws.columns.forEach(c=>c.width = 18);
     const buf = await wb.xlsx.writeBuffer();
     saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
-  }catch(e){ console.error('Export failed', e); alert('Export failed'); }
+  }catch(e){ console.error(e); alert('Export failed'); }
   finally{ hideOverlay(); }
 };
 
-/* init page */
+function getVals(id){ const el=document.getElementById(id); if(!el) return []; return [...el.selectedOptions].map(o=>o.value); }
+
+function updateSoftCascade(monthsToShow){
+  // reuse implementation above (no-op here because defined earlier)
+  // calling original logic again to ensure consistent behaviour
+  const monthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
+  const allowed = { states:new Set(), parties:new Set(), items:new Set() };
+  rawData.forEach(r=>{
+    if(monthsFilter.length){
+      if(r.month && monthsFilter.includes(r.month)){
+        allowed.states.add(r.state); allowed.parties.add(r.party); allowed.items.add(r.item);
+      }
+    } else {
+      allowed.states.add(r.state); allowed.parties.add(r.party); allowed.items.add(r.item);
+    }
+  });
+  const applyDisable = (id,setAllowed)=>{ const sel=document.getElementById(id); if(!sel) return; [...sel.options].forEach(opt=>{ if(!setAllowed.has(opt.value) && !opt.selected) opt.disabled=true; else opt.disabled=false; }); };
+  applyDisable('stateFilter',allowed.states); applyDisable('partyFilter',allowed.parties); applyDisable('itemFilter',allowed.items);
+}
+
+/* initialize */
 loadData();
 </script>
 </body>
