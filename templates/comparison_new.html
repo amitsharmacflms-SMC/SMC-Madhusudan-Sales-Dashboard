@@ -407,15 +407,38 @@ function applyFilters(){
           html += '</tr>';
         }
 
+        // ... (inside applyFilters function) ...
+
         // party subtotal (if >= 2 visible items)
         if(visibleItems.length >= 2){
           const ps = Object.fromEntries(monthsToShow.map(m=>[m,0]));
           visibleItems.forEach(([_, mon]) => monthsToShow.forEach(m => ps[m] += (mon[m] || 0)));
           html += '<tr class="subtotal-row">';
           for(const h of headers){
-            if(monthsToShow.includes(h)) html += `<td><b>${ps[h].toLocaleString()}</b></td>`;
-            else if(h === 'Item_Name') html += `<td><b>SUM ${escapeHTML(party)}</b></td>`;
-            else html += '<td></td>';
+            if(showCols.includes(h)) { // For 'showColumns' like State, Party_Name, Item_Name
+                if (h === 'Item_Name') html += `<td><b>SUM ${escapeHTML(party)}</b></td>`;
+                else html += '<td></td>'; // Or leave empty for State/Party in subtotal row
+            }
+            else if(monthsToShow.includes(h)) { // For month columns
+                html += `<td><b>${ps[h].toLocaleString()}</b></td>`;
+            } else { // For comparison columns (Δ, % Change)
+                // Calculate comparison values for subtotal if compPair is available
+                if (h === 'Δ' && compPair.length >= 2) {
+                    const v1_ps = ps[compPair[0]] || 0;
+                    const v2_ps = ps[compPair[1]] || 0;
+                    const diff_ps = v2_ps - v1_ps;
+                    const bg_ps = diff_ps > 0 ? 'var(--up-bg)' : (diff_ps < 0 ? 'var(--down-bg)' : '');
+                    html += `<td style="background:${bg_ps};"><b>${diff_ps>0?'+':''}${diff_ps.toLocaleString()}</b></td>`;
+                } else if (h === '% Change' && compPair.length >= 2) {
+                    const v1_ps = ps[compPair[0]] || 0;
+                    const v2_ps = ps[compPair[1]] || 0;
+                    const pct_ps = v1_ps ? (((v2_ps - v1_ps) / v1_ps) * 100) : (v2_ps ? 100 : 0);
+                    const col_ps = pct_ps > 0 ? '#16a34a' : (pct_ps < 0 ? '#dc2626' : '');
+                    html += `<td style="color:${col_ps}">${pct_ps>0?'+':''}${pct_ps.toFixed(1)}%</td>`;
+                } else {
+                    html += '<td></td>';
+                }
+            }
           }
           html += '</tr>';
         }
@@ -427,11 +450,14 @@ function applyFilters(){
       for(const party of partiesSorted){
         if(selParties.length && !selParties.includes(party)) continue;
         const iMap = pMap.get(party);
-        for(const [item,mon] of iMap.entries()){
-          if(selItems.length && !selItems.includes(item)) continue;
-          if(monthsToShow.some(m => (mon[m] || 0) > 0)){ // Check if item is visible for months
-            monthsToShow.forEach(m => st[m] += (mon[m] || 0));
-          }
+        // Ensure iMap is an actual Map-like object and not something else (like an array if data is malformed)
+        if (iMap instanceof Map || (typeof iMap === 'object' && iMap !== null)) {
+            for(const [item,mon] of iMap.entries()){
+                if(selItems.length && !selItems.includes(item)) continue;
+                if(monthsToShow.some(m => (mon[m] || 0) > 0)){ // Check if item is visible for months
+                    monthsToShow.forEach(m => st[m] += (mon[m] || 0));
+                }
+            }
         }
       }
 
@@ -439,31 +465,73 @@ function applyFilters(){
       if(monthsToShow.some(m => st[m] > 0)){
         html += '<tr class="state-total-row">';
         for(const h of headers){
-          if(monthsToShow.includes(h)) html += `<td><b>${st[h].toLocaleString()}</b></td>`;
-          else if(h === 'Item_Name') html += `<td><b>TOTAL ${escapeHTML(state)}</b></td>`;
-          else html += '<td></td>';
+            if(showCols.includes(h)) { // For 'showColumns' like State, Party_Name, Item_Name
+                if (h === 'Item_Name') html += `<td><b>TOTAL ${escapeHTML(state)}</b></td>`;
+                else if (h === 'State') html += `<td><b>${escapeHTML(state)}</b></td>`; // Display state name once
+                else html += '<td></td>'; // Or leave empty for Party_Name in state total row
+            }
+            else if(monthsToShow.includes(h)) { // For month columns
+                html += `<td><b>${st[h].toLocaleString()}</b></td>`;
+            } else { // For comparison columns (Δ, % Change)
+                // Calculate comparison values for state total if compPair is available
+                if (h === 'Δ' && compPair.length >= 2) {
+                    const v1_st = st[compPair[0]] || 0;
+                    const v2_st = st[compPair[1]] || 0;
+                    const diff_st = v2_st - v1_st;
+                    const bg_st = diff_st > 0 ? 'var(--up-bg)' : (diff_st < 0 ? 'var(--down-bg)' : '');
+                    html += `<td style="background:${bg_st};"><b>${diff_st>0?'+':''}${diff_st.toLocaleString()}</b></td>`;
+                } else if (h === '% Change' && compPair.length >= 2) {
+                    const v1_st = st[compPair[0]] || 0;
+                    const v2_st = st[compPair[1]] || 0;
+                    const pct_st = v1_st ? (((v2_st - v1_st) / v1_st) * 100) : (v2_st ? 100 : 0);
+                    const col_st = pct_st > 0 ? '#16a34a' : (pct_st < 0 ? '#dc2626' : '');
+                    html += `<td style="color:${col_st}">${pct_st>0?'+':''}${pct_st.toFixed(1)}%</td>`;
+                } else {
+                    html += '<td></td>';
+                }
+            }
         }
         html += '</tr>';
       }
     } // states loop
 
     // grand total - only if there's any data to display
-    const anyGrandTotal = monthsToShow.some(m => grand[m] > 0);
     let f = '';
-    if (anyGrandTotal || (html && html !== `<tr><td colspan="${headers.length}">No Data</td></tr>`)) {
+    const grandTotalHasData = monthsToShow.some(m => grand[m] > 0);
+    if (grandTotalHasData) { // Only show grand total row if there is any aggregated data
       f += '<tr class="grandtotal-row">';
       for(const h of headers){
-        if(monthsToShow.includes(h)) f += `<td><b>${grand[h].toLocaleString()}</b></td>`;
-        else if(h === 'Item_Name') f += `<td><b>GRAND TOTAL</b></td>`;
-        else f += '<td></td>';
+        if(showCols.includes(h)) { // For 'showColumns'
+            if (h === 'Item_Name') f += `<td><b>GRAND TOTAL</b></td>`;
+            else f += '<td></td>'; // State, Party_Name empty for grand total row
+        }
+        else if(monthsToShow.includes(h)) { // For month columns
+            f += `<td><b>${grand[h].toLocaleString()}</b></td>`;
+        } else { // For comparison columns (Δ, % Change)
+            // Calculate comparison values for grand total if compPair is available
+            if (h === 'Δ' && compPair.length >= 2) {
+                const v1_g = grand[compPair[0]] || 0;
+                const v2_g = grand[compPair[1]] || 0;
+                const diff_g = v2_g - v1_g;
+                const bg_g = diff_g > 0 ? 'var(--up-bg)' : (diff_g < 0 ? 'var(--down-bg)' : '');
+                f += `<td style="background:${bg_g};"><b>${diff_g>0?'+':''}${diff_g.toLocaleString()}</b></td>`;
+            } else if (h === '% Change' && compPair.length >= 2) {
+                const v1_g = grand[compPair[0]] || 0;
+                const v2_g = grand[compPair[1]] || 0;
+                const pct_g = v1_g ? (((v2_g - v1_g) / v1_g) * 100) : (v2_g ? 100 : 0);
+                const col_g = pct_g > 0 ? '#16a34a' : (pct_g < 0 ? '#dc2626' : '');
+                f += `<td style="color:${col_g}">${pct_g>0?'+':''}${pct_g.toFixed(1)}%</td>`;
+            } else {
+                f += '<td></td>';
+            }
+        }
       }
       f += '</tr>';
     }
 
-
     document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
     document.getElementById('comparisonFoot').innerHTML = f;
-    hideOverlay(); // Hide overlay only when rendering is fully complete
+    hideOverlay();
   }, 80);
 }
 
