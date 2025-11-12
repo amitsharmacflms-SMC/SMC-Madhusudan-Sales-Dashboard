@@ -64,7 +64,6 @@ select option:disabled{color:#999;background:#f3f4f6}
 .table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - 260px);}
 
 /* table */
-table{border-collapse:collapse;width:100%;min-width:1100px}
 /* Header and cell alignment */
 thead th {
   text-align: center;               /* center header text */
@@ -87,6 +86,9 @@ tbody td {
   border: 2px solid #2d3748;
   font-weight: 600;
 }
+
+/* hide any accidental <th> inside tbody (safety) */
+tbody th { display: none; }
 
 /* zebra striping (applies to all rows incl subtotals/totals) */
 tbody tr:nth-child(odd) { background: #ffffff; }
@@ -165,14 +167,7 @@ tbody td{height:34px}
 
 <script>
 /* ---------------------
-  FINAL robust implementation
-  - sums duplicates per (state,party,item,month)
-  - single thead only
-  - soft-cascade (disable unrelated options, keep selected)
-  - dynamic sticky header top computed at runtime
-  - zebra (applies to all rows) + semi-transparent subtotal/state/grand overlays
-  - **MAJOR UPDATE**: Aggregates data dynamically based on selected 'Show Columns'
-    to display one row per group, and correctly renders totals/subtotals.
+  FINAL robust implementation (sanitizing accidental th in tbody)
 ----------------------*/
 
 const API_URL = "/get_data/lighthouse_sales";
@@ -183,19 +178,16 @@ function hideOverlay(){document.getElementById('overlay').classList.remove('show
 function toNum(v){return Number(v)||0}
 function debounce(fn, ms=200){let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }}
 function escapeHTML(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-
-/* parse dates to "Mon YY" */
 function parseDateFlexible(s){
   if(!s) return null;
   s = String(s).trim();
   if(/^\d{8}$/.test(s)){ const d=+s.slice(0,2), m=+s.slice(2,4), y=+s.slice(4,8); return new Date(y,m-1,d); }
   const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if(m) return new Date(+m[1],+m[2]-1,+m[3]);
-  const d = new Date(s); return isNaN(d) ? null : d;
+  const d = new Date(s); return isNaN(d)?null:d;
 }
 function invoiceMonthLabel(s){ const dt = parseDateFlexible(s); return dt ? dt.toLocaleString('default',{month:'short',year:'2-digit'}) : ""; }
 
-/* compute and set sticky top dynamically */
 function setDynamicTheadTop(){
   const header = document.querySelector('header');
   const toolbar = document.querySelector('.toolbar');
@@ -208,7 +200,6 @@ function setDynamicTheadTop(){
   document.documentElement.style.setProperty('--thead-top', topVal + 'px');
 }
 
-/* load data and normalize items */
 async function loadData(){
   showOverlay();
   try{
@@ -235,7 +226,6 @@ async function loadData(){
   }
 }
 
-/* populate filters */
 function initFilters(){
   const states = [...new Set(rawData.map(r=>r.state))].sort((a,b)=>a.localeCompare(b));
   const parties = [...new Set(rawData.map(r=>r.party))].sort((a,b)=>a.localeCompare(b));
@@ -259,7 +249,6 @@ function initFilters(){
   }
 }
 
-/* build aggregated nested map for soft cascade: state -> party -> item -> { month: summedQty, ... } */
 function buildAggregationForSoftCascade(){
   const map = new Map();
   rawData.forEach(r=>{
@@ -279,7 +268,6 @@ function buildAggregationForSoftCascade(){
   return map;
 }
 
-/* soft-cascade disabling: disable options not relevant but keep selected ones */
 function updateSoftCascade(monthsToShow){
   const actualMonthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
 
@@ -308,11 +296,10 @@ function updateSoftCascade(monthsToShow){
 
 function getVals(id){ const el=document.getElementById(id); if(!el) return []; return [...el.selectedOptions].map(o=>o.value); }
 
-// Helper function to render total rows (party subtotal, state total, grand total)
 function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow, compPair) {
     let rowHtml = '';
     let rowClass = '';
-    let itemLabel = ''; // For the Item_Name column in total rows (e.g., SUM Party, TOTAL State)
+    let itemLabel = '';
 
     if (type === 'party') {
         rowClass = 'subtotal-row';
@@ -322,31 +309,28 @@ function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow,
         itemLabel = `TOTAL ${escapeHTML(label)}`;
     } else if (type === 'grand') {
         rowClass = 'grandtotal-row';
-        itemLabel = label; // "GRAND TOTAL"
+        itemLabel = label;
     }
 
     rowHtml += `<tr class="${rowClass}">`;
     for (const h of headers) {
         if (showCols.includes(h)) {
-            // For 'Show Columns' headers (State, Party_Name, Item_Name)
             if (h === 'Item_Name') {
                 rowHtml += `<td><b>${itemLabel}</b></td>`;
             } else if (h === 'State' && type === 'state') {
-                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`; // Display state name in State column for state total
+                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`;
             } else if (h === 'Party_Name' && (type === 'state' || type === 'grand')) {
-                rowHtml += '<td></td>'; // Party column empty for state/grand total
+                rowHtml += '<td></td>';
             } else if (h === 'State' && type === 'grand') {
-                rowHtml += '<td></td>'; // State column empty for grand total
+                rowHtml += '<td></td>';
             } else if (h === 'Party_Name' && type === 'party') {
-                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`; // Party name in Party column for party subtotal
+                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`;
             } else {
-                rowHtml += '<td></td>'; // Other showCols empty for total rows
+                rowHtml += '<td></td>';
             }
         } else if (monthsToShow.includes(h)) {
-            // For month columns
             rowHtml += `<td><b>${(totalsMap[h] || 0).toLocaleString()}</b></td>`;
         } else if (h === 'Δ' || h === '% Change') {
-            // For comparison columns
             if (compPair.length >= 2) {
                 const v1 = totalsMap[compPair[0]] || 0;
                 const v2 = totalsMap[compPair[1]] || 0;
@@ -363,15 +347,13 @@ function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow,
                 rowHtml += '<td></td>';
             }
         } else {
-            rowHtml += '<td></td>'; // Fallback for any other unexpected header
+            rowHtml += '<td></td>';
         }
     }
     rowHtml += '</tr>';
     return rowHtml;
 }
 
-
-/* render final table */
 /* render final table (fixed version — header only once, proper totals) */
 function applyFilters() {
   showOverlay();
@@ -540,6 +522,12 @@ function applyFilters() {
     if (monthsToShow.some(m => grand[m] > 0))
       f = renderTotalRow('grand', 'GRAND TOTAL', grand, headers, showCols, monthsToShow, compPair);
 
+    /* === SANITIZE: convert any accidental <th> in body into <td> ===
+       This prevents "header looking rows" appearing mid-table if some code produced <th> tags.
+       Non-destructive: it only changes markup strings before inserting into tbody.
+    */
+    html = html.replace(/<th\b[^>]*>(.*?)<\/th>/gi, '<td>$1</td>');
+
     // Apply to DOM
     document.getElementById('comparisonBody').innerHTML =
       html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
@@ -588,7 +576,6 @@ document.getElementById('exportBtn').onclick = async () => {
 
     const footerRows = [...document.querySelectorAll('#comparisonFoot tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
     footerRows.forEach(r => ws.addRow(r).font = { bold: true });
-
 
     ws.columns.forEach(c => c.width = 18);
     const buf = await wb.xlsx.writeBuffer();
