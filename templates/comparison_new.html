@@ -4,8 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>SMC - Plant to Depot Sales Dashboard</title>
+<link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
-<!-- libs -->
+<!-- external libs -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
@@ -15,58 +16,52 @@
   --navy:#1e3a8a;
   --accent1:#2563eb;
   --accent2:#4f46e5;
-  --subtotal:#fff7cc;
-  --state-total:#e6f6ff;
-  --grand-total:#bae6fd;
-  --up-bg:#dcfce7;
-  --down-bg:#fee2e2;
 
-  /* adjust these if you change header/toolbar/filter heights */
-  --header-h:72px;
-  --toolbar-h:56px;
-  --filters-h:140px;
-  --thead-top: calc(var(--header-h) + var(--toolbar-h) + var(--filters-h));
+  --up-bg: rgba(220,252,231,0.9);    /* light green */
+  --down-bg: rgba(254,226,226,0.9);  /* light red */
+
+  --subtotal-overlay: rgba(255,247,204,0.55);  /* pale yellow overlay */
+  --state-overlay: rgba(230,246,255,0.55);     /* light blue overlay */
+  --grand-overlay: rgba(186,230,253,0.6);      /* darker blue overlay */
+
+  /* computed top sticky value will be set dynamically by JS */
+  --thead-top: 200px;
 }
 
+/* base */
 *{box-sizing:border-box}
 body{font-family:Inter,system-ui,Arial;margin:0;background:#f6f9fc;color:#0f172a}
 
-/* page header */
+/* header */
 header{
   display:flex;align-items:center;justify-content:center;gap:16px;
   padding:14px 16px;background:linear-gradient(90deg,var(--accent1),var(--accent2));
-  color:#fff;position:sticky;top:0;z-index:1300;height:var(--header-h);
+  color:#fff;position:sticky;top:0;z-index:1400;
 }
 header img{height:56px}
 header h1{margin:0;font-weight:900;font-size:1.35rem}
 
 /* toolbar */
 .toolbar{
-  display:flex;justify-content:center;gap:10px;padding:8px 10px;background:#fff;
-  position:sticky;top:var(--header-h);z-index:1250;height:var(--toolbar-h);
-  align-items:center;
+  display:flex;justify-content:center;gap:10px;padding:8px;background:#fff;position:sticky;top:64px;z-index:1350;align-items:center;
 }
 .btn{border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:800}
 .btn-blue{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff}
 .btn-gray{background:#eef2ff;color:var(--navy)}
 
-/* filters */
+/* filters (sticky) */
 #filtersWrapper{
   display:flex;justify-content:center;background:#f8fafc;border-bottom:1px solid #dbeafe;
-  position:sticky; top: calc(var(--header-h) + var(--toolbar-h)); z-index:1200;
-  height:var(--filters-h);
-  align-items:flex-start;
+  position:sticky; top: calc(64px + 48px); z-index:1320;
 }
-.filters{
-  display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding:12px;max-width:1500px;width:100%
-}
+.filters{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding:12px;max-width:1500px;width:100%}
 .filter-box{background:#fff;border-radius:12px;padding:10px 12px;border:2px solid #c7d2fe;min-width:160px}
 .filter-box label{display:block;font-weight:800;color:var(--navy);margin-bottom:6px}
 .filter-box select{width:200px;padding:6px;border-radius:8px;border:1.5px solid #c7d2fe;background:#fff;font-weight:700;height:120px}
 select option:disabled{color:#999;background:#f3f4f6}
 
 /* table wrapper */
-.table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - (var(--header-h) + var(--toolbar-h) + var(--filters-h) + 60px));}
+.table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - 260px);}
 
 /* table */
 table{border-collapse:collapse;width:100%;min-width:1100px}
@@ -74,20 +69,23 @@ thead th, tbody td{
   text-align:center;padding:6px 8px;border:2px solid #2d3748;font-weight:700;vertical-align:middle;
 }
 thead th{
-  position:sticky;
-  top: var(--thead-top); /* reliable offset */
-  background:linear-gradient(90deg,#e0e7ff,#c7d2fe);
-  color:var(--navy);
-  z-index:1199;
+  position:sticky; top: var(--thead-top); background:linear-gradient(90deg,#e0e7ff,#c7d2fe);
+  color:var(--navy); z-index:1310;
 }
 
-/* totals styling */
-tr.subtotal-row td{background:var(--subtotal);font-weight:900}
-tr.state-total-row td{background:var(--state-total);font-weight:900}
-tr.grandtotal-row td{background:var(--grand-total);font-weight:900}
+/* zebra striping (applies to all rows incl subtotals/totals) */
+tbody tr:nth-child(odd) { background: #ffffff; }
+tbody tr:nth-child(even) { background: #f9fafb; }
 
-/* small */
+/* overlays for subtotal/state/grand rows -- semi-transparent so zebra shows through */
+tr.subtotal-row td { background: var(--subtotal-overlay); font-weight:900; }
+tr.state-total-row td { background: var(--state-overlay); font-weight:900; }
+tr.grandtotal-row td { background: var(--grand-overlay); font-weight:900; }
+
+/* compact */
 tbody td{height:34px}
+
+/* overlay indicator */
 .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.75);z-index:3000;font-weight:900;color:var(--navy)}
 .overlay.show{display:flex}
 </style>
@@ -106,6 +104,7 @@ tbody td{height:34px}
   <button id="toggleFiltersBtn" class="btn btn-blue">Hide Filters</button>
 </div>
 
+<!-- filters -->
 <div id="filtersWrapper">
   <div class="filters" id="filtersRow">
     <div class="filter-box">
@@ -135,31 +134,57 @@ tbody td{height:34px}
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
-/* ========== Utilities ========== */
+/* ---------------------
+  FINAL robust implementation
+  - sums duplicates per (state,party,item,month)
+  - single thead only
+  - soft-cascade (disable unrelated options, keep selected)
+  - dynamic sticky header top computed at runtime
+  - zebra (applies to all rows) + semi-transparent subtotal/state/grand overlays
+----------------------*/
+
 const API_URL = "/get_data/lighthouse_sales";
 let rawData = [];
 
 function showOverlay(){document.getElementById('overlay').classList.add('show')}
 function hideOverlay(){document.getElementById('overlay').classList.remove('show')}
 function toNum(v){return Number(v)||0}
-function debounce(fn,ms=200){let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }}
+function debounce(fn, ms=200){let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }}
 function escapeHTML(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
 
+/* parse dates to "Mon YY" */
 function parseDateFlexible(s){
-  if(!s) return null; s = String(s).trim();
+  if(!s) return null;
+  s = String(s).trim();
   if(/^\d{8}$/.test(s)){ const d=+s.slice(0,2), m=+s.slice(2,4), y=+s.slice(4,8); return new Date(y,m-1,d); }
   const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if(m) return new Date(+m[1],+m[2]-1,+m[3]);
-  const d = new Date(s); return isNaN(d)?null:d;
+  const d = new Date(s); return isNaN(d) ? null : d;
 }
 function invoiceMonthLabel(s){ const dt = parseDateFlexible(s); return dt ? dt.toLocaleString('default',{month:'short',year:'2-digit'}) : ""; }
 
-/* ========== Load & normalize ========== */
+/* compute and set sticky top dynamically */
+function setDynamicTheadTop(){
+  // compute heights of header + toolbar + filters wrapper (if present)
+  const header = document.querySelector('header');
+  const toolbar = document.querySelector('.toolbar');
+  const filters = document.getElementById('filtersWrapper');
+  let topVal = 0;
+  if(header) topVal += header.getBoundingClientRect().height;
+  if(toolbar) topVal += toolbar.getBoundingClientRect().height;
+  if(filters) topVal += filters.getBoundingClientRect().height;
+  // add 0-4px safety margin
+  topVal = Math.max(0, topVal + 0);
+  document.documentElement.style.setProperty('--thead-top', topVal + 'px');
+}
+
+/* load data and normalize items */
 async function loadData(){
   showOverlay();
   try{
     const res = await axios.get(API_URL);
     const rows = Array.isArray(res.data) ? res.data : [];
+    // normalize: collapse whitespace in item and trim
     rawData = rows.map(r=>{
       const rawDate = (r.invoice_date || r.INVOICE_DATE || "").toString().trim();
       const month = invoiceMonthLabel(rawDate);
@@ -171,37 +196,43 @@ async function loadData(){
     }).filter(r => r.state && r.party && r.item);
 
     initFilters();
+    setDynamicTheadTop();          // set top once
+    window.addEventListener('resize', debounce(setDynamicTheadTop, 200));
     applyFilters();
   }catch(e){ console.error(e); alert('Failed to load data'); }
   finally{ hideOverlay(); }
 }
 
-/* ========== Filters init ========== */
+/* populate filters */
 function initFilters(){
-  const states = [...new Set(rawData.map(r=>r.state))].sort();
-  const parties = [...new Set(rawData.map(r=>r.party))].sort();
+  const states = [...new Set(rawData.map(r=>r.state))].sort((a,b)=>a.localeCompare(b));
+  const parties = [...new Set(rawData.map(r=>r.party))].sort((a,b)=>a.localeCompare(b));
   const items = [...new Set(rawData.map(r=>r.item))].sort((a,b)=>a.localeCompare(b));
-  const months = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=>new Date('01 '+a) - new Date('01 '+b));
+  const months = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
 
-  const fill = (id, list) => {
+  const fill = (id,list) => {
     const el = document.getElementById(id); el.innerHTML = '';
     list.forEach(v => el.innerHTML += `<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`);
   };
+
   fill('stateFilter', states);
   fill('partyFilter', parties);
   fill('itemFilter', items);
   fill('monthFilter', months);
   fill('comparisonMonth', months);
 
+  // preselect last two months for comparison if available
   if(months.length >= 2){
     const last2 = months.slice(-2);
-    [...document.getElementById('comparisonMonth').options].forEach(o => { if(last2.includes(o.value)) o.selected = true; });
+    [...document.getElementById('comparisonMonth').options].forEach(o=>{ if(last2.includes(o.value)) o.selected = true; });
   }
 }
 
-/* ========== Aggregation ========== */
+/* build aggregated nested map and sum duplicates:
+   state -> party -> item -> { month: summedQty, ... }
+*/
 function buildAggregation(){
-  const monthsAll = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=>new Date('01 '+a) - new Date('01 '+b));
+  const monthsAll = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
   const map = new Map();
   rawData.forEach(r=>{
     const s = r.state, p = r.party, it = r.item;
@@ -211,16 +242,20 @@ function buildAggregation(){
     const iMap = pMap.get(p);
     if(!iMap.has(it)) iMap.set(it, {});
     const mon = iMap.get(it);
-    if(r.month) mon[r.month] = (mon[r.month] || 0) + r.qty;
-    else mon.__no_month__ = (mon.__no_month__ || 0) + r.qty;
+    if(r.month){
+      mon[r.month] = (mon[r.month] || 0) + r.qty;
+    } else {
+      mon.__no_month__ = (mon.__no_month__ || 0) + r.qty;
+    }
   });
   return { map, monthsAll };
 }
 
-/* ========== Soft cascade disable ========== */
+/* soft-cascade disabling (Option B): disable options not relevant but keep selected ones */
 function updateSoftCascade(monthsToShow){
   const monthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
   const allowed = { states: new Set(), parties: new Set(), items: new Set() };
+
   rawData.forEach(r=>{
     if(monthsFilter.length){
       if(r.month && monthsFilter.includes(r.month)){
@@ -230,11 +265,12 @@ function updateSoftCascade(monthsToShow){
       allowed.states.add(r.state); allowed.parties.add(r.party); allowed.items.add(r.item);
     }
   });
-  const applyDisable = (id, allowedSet) => {
+
+  const applyDisable = (id, setAllowed) => {
     const sel = document.getElementById(id);
     if(!sel) return;
     [...sel.options].forEach(opt => {
-      if(!allowedSet.has(opt.value) && !opt.selected) opt.disabled = true;
+      if(!setAllowed.has(opt.value) && !opt.selected) opt.disabled = true;
       else opt.disabled = false;
     });
   };
@@ -243,10 +279,13 @@ function updateSoftCascade(monthsToShow){
   applyDisable('itemFilter', allowed.items);
 }
 
-/* ========== Helpers ========== */
 function getVals(id){ const el=document.getElementById(id); if(!el) return []; return [...el.selectedOptions].map(o=>o.value); }
 
-/* ========== Rendering ========== */
+/* render final table
+   - only one thead generated here
+   - iterate aggregated map in stable sorted order
+   - only rows with at least one non-zero in monthsToShow will be shown
+*/
 function applyFilters(){
   showOverlay();
   setTimeout(()=>{
@@ -264,38 +303,38 @@ function applyFilters(){
 
     updateSoftCascade(monthsToShow);
 
-    // build header once
+    // headers
     const headers = [...showCols, ...monthsToShow];
     if(compPair.length >= 2) headers.push('Δ','% Change');
-    const thead = document.getElementById('comparisonHead');
-    thead.innerHTML = '<tr>' + headers.map(h => `<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
+    document.getElementById('comparisonHead').innerHTML = '<tr>' + headers.map(h=>`<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
 
-    // build rows from aggregated map (sorted stable order)
+    // rows
     let html = '';
     const grand = Object.fromEntries(monthsToShow.map(m=>[m,0]));
+
     const statesSorted = [...aggMap.keys()].sort((a,b)=>a.localeCompare(b));
     for(const state of statesSorted){
       if(selStates.length && !selStates.includes(state)) continue;
       const pMap = aggMap.get(state);
 
-      // check any visible data for this state
+      // check if any visible data in state
       let stateHas = false;
       for(const [party,iMap] of pMap.entries()){
         if(selParties.length && !selParties.includes(party)) continue;
         for(const [item,mon] of iMap.entries()){
           if(selItems.length && !selItems.includes(item)) continue;
-          if(monthsToShow.some(m=> (mon[m] || 0) > 0 )) { stateHas = true; break; }
+          if(monthsToShow.some(m => (mon[m] || 0) > 0)) { stateHas = true; break; }
         }
         if(stateHas) break;
       }
       if(!stateHas) continue;
 
-      // parties
       const partiesSorted = [...pMap.keys()].sort((a,b)=>a.localeCompare(b));
       for(const party of partiesSorted){
         if(selParties.length && !selParties.includes(party)) continue;
         const iMap = pMap.get(party);
 
+        // collect visible items
         const visibleItems = [];
         for(const [item,mon] of iMap.entries()){
           if(selItems.length && !selItems.includes(item)) continue;
@@ -303,9 +342,11 @@ function applyFilters(){
         }
         if(visibleItems.length === 0) continue;
 
-        // item rows
+        // sort items for stable output
         visibleItems.sort((a,b)=>a[0].localeCompare(b[0]));
-        for(const [item, mon] of visibleItems){
+
+        // item rows
+        for(const [item,mon] of visibleItems){
           html += '<tr>';
           for(const h of headers){
             if(h === 'State') html += `<td>${escapeHTML(state)}</td>`;
@@ -318,7 +359,7 @@ function applyFilters(){
               if(idx > 0){
                 const prev = monthsToShow[idx-1];
                 const prevV = mon[prev] || 0;
-                bg = v > prevV ? `background-color:${'var(--up-bg)'};` : `background-color:${'var(--down-bg)'};`;
+                bg = v > prevV ? `background:${'var(--up-bg)'};` : `background:${'var(--down-bg)'};`;
               }
               html += `<td style="${bg}">${v ? v.toLocaleString() : ''}</td>`;
               grand[h] += v;
@@ -329,7 +370,7 @@ function applyFilters(){
                 if(h === 'Δ'){
                   const diff = v2 - v1;
                   const bg = diff > 0 ? 'var(--up-bg)' : 'var(--down-bg)';
-                  html += `<td style="background-color:${bg};"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
+                  html += `<td style="background:${bg};"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
                 } else {
                   const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
                   const col = pct > 0 ? '#16a34a' : '#dc2626';
@@ -341,7 +382,7 @@ function applyFilters(){
           html += '</tr>';
         }
 
-        // party subtotal (if >=2 items)
+        // party subtotal (if >= 2 visible items)
         if(visibleItems.length >= 2){
           const ps = Object.fromEntries(monthsToShow.map(m=>[m,0]));
           visibleItems.forEach(([_, mon]) => monthsToShow.forEach(m => ps[m] += (mon[m] || 0)));
@@ -353,15 +394,17 @@ function applyFilters(){
           }
           html += '</tr>';
         }
-      } // end party loop
+      } // parties loop
 
       // state total
       const st = Object.fromEntries(monthsToShow.map(m=>[m,0]));
       for(const [party,iMap] of pMap.entries()){
-        if(selParties.length && !selParties.includes(party)) continue;
+        if(Array.isArray(iMap)){
+          // not expected, but safe guard
+          continue;
+        }
         for(const [item,mon] of iMap.entries()){
-          if(selItems.length && !selItems.includes(item)) continue;
-          monthsToShow.forEach(m => st[m] += (mon[m] || 0));
+          if(monthsToShow.length) monthsToShow.forEach(m => st[m] += (mon[m] || 0));
         }
       }
       html += '<tr class="state-total-row">';
@@ -371,7 +414,7 @@ function applyFilters(){
         else html += '<td></td>';
       }
       html += '</tr>';
-    } // end state loop
+    } // states loop
 
     // grand total
     let f = '<tr class="grandtotal-row">';
@@ -385,10 +428,10 @@ function applyFilters(){
     document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
     document.getElementById('comparisonFoot').innerHTML = f;
     hideOverlay();
-  }, 100);
+  }, 80);
 }
 
-/* ========== events ========== */
+/* events + soft cascade + export */
 const debouncedApply = debounce(()=>applyFilters(), 200);
 
 ['showColumns','stateFilter','partyFilter','itemFilter','monthFilter','comparisonMonth'].forEach(id=>{
@@ -399,28 +442,29 @@ const debouncedApply = debounce(()=>applyFilters(), 200);
   });
 });
 
-document.getElementById('clearBtn').onclick = ()=>location.reload();
-document.getElementById('toggleFiltersBtn').onclick = ()=>{
+document.getElementById('clearBtn').onclick = () => location.reload();
+
+document.getElementById('toggleFiltersBtn').onclick = () => {
   const row = document.getElementById('filtersRow'), btn = document.getElementById('toggleFiltersBtn');
   if(row.style.display === 'none'){ row.style.display = 'flex'; btn.textContent = 'Hide Filters'; }
   else { row.style.display = 'none'; btn.textContent = 'Show Filters'; }
 };
 
-document.getElementById('exportBtn').onclick = async ()=>{
+document.getElementById('exportBtn').onclick = async () => {
   showOverlay();
   try{
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Comparison');
-    const rows = [...document.querySelectorAll('#comparisonTable tr')].map(tr=>[...tr.children].map(td=>td.innerText.trim()));
+    const rows = [...document.querySelectorAll('#comparisonTable tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
     rows.forEach((r,i)=>{ const row = ws.addRow(r); if(i===0) row.font = { bold: true }; });
-    ws.columns.forEach(c=>c.width = 18);
+    ws.columns.forEach(c => c.width = 18);
     const buf = await wb.xlsx.writeBuffer();
     saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
-  }catch(e){ console.error(e); alert('Export failed'); }
+  }catch(e){ console.error('Export failed', e); alert('Export failed'); }
   finally{ hideOverlay(); }
 };
 
-/* init */
+/* init page */
 loadData();
 </script>
 </body>
