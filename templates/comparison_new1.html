@@ -78,9 +78,17 @@ tbody tr:nth-child(odd) { background: #ffffff; }
 tbody tr:nth-child(even) { background: #f9fafb; }
 
 /* overlays for subtotal/state/grand rows -- semi-transparent so zebra shows through */
-tr.subtotal-row td { background: var(--subtotal-overlay); font-weight:900; }
-tr.state-total-row td { background: var(--state-overlay); font-weight:900; }
-tr.grandtotal-row td { background: var(--grand-overlay); font-weight:900; }
+tr.subtotal-row td,
+tr.state-total-row td,
+tr.grandtotal-row td {
+  background: var(--subtotal-overlay);
+  font-weight: 900;
+  text-align: center !important; /* Center-align all total rows */
+}
+
+/* distinct colors per type */
+tr.state-total-row td { background: var(--state-overlay); }
+tr.grandtotal-row td { background: var(--grand-overlay); }
 
 /* compact */
 tbody td{height:34px}
@@ -293,73 +301,49 @@ function updateSoftCascade(monthsToShow){
 
 function getVals(id){ const el=document.getElementById(id); if(!el) return []; return [...el.selectedOptions].map(o=>o.value); }
 
-// Helper function to render total rows (party subtotal, state total, grand total)
-function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow, compPair) {
-    let rowHtml = '';
-    let rowClass = '';
-    let itemLabel = ''; // For the Item_Name column in total rows (e.g., SUM Party, TOTAL State)
+// Render subtotal / total / grand total row
+function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow, compPair, rowCount = 1) {
+  // Skip subtotal if group has less than 2 rows
+  if (type === 'party' && rowCount < 2) return '';
+  let rowClass = '', itemLabel = '';
+  if (type === 'party') { rowClass = 'subtotal-row'; itemLabel = `SUM ${escapeHTML(label)}`; }
+  else if (type === 'state') { rowClass = 'state-total-row'; itemLabel = `TOTAL ${escapeHTML(label)}`; }
+  else if (type === 'grand') { rowClass = 'grandtotal-row'; itemLabel = label; }
 
-    if (type === 'party') {
-        rowClass = 'subtotal-row';
-        itemLabel = `SUM ${escapeHTML(label)}`;
-    } else if (type === 'state') {
-        rowClass = 'state-total-row';
-        itemLabel = `TOTAL ${escapeHTML(label)}`;
-    } else if (type === 'grand') {
-        rowClass = 'grandtotal-row';
-        itemLabel = label; // "GRAND TOTAL"
+  let rowHtml = `<tr class="${rowClass}">`;
+  for (const h of headers) {
+    if (showCols.includes(h)) {
+      if (h === 'Item_Name') rowHtml += `<td><b>${itemLabel}</b></td>`;
+      else if (h === 'State' && type === 'state') rowHtml += `<td><b>${escapeHTML(label)}</b></td>`;
+      else if (h === 'Party_Name' && type === 'party') rowHtml += `<td><b>${escapeHTML(label)}</b></td>`;
+      else rowHtml += `<td></td>`;
     }
-
-    rowHtml += `<tr class="${rowClass}">`;
-    for (const h of headers) {
-        if (showCols.includes(h)) {
-            // For 'Show Columns' headers (State, Party_Name, Item_Name)
-            if (h === 'Item_Name') {
-                rowHtml += `<td><b>${itemLabel}</b></td>`;
-            } else if (h === 'State' && type === 'state') {
-                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`; // Display state name in State column for state total
-            } else if (h === 'Party_Name' && (type === 'state' || type === 'grand')) {
-                rowHtml += '<td></td>'; // Party column empty for state/grand total
-            } else if (h === 'State' && type === 'grand') {
-                rowHtml += '<td></td>'; // State column empty for grand total
-            } else if (h === 'Party_Name' && type === 'party') {
-                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`; // Party name in Party column for party subtotal
-            } else {
-                rowHtml += '<td></td>'; // Other showCols empty for total rows
-            }
-        } else if (monthsToShow.includes(h)) {
-            // For month columns
-            rowHtml += `<td><b>${(totalsMap[h] || 0).toLocaleString()}</b></td>`;
-        } else if (h === 'Δ' || h === '% Change') {
-            // For comparison columns
-            if (compPair.length >= 2) {
-                const v1 = totalsMap[compPair[0]] || 0;
-                const v2 = totalsMap[compPair[1]] || 0;
-                if (h === 'Δ') {
-                    const diff = v2 - v1;
-                    const bg = diff > 0 ? 'var(--up-bg)' : (diff < 0 ? 'var(--down-bg)' : '');
-                    rowHtml += `<td style="background:${bg};"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
-                } else {
-                    const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
-                    const col = pct > 0 ? '#16a34a' : (pct < 0 ? '#dc2626' : '');
-                    rowHtml += `<td style="color:${col}">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
-                }
-            } else {
-                rowHtml += '<td></td>';
-            }
+    else if (monthsToShow.includes(h)) {
+      rowHtml += `<td><b>${(totalsMap[h] || 0).toLocaleString()}</b></td>`;
+    }
+    else if (h === 'Δ' || h === '% Change') {
+      if (compPair.length >= 2) {
+        const v1 = totalsMap[compPair[0]] || 0;
+        const v2 = totalsMap[compPair[1]] || 0;
+        if (h === 'Δ') {
+          const diff = v2 - v1;
+          const bg = diff > 0 ? 'var(--up-bg)' : (diff < 0 ? 'var(--down-bg)' : '');
+          rowHtml += `<td style="background:${bg};"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
         } else {
-            rowHtml += '<td></td>'; // Fallback for any other unexpected header
+          const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
+          const col = pct > 0 ? '#16a34a' : (pct < 0 ? '#dc2626' : '');
+          rowHtml += `<td style="color:${col}">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
         }
-    }
-    rowHtml += '</tr>';
-    return rowHtml;
+      } else rowHtml += '<td></td>';
+    } else rowHtml += '<td></td>';
+  }
+  rowHtml += '</tr>';
+  return rowHtml;
 }
 
-
-/* render final table */
-function applyFilters(){
+function applyFilters() {
   showOverlay();
-  setTimeout(()=>{
+  setTimeout(() => {
     const showCols = getVals('showColumns');
     const selStates = getVals('stateFilter');
     const selParties = getVals('partyFilter');
@@ -367,182 +351,121 @@ function applyFilters(){
     const visibleMonths = getVals('monthFilter');
     const compSel = getVals('comparisonMonth');
 
-    // Use rawData directly and apply filters, then group for display
-    const monthsAll = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
-    const monthsToShow = visibleMonths.length ? visibleMonths : monthsAll.slice();
-    const compSorted = compSel.slice().sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
+    const monthsAll = [...new Set(rawData.map(r => r.month).filter(Boolean))].sort((a, b) => new Date('01 ' + a) - new Date('01 ' + b));
+    const monthsToShow = visibleMonths.length ? visibleMonths : monthsAll;
+    const compSorted = compSel.slice().sort((a, b) => new Date('01 ' + a) - new Date('01 ' + b));
     const compPair = compSorted.length >= 2 ? compSorted.slice(-2) : [];
 
     updateSoftCascade(monthsToShow);
 
-    // --- Dynamic Aggregation based on showCols ---
-    const groupedData = new Map(); // key -> { State: ..., Party_Name: ..., Item_Name: ..., month1: sum, month2: sum }
-
+    // Build grouped dataset
+    const groupedData = new Map();
     rawData.forEach(r => {
-        // Apply initial selection filters to raw data before grouping
-        if (selStates.length && !selStates.includes(r.state)) return;
-        if (selParties.length && !selParties.includes(r.party)) return;
-        if (selItems.length && !selItems.includes(r.item)) return;
+      if (selStates.length && !selStates.includes(r.state)) return;
+      if (selParties.length && !selParties.includes(r.party)) return;
+      if (selItems.length && !selItems.includes(r.item)) return;
 
-        let groupKeyParts = [];
-        let groupRow = {};
+      const groupKeyParts = showCols.map(col => col === 'State' ? r.state : col === 'Party_Name' ? r.party : col === 'Item_Name' ? r.item : '');
+      const groupKey = groupKeyParts.join('___');
 
-        showCols.forEach(col => {
-            let val;
-            if (col === 'State') val = r.state;
-            else if (col === 'Party_Name') val = r.party;
-            else if (col === 'Item_Name') val = r.item;
-            
-            if (val) {
-                groupKeyParts.push(val);
-                groupRow[col] = val;
-            } else {
-                groupKeyParts.push(""); 
-                groupRow[col] = "";
-            }
-        });
-
-        const groupKey = groupKeyParts.join('___');
-
-        if (!groupedData.has(groupKey)) {
-            groupedData.set(groupKey, { ...groupRow });
-            monthsToShow.forEach(m => groupedData.get(groupKey)[m] = 0);
-        }
-
-        const currentGroup = groupedData.get(groupKey);
-        if (r.month && monthsToShow.includes(r.month)) { // Only sum if month is visible
-            currentGroup[r.month] = (currentGroup[r.month] || 0) + r.qty;
-        }
+      if (!groupedData.has(groupKey)) {
+        groupedData.set(groupKey, Object.fromEntries([...showCols.map(c => [c, groupKeyParts[showCols.indexOf(c)]]), ...monthsToShow.map(m => [m, 0])]));
+      }
+      const grp = groupedData.get(groupKey);
+      if (r.month && monthsToShow.includes(r.month)) grp[r.month] += r.qty;
     });
 
-    const sortedGroupKeys = [...groupedData.keys()].sort();
-
-    // Headers (unchanged)
+    const sortedKeys = [...groupedData.keys()].sort();
     const headers = [...showCols, ...monthsToShow];
-    if(compPair.length >= 2) headers.push('Δ','% Change');
-    document.getElementById('comparisonHead').innerHTML = '<tr>' + headers.map(h=>`<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
+    if (compPair.length >= 2) headers.push('Δ', '% Change');
+
+    // Render header once (top only)
+    document.getElementById('comparisonHead').innerHTML = '<tr>' + headers.map(h => `<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
 
     let html = '';
-    const grand = Object.fromEntries(monthsToShow.map(m=>[m,0]));
+    const grand = Object.fromEntries(monthsToShow.map(m => [m, 0]));
+    const stateTotals = new Map(), partyTotals = new Map(), partyRowCounts = new Map();
+    let lastState = null, lastParty = null;
 
-    // For state and party subtotals, we need to track values dynamically as we iterate
-    const stateTotals = new Map(); // state -> { month: sum, ... }
-    const partyTotals = new Map(); // state_party -> { month: sum, ... }
+    for (const key of sortedKeys) {
+      const row = groupedData.get(key);
+      if (!monthsToShow.some(m => (row[m] || 0) > 0)) continue;
+      const state = row.State, party = row.Party_Name;
 
-    let lastState = null;
-    let lastParty = null;
-
-    for (const groupKey of sortedGroupKeys) {
-        const rowData = groupedData.get(groupKey);
-
-        // Check if this row has any non-zero values for monthsToShow, otherwise skip
-        if (!monthsToShow.some(m => (rowData[m] || 0) > 0)) continue;
-
-        const currentState = rowData.State;
-        const currentParty = rowData.Party_Name;
-
-        // Render Party Subtotal if party changes (within the same state) OR state changes
-        if (lastParty && (currentParty !== lastParty || currentState !== lastState)) {
-             const ptKey = lastState + '___' + lastParty;
-             const pt = partyTotals.get(ptKey) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-             if (monthsToShow.some(m => pt[m] > 0)) {
-                 html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
-             }
-             partyTotals.delete(ptKey); // Clear party total after rendering
-        }
-
-        // Render State Total if state changes AND lastState was not null
-        if (lastState && currentState !== lastState) {
-            const st = stateTotals.get(lastState) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-            if(monthsToShow.some(m => st[m] > 0)){
-                html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
-            }
-            stateTotals.delete(lastState); // Clear state total after rendering
-            // Also ensure any remaining party totals for the old state are cleared
-            partyTotals.forEach((v,k) => { if(k.startsWith(lastState + '___')) partyTotals.delete(k); });
-        }
-
-
-        // --- Main Grouped Data Row ---
-        html += '<tr>';
-        for(const h of headers){
-          if(showCols.includes(h)) {
-              html += `<td>${escapeHTML(rowData[h] || '')}</td>`;
-          }
-          else if(monthsToShow.includes(h)){
-            const v = rowData[h] || 0;
-            const idx = monthsToShow.indexOf(h);
-            let bg = '';
-            if(compPair.length === 0 && idx > 0){
-              const prev = monthsToShow[idx-1];
-              const prevV = rowData[prev] || 0;
-              bg = v > prevV ? `background:${'var(--up-bg)'};` : (v < prevV ? `background:${'var(--down-bg)'};` : '');
-            }
-            html += `<td style="${bg}">${v ? v.toLocaleString() : ''}</td>`;
-            grand[h] += v; // Accumulate grand total
-
-            // Accumulate state and party totals
-            if (currentState) {
-                const stateT = stateTotals.get(currentState) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-                stateT[h] += v;
-                stateTotals.set(currentState, stateT);
-            }
-            if (currentParty) { // Only accumulate party total if Party_Name is actually displayed
-                const partyTKey = currentState + '___' + currentParty; // Key for party total
-                const partyT = partyTotals.get(partyTKey) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-                partyT[h] += v;
-                partyTotals.set(partyTKey, partyT);
-            }
-          } else if(h === 'Δ' || h === '% Change'){
-            if(compPair.length >= 2){
-              const v1 = rowData[compPair[0]] || 0;
-              const v2 = rowData[compPair[1]] || 0;
-              if(h === 'Δ'){
-                const diff = v2 - v1;
-                const bg = diff > 0 ? 'var(--up-bg)' : (diff < 0 ? 'var(--down-bg)' : '');
-                html += `<td style="background:${bg};"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
-              } else {
-                const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
-                const col = pct > 0 ? '#16a34a' : (pct < 0 ? '#dc2626' : '');
-                html += `<td style="color:${col}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;
-              }
-            } else html += '<td></td>';
-          } else html += '<td></td>';
-        }
-        html += '</tr>';
-
-        lastState = currentState;
-        lastParty = currentParty;
-    }
-
-    // After loop, render any remaining Party Subtotal (for the very last group)
-    if (lastParty) {
+      if (lastParty && (party !== lastParty || state !== lastState)) {
         const ptKey = lastState + '___' + lastParty;
-        const pt = partyTotals.get(ptKey) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-        if (monthsToShow.some(m => pt[m] > 0)) {
-            html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
-        }
+        const pt = partyTotals.get(ptKey) || {};
+        const count = partyRowCounts.get(ptKey) || 1;
+        html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair, count);
+      }
+
+      if (lastState && state !== lastState) {
+        const st = stateTotals.get(lastState) || {};
+        html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
+      }
+
+      // Row
+      html += '<tr>';
+      headers.forEach(h => {
+        if (showCols.includes(h)) html += `<td>${escapeHTML(row[h] || '')}</td>`;
+        else if (monthsToShow.includes(h)) {
+          const v = row[h] || 0;
+          const idx = monthsToShow.indexOf(h);
+          let bg = '';
+          if (compPair.length === 0 && idx > 0) {
+            const prev = monthsToShow[idx - 1];
+            const prevV = row[prev] || 0;
+            bg = v > prevV ? 'background:var(--up-bg);' : (v < prevV ? 'background:var(--down-bg);' : '');
+          }
+          html += `<td style="${bg}">${v ? v.toLocaleString() : ''}</td>`;
+          grand[h] += v;
+
+          const st = stateTotals.get(state) || Object.fromEntries(monthsToShow.map(m => [m, 0]));
+          st[h] += v; stateTotals.set(state, st);
+
+          const ptKey = state + '___' + party;
+          const pt = partyTotals.get(ptKey) || Object.fromEntries(monthsToShow.map(m => [m, 0]));
+          pt[h] += v; partyTotals.set(ptKey, pt);
+          partyRowCounts.set(ptKey, (partyRowCounts.get(ptKey) || 0) + 1);
+        } else if (h === 'Δ' || h === '% Change') {
+          if (compPair.length >= 2) {
+            const v1 = row[compPair[0]] || 0, v2 = row[compPair[1]] || 0;
+            if (h === 'Δ') {
+              const diff = v2 - v1;
+              const bg = diff > 0 ? 'var(--up-bg)' : (diff < 0 ? 'var(--down-bg)' : '');
+              html += `<td style="background:${bg};">${diff > 0 ? '+' : ''}${diff.toLocaleString()}</td>`;
+            } else {
+              const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
+              const col = pct > 0 ? '#16a34a' : (pct < 0 ? '#dc2626' : '');
+              html += `<td style="color:${col}">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
+            }
+          } else html += '<td></td>';
+        } else html += '<td></td>';
+      });
+      html += '</tr>';
+      lastState = state;
+      lastParty = party;
     }
 
-    // After loop, render any remaining State Total (for the very last state)
+    // Final subtotals & totals
+    if (lastParty) {
+      const ptKey = lastState + '___' + lastParty;
+      const pt = partyTotals.get(ptKey) || {};
+      const count = partyRowCounts.get(ptKey) || 1;
+      html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair, count);
+    }
     if (lastState) {
-        const st = stateTotals.get(lastState) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
-        if(monthsToShow.some(m => st[m] > 0)){
-            html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
-        }
+      const st = stateTotals.get(lastState) || {};
+      html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
     }
 
-    // grand total
-    let f = '';
-    const grandTotalHasData = monthsToShow.some(m => grand[m] > 0);
-    if (grandTotalHasData) {
-      f += renderTotalRow('grand', 'GRAND TOTAL', grand, headers, showCols, monthsToShow, compPair);
-    }
+    // Grand total
+    html += renderTotalRow('grand', 'GRAND TOTAL', grand, headers, showCols, monthsToShow, compPair);
 
     document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
-    document.getElementById('comparisonFoot').innerHTML = f;
+    document.getElementById('comparisonFoot').innerHTML = '';
     hideOverlay();
-  }, 80);
+  }, 100);
 }
 
 /* events + soft cascade + export */
