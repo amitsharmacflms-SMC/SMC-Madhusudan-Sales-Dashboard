@@ -366,7 +366,7 @@ function applyFilters() {
     const visibleMonths = getVals('monthFilter');
     const compSel = getVals('comparisonMonth');
 
-    // Reset table before rebuilding
+    // Reset table before rebuilding (clears any leftover rows)
     document.getElementById('comparisonBody').innerHTML = '';
     document.getElementById('comparisonFoot').innerHTML = '';
 
@@ -422,6 +422,9 @@ function applyFilters() {
       headers.map(h => `<th style="text-align:center;">${escapeHTML(h)}</th>`).join('') +
       '</tr>';
 
+    /* Make a Set of header text to guard against rows that equal header labels */
+    const headerTextSet = new Set(headers.map(h => String(h).trim()));
+
     /* ---------- Build rows ---------- */
     let html = '';
     const grand = Object.fromEntries(monthsToShow.map(m => [m, 0]));
@@ -437,12 +440,9 @@ function applyFilters() {
       const currentState = row.State;
       const currentParty = row.Party_Name;
 
-      // Safety: skip any accidental key that looks like header text
-      if (currentState === 'State' && currentParty === 'Party_Name') continue;
-
       if (!monthsToShow.some(m => (row[m] || 0) > 0)) continue;
 
-      // Party subtotal
+      // PARTY subtotal (when party changes)
       if (lastParty && (currentParty !== lastParty || currentState !== lastState)) {
         const pKey = `${lastState}___${lastParty}`;
         const pt = partyTotals.get(pKey);
@@ -451,7 +451,7 @@ function applyFilters() {
         partyTotals.delete(pKey);
       }
 
-      // State total
+      // STATE total (when state changes)
       if (lastState && currentState !== lastState) {
         const st = stateTotals.get(lastState);
         if (st && monthsToShow.some(m => st[m] > 0))
@@ -459,9 +459,24 @@ function applyFilters() {
         stateTotals.delete(lastState);
       }
 
-      // Data row
+      // ---------- HEADER-GUARD: skip rows whose showCol values exactly match header labels ----------
+      // This prevents rows like ["State","Party_Name","Item_Name", "Jul 25", ...] from being emitted.
+      let wouldMatchHeader = false;
+      for (const sc of showCols) {
+        const cellVal = String(row[sc] || '').trim();
+        if (cellVal && headerTextSet.has(cellVal)) { wouldMatchHeader = true; break; }
+      }
+      if (wouldMatchHeader) {
+        // skip this erroneous row (safety)
+        lastState = currentState;
+        lastParty = currentParty;
+        continue;
+      }
+      // ------------------------------------------------------------------------------------------
+
+      // Render data row
       html += '<tr>';
-      headers.forEach(h => {
+      for (const h of headers) {
         if (showCols.includes(h)) {
           html += `<td style="text-align:center;">${escapeHTML(row[h] || '')}</td>`;
         } else if (monthsToShow.includes(h)) {
@@ -470,11 +485,12 @@ function applyFilters() {
           let bg = '';
           if (compPair.length === 0 && idx > 0) {
             const prevV = row[monthsToShow[idx - 1]] || 0;
-            bg = v > prevV
-              ? `background:${'var(--up-bg)'};`
-              : v < prevV
-              ? `background:${'var(--down-bg)'};`
-              : '';
+            bg =
+              v > prevV
+                ? `background:${'var(--up-bg)'};`
+                : v < prevV
+                ? `background:${'var(--down-bg)'};`
+                : '';
           }
           html += `<td style="${bg} text-align:center;">${v ? v.toLocaleString() : ''}</td>`;
           grand[h] += v;
@@ -502,14 +518,14 @@ function applyFilters() {
             }
           } else html += '<td></td>';
         }
-      });
+      }
       html += '</tr>';
 
       lastState = currentState;
       lastParty = currentParty;
     }
 
-    // Render remaining subtotals and totals
+    // After loop: remaining party & state subtotals
     if (lastParty) {
       const ptKey = `${lastState}___${lastParty}`;
       const pt = partyTotals.get(ptKey);
@@ -527,7 +543,7 @@ function applyFilters() {
     if (monthsToShow.some(m => grand[m] > 0))
       f = renderTotalRow('grand', 'GRAND TOTAL', grand, headers, showCols, monthsToShow, compPair);
 
-    // Apply to DOM (body + foot)
+    // Apply to DOM
     document.getElementById('comparisonBody').innerHTML =
       html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
     document.getElementById('comparisonFoot').innerHTML = f;
@@ -535,6 +551,7 @@ function applyFilters() {
     hideOverlay();
   }, 100);
 }
+
 
 /* events + soft cascade + export */
 const debouncedApply = debounce(()=>applyFilters(), 200);
