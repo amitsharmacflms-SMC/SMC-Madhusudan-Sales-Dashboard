@@ -3,8 +3,10 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Plant to Depot Sales Dashboard</title>
+<title>SMC - Plant to Depot Sales Dashboard</title>
 <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
+
+<!-- external libs -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
@@ -14,60 +16,85 @@
   --navy:#1e3a8a;
   --accent1:#2563eb;
   --accent2:#4f46e5;
-  --up-bg:rgba(220,252,231,0.9);
-  --down-bg:rgba(254,226,226,0.9);
-  --subtotal-overlay:rgba(255,247,204,0.55);
-  --state-overlay:rgba(230,246,255,0.55);
-  --grand-overlay:rgba(186,230,253,0.6);
-  --thead-top:200px;
+
+  --up-bg: rgba(220,252,231,0.9);    /* light green */
+  --down-bg: rgba(254,226,226,0.9);  /* light red */
+
+  --subtotal-overlay: rgba(255,247,204,0.55);  /* pale yellow overlay */
+  --state-overlay: rgba(230,246,255,0.55);     /* light blue overlay */
+  --grand-overlay: rgba(186,230,253,0.6);      /* darker blue blue overlay */
+
+  /* computed top sticky value will be set dynamically by JS */
+  --thead-top: 200px;
 }
 
+/* base */
 *{box-sizing:border-box}
 body{font-family:Inter,system-ui,Arial;margin:0;background:#f6f9fc;color:#0f172a}
 
-header{display:flex;align-items:center;justify-content:center;gap:16px;
+/* header */
+header{
+  display:flex;align-items:top;justify-content:top;gap:16px;
   padding:14px 16px;background:linear-gradient(90deg,var(--accent1),var(--accent2));
-  color:#fff;position:sticky;top:0;z-index:1400;}
+  color:#fff;position:sticky;top:0;z-index:1400;
+}
 header img{height:56px}
 header h1{margin:0;font-weight:900;font-size:1.35rem}
 
-.toolbar{display:flex;justify-content:center;gap:10px;padding:8px;background:#fff;position:sticky;top:64px;z-index:1350;align-items:center;}
+/* toolbar */
+.toolbar{
+  display:flex;justify-content:center;gap:10px;padding:8px;background:#fff;position:sticky;top:64px;z-index:1350;align-items:center;
+}
 .btn{border:0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:800}
 .btn-blue{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff}
 .btn-gray{background:#eef2ff;color:var(--navy)}
 
-#filtersWrapper{display:flex;justify-content:center;background:#f8fafc;border-bottom:1px solid #dbeafe;
-  position:sticky;top:calc(64px + 48px);z-index:1320;}
+/* filters (sticky) */
+#filtersWrapper{
+  display:flex;justify-content:center;background:#f8fafc;border-bottom:1px solid #dbeafe;
+  position:sticky; top: calc(64px + 48px); z-index:1320;
+}
 .filters{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding:12px;max-width:1500px;width:100%}
 .filter-box{background:#fff;border-radius:12px;padding:10px 12px;border:2px solid #c7d2fe;min-width:160px}
 .filter-box label{display:block;font-weight:800;color:var(--navy);margin-bottom:6px}
 .filter-box select{width:200px;padding:6px;border-radius:8px;border:1.5px solid #c7d2fe;background:#fff;font-weight:700;height:120px}
 select option:disabled{color:#999;background:#f3f4f6}
 
-.table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06);height:calc(100vh - 260px);}
-table{border-collapse:collapse;width:100%;min-width:1100px}
-thead th,tbody td{text-align:center;padding:6px 8px;border:2px solid #2d3748;font-weight:700;vertical-align:middle;}
-thead th{position:sticky;top:var(--thead-top);background:linear-gradient(90deg,#e0e7ff,#c7d2fe);color:var(--navy);z-index:1310;}
-tbody tr:nth-child(odd){background:#ffffff;}
-tbody tr:nth-child(even){background:#f9fafb;}
+/* table wrapper */
+.table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - 260px);}
 
-/* total rows with centered alignment */
-tr.subtotal-row td,tr.state-total-row td,tr.grandtotal-row td{
-  font-weight:900;text-align:center !important;
+/* table */
+table{border-collapse:collapse;width:100%;min-width:1100px}
+thead th, tbody td{
+  text-align:center;padding:6px 8px;border:2px solid #2d3748;font-weight:700;vertical-align:top;
 }
-tr.subtotal-row td{background:var(--subtotal-overlay);}
-tr.state-total-row td{background:var(--state-overlay);}
-tr.grandtotal-row td{background:var(--grand-overlay);}
-tbody td{height:34px;}
-.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.75);z-index:3000;font-weight:900;color:var(--navy);}
+thead th{
+  position:sticky; top: var(--thead-top); background:linear-gradient(90deg,#e0e7ff,#c7d2fe);
+  color:var(--navy); z-index:1310;
+}
+
+/* zebra striping (applies to all rows incl subtotals/totals) */
+tbody tr:nth-child(odd) { background: #ffffff; }
+tbody tr:nth-child(even) { background: #f9fafb; }
+
+/* overlays for subtotal/state/grand rows -- semi-transparent so zebra shows through */
+tr.subtotal-row td { background: var(--subtotal-overlay); font-weight:900; }
+tr.state-total-row td { background: var(--state-overlay); font-weight:900; }
+tr.grandtotal-row td { background: var(--grand-overlay); font-weight:900; }
+
+/* compact */
+tbody td{height:34px}
+
+/* overlay indicator */
+.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.75);z-index:3000;font-weight:900;color:var(--navy)}
 .overlay.show{display:flex}
 </style>
 </head>
-
 <body>
+
 <header>
   <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo">
-  <h1>Plant to Depot Sales Dashboard</h1>
+  <h1>SMC - Plant to Depot Sales Dashboard</h1>
 </header>
 
 <div class="toolbar">
@@ -77,18 +104,37 @@ tbody td{height:34px;}
   <button id="toggleFiltersBtn" class="btn btn-blue">Hide Filters</button>
 </div>
 
+<!-- filters -->
 <div id="filtersWrapper">
   <div class="filters" id="filtersRow">
-    <div class="filter-box"><label>Show Columns</label><select id="showColumns" multiple>
-      <option value="State" selected>State</option>
-      <option value="Party_Name" selected>Party_Name</option>
-      <option value="Item_Name" selected>Item_Name</option>
-    </select></div>
-    <div class="filter-box"><label>State</label><select id="stateFilter" multiple></select></div>
-    <div class="filter-box"><label>Party Name</label><select id="partyFilter" multiple></select></div>
-    <div class="filter-box"><label>Item Name</label><select id="itemFilter" multiple></select></div>
-    <div class="filter-box"><label>Month_Name</label><select id="monthFilter" multiple></select></div>
-    <div class="filter-box"><label>Comparison Month</label><select id="comparisonMonth" multiple></select></div>
+    <div class="filter-box">
+      <label for="showColumns">Show Columns</label>
+      <select id="showColumns" multiple aria-label="Select columns to display">
+        <option value="State" selected>State</option>
+        <option value="Party_Name" selected>Party_Name</option>
+        <option value="Item_Name" selected>Item_Name</option>
+      </select>
+    </div>
+    <div class="filter-box">
+      <label for="stateFilter">State</label>
+      <select id="stateFilter" multiple aria-label="Filter by State"></select>
+    </div>
+    <div class="filter-box">
+      <label for="partyFilter">Party Name</label>
+      <select id="partyFilter" multiple aria-label="Filter by Party Name"></select>
+    </div>
+    <div class="filter-box">
+      <label for="itemFilter">Item Name</label>
+      <select id="itemFilter" multiple aria-label="Filter by Item Name"></select>
+    </div>
+    <div class="filter-box">
+      <label for="monthFilter">Month_Name</label>
+      <select id="monthFilter" multiple aria-label="Filter by Month Name"></select>
+    </div>
+    <div class="filter-box">
+      <label for="comparisonMonth">Comparison Month</label>
+      <select id="comparisonMonth" multiple aria-label="Select months for comparison"></select>
+    </div>
   </div>
 </div>
 
@@ -103,24 +149,451 @@ tbody td{height:34px;}
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
-const API_URL="/get_data/lighthouse_sales";let rawData=[];
+/* ---------------------
+  FINAL robust implementation
+  - sums duplicates per (state,party,item,month)
+  - single thead only
+  - soft-cascade (disable unrelated options, keep selected)
+  - dynamic sticky header top computed at runtime
+  - zebra (applies to all rows) + semi-transparent subtotal/state/grand overlays
+  - **MAJOR UPDATE**: Aggregates data dynamically based on selected 'Show Columns'
+    to display one row per group, and correctly renders totals/subtotals.
+----------------------*/
+
+const API_URL = "/get_data/lighthouse_sales";
+let rawData = [];
+
 function showOverlay(){document.getElementById('overlay').classList.add('show')}
 function hideOverlay(){document.getElementById('overlay').classList.remove('show')}
 function toNum(v){return Number(v)||0}
-function escapeHTML(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}
-function parseDateFlexible(s){if(!s)return null;s=String(s).trim();if(/^\d{8}$/.test(s)){const d=+s.slice(0,2),m=+s.slice(2,4),y=+s.slice(4,8);return new Date(y,m-1,d)}const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3]);const d=new Date(s);return isNaN(d)?null:d}
-function invoiceMonthLabel(s){const dt=parseDateFlexible(s);return dt?dt.toLocaleString('default',{month:'short',year:'2-digit'}):"";}
-function debounce(fn,ms=200){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);}}
-function setDynamicTheadTop(){const h=document.querySelector('header'),t=document.querySelector('.toolbar'),f=document.getElementById('filtersWrapper');let top=0;if(h)top+=h.getBoundingClientRect().height;if(t)top+=t.getBoundingClientRect().height;if(f)top+=f.getBoundingClientRect().height;document.documentElement.style.setProperty('--thead-top',top+'px');}
-async function loadData(){showOverlay();try{const r=await axios.get(API_URL);const rows=Array.isArray(r.data)?r.data:[];rawData=rows.map(v=>{const rawDate=(v.invoice_date||v.INVOICE_DATE||"").toString().trim();const month=invoiceMonthLabel(rawDate);return{state:(v.state||v.STATE||"").trim(),party:(v.party_name||v.PARTY_NAME||"").trim(),item:(v.item_name||v.ITEM_NAME||"").trim().replace(/\s+/g,' '),month,qty:toNum(v.quantity_cs||v.Quantity_CS||0)}}).filter(r=>r.state&&r.party&&r.item);initFilters();setDynamicTheadTop();window.addEventListener('resize',debounce(setDynamicTheadTop,200));applyFilters();}catch(e){alert('Load error');}finally{hideOverlay();}}
-function initFilters(){const st=[...new Set(rawData.map(r=>r.state))].sort(),pt=[...new Set(rawData.map(r=>r.party))].sort(),it=[...new Set(rawData.map(r=>r.item))].sort(),mo=[...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=>new Date('01 '+a)-new Date('01 '+b));const fill=(id,list)=>{const el=document.getElementById(id);el.innerHTML='';list.forEach(v=>el.innerHTML+=`<option>${v}</option>`)};fill('stateFilter',st);fill('partyFilter',pt);fill('itemFilter',it);fill('monthFilter',mo);fill('comparisonMonth',mo);if(mo.length>=2){const last2=mo.slice(-2);[...document.getElementById('comparisonMonth').options].forEach(o=>{if(last2.includes(o.value))o.selected=true;});}}
-function getVals(id){const e=document.getElementById(id);if(!e)return[];return[...e.selectedOptions].map(o=>o.value)}
-function updateSoftCascade(mths){const mf=mths&&mths.length?mths:[...new Set(rawData.map(r=>r.month).filter(Boolean))];const a={states:new Set(),parties:new Set(),items:new Set()};rawData.forEach(r=>{if(r.month&&mf.includes(r.month)){a.states.add(r.state);a.parties.add(r.party);a.items.add(r.item);}});const apply=(id,set)=>{const el=document.getElementById(id);if(!el)return;[...el.options].forEach(o=>{if(!set.has(o.value)&&!o.selected)o.disabled=true;else o.disabled=false;});};apply('stateFilter',a.states);apply('partyFilter',a.parties);apply('itemFilter',a.items);}
-function renderTotalRow(type,label,totals,headers,cols,months,compPair,rowCount=1){if(type==='party'&&rowCount<2)return'';let rowClass='',itemLabel='';if(type==='party'){rowClass='subtotal-row';itemLabel=`SUM ${escapeHTML(label)}`;}else if(type==='state'){rowClass='state-total-row';itemLabel=`TOTAL ${escapeHTML(label)}`;}else if(type==='grand'){rowClass='grandtotal-row';itemLabel=label;}let h='<tr class="'+rowClass+'">';for(const c of headers){if(cols.includes(c)){if(c==='Item_Name')h+=`<td><b>${itemLabel}</b></td>`;else if(c==='State'&&type==='state')h+=`<td><b>${escapeHTML(label)}</b></td>`;else if(c==='Party_Name'&&type==='party')h+=`<td><b>${escapeHTML(label)}</b></td>`;else h+='<td></td>';}else if(months.includes(c)){h+=`<td><b>${(totals[c]||0).toLocaleString()}</b></td>`;}else if(c==='Δ'||c==='% Change'){if(compPair.length>=2){const v1=totals[compPair[0]]||0,v2=totals[compPair[1]]||0;if(c==='Δ'){const diff=v2-v1,bg=diff>0?'var(--up-bg)':(diff<0?'var(--down-bg)':'');h+=`<td style="background:${bg};"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;}else{const pct=v1?(((v2-v1)/v1)*100):(v2?100:0),col=pct>0?'#16a34a':(pct<0?'#dc2626':'');h+=`<td style="color:${col}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;}}else h+='<td></td>';}else h+='<td></td>';}return h+'</tr>'; }
-function applyFilters(){showOverlay();setTimeout(()=>{const cols=getVals('showColumns'),stSel=getVals('stateFilter'),ptSel=getVals('partyFilter'),itSel=getVals('itemFilter'),mSel=getVals('monthFilter'),cSel=getVals('comparisonMonth');const mAll=[...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=>new Date('01 '+a)-new Date('01 '+b));const months=mSel.length?mSel:mAll;const compSorted=cSel.slice().sort((a,b)=>new Date('01 '+a)-new Date('01 '+b));const compPair=compSorted.length>=2?compSorted.slice(-2):[];updateSoftCascade(months);const grouped=new Map();rawData.forEach(r=>{if(stSel.length&&!stSel.includes(r.state))return;if(ptSel.length&&!ptSel.includes(r.party))return;if(itSel.length&&!itSel.includes(r.item))return;const keyParts=cols.map(c=>c==='State'?r.state:c==='Party_Name'?r.party:c==='Item_Name'?r.item:'');const key=keyParts.join('___');if(!grouped.has(key))grouped.set(key,Object.fromEntries([...cols.map(c=>[c,keyParts[cols.indexOf(c)]]),...months.map(m=>[m,0])]));const g=grouped.get(key);if(r.month&&months.includes(r.month))g[r.month]+=r.qty;});const sorted=[...grouped.keys()].sort();const headers=[...cols,...months];if(compPair.length>=2)headers.push('Δ','% Change');document.getElementById('comparisonHead').innerHTML='<tr>'+headers.map(h=>`<th>${escapeHTML(h)}</th>`).join('')+'</tr>';let html='',grand=Object.fromEntries(months.map(m=>[m,0])),stTotals=new Map(),ptTotals=new Map(),ptCount=new Map();let lastSt=null,lastPt=null;for(const key of sorted){const row=grouped.get(key);if(!months.some(m=>(row[m]||0)>0))continue;const s=row.State,p=row.Party_Name;if(lastPt&&(p!==lastPt||s!==lastSt)){const pk=lastSt+'___'+lastPt;const pt=ptTotals.get(pk)||{},count=ptCount.get(pk)||1;html+=renderTotalRow('party',lastPt,pt,headers,cols,months,compPair,count);}if(lastSt&&s!==lastSt){const st=stTotals.get(lastSt)||{};html+=renderTotalRow('state',lastSt,st,headers,cols,months,compPair);}html+='<tr>';headers.forEach(h=>{if(cols.includes(h))html+=`<td>${escapeHTML(row[h]||'')}</td>`;else if(months.includes(h)){const v=row[h]||0,idx=months.indexOf(h);let bg='';if(compPair.length===0&&idx>0){const prev=months[idx-1];const prevV=row[prev]||0;bg=v>prevV?'background:var(--up-bg);':(v<prevV?'background:var(--down-bg);':'');}html+=`<td style="${bg}">${v?v.toLocaleString():''}</td>`;grand[h]+=v;const st=stTotals.get(s)||Object.fromEntries(months.map(m=>[m,0]));st[h]+=v;stTotals.set(s,st);const pk=s+'___'+p;const pt=ptTotals.get(pk)||Object.fromEntries(months.map(m=>[m,0]));pt[h]+=v;ptTotals.set(pk,pt);ptCount.set(pk,(ptCount.get(pk)||0)+1);}else if(h==='Δ'||h==='% Change'){if(compPair.length>=2){const v1=row[compPair[0]]||0,v2=row[compPair[1]]||0;if(h==='Δ'){const diff=v2-v1,bg=diff>0?'var(--up-bg)':(diff<0?'var(--down-bg)':'');html+=`<td style="background:${bg};">${diff>0?'+':''}${diff.toLocaleString()}</td>`;}else{const pct=v1?(((v2-v1)/v1)*100):(v2?100:0),col=pct>0?'#16a34a':(pct<0?'#dc2626':'');html+=`<td style="color:${col}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;}}else html+='<td></td>';}else html+='<td></td>';});html+='</tr>';lastSt=s;lastPt=p;}if(lastPt){const pk=lastSt+'___'+lastPt;const pt=ptTotals.get(pk)||{},count=ptCount.get(pk)||1;html+=renderTotalRow('party',lastPt,pt,headers,cols,months,compPair,count);}if(lastSt){const st=stTotals.get(lastSt)||{};html+=renderTotalRow('state',lastSt,st,headers,cols,months,compPair);}html+=renderTotalRow('grand','GRAND TOTAL',grand,headers,cols,months,compPair);document.getElementById('comparisonBody').innerHTML=html||`<tr><td colspan="${headers.length}">No Data</td></tr>`;document.getElementById('comparisonFoot').innerHTML='';hideOverlay();},100);}
-document.getElementById('clearBtn').onclick=()=>location.reload();
-document.getElementById('toggleFiltersBtn').onclick=()=>{const row=document.getElementById('filtersRow'),btn=document.getElementById('toggleFiltersBtn');if(row.style.display==='none'){row.style.display='flex';btn.textContent='Hide Filters';}else{row.style.display='none';btn.textContent='Show Filters';}setDynamicTheadTop();};
-document.getElementById('exportBtn').onclick=async()=>{showOverlay();try{const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet('Comparison');const headerRow=[...document.querySelectorAll('#comparisonHead tr th')].map(th=>th.innerText.trim());ws.addRow(headerRow).font={bold:true};const bodyRows=[...document.querySelectorAll('#comparisonBody tr')].map(tr=>[...tr.children].map(td=>td.innerText.trim()));bodyRows.forEach(r=>ws.addRow(r));ws.columns.forEach(c=>c.width=18);const buf=await wb.xlsx.writeBuffer();saveAs(new Blob([buf]),`comparison_${new Date().toISOString().slice(0,10)}.xlsx`);}catch(e){alert('Export failed');}finally{hideOverlay();}};
+function debounce(fn, ms=200){let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }}
+function escapeHTML(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+/* parse dates to "Mon YY" */
+function parseDateFlexible(s){
+  if(!s) return null;
+  s = String(s).trim();
+  if(/^\d{8}$/.test(s)){ const d=+s.slice(0,2), m=+s.slice(2,4), y=+s.slice(4,8); return new Date(y,m-1,d); }
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  const d = new Date(s); return isNaN(d) ? null : d;
+}
+function invoiceMonthLabel(s){ const dt = parseDateFlexible(s); return dt ? dt.toLocaleString('default',{month:'short',year:'2-digit'}) : ""; }
+
+/* compute and set sticky top dynamically */
+function setDynamicTheadTop(){
+  const header = document.querySelector('header');
+  const toolbar = document.querySelector('.toolbar');
+  const filters = document.getElementById('filtersWrapper');
+  let topVal = 0;
+  if(header) topVal += header.getBoundingClientRect().height;
+  if(toolbar) topVal += toolbar.getBoundingClientRect().height;
+  if(filters) topVal += filters.getBoundingClientRect().height;
+  topVal = Math.max(0, topVal + 0);
+  document.documentElement.style.setProperty('--thead-top', topVal + 'px');
+}
+
+/* load data and normalize items */
+async function loadData(){
+  showOverlay();
+  try{
+    const res = await axios.get(API_URL);
+    const rows = Array.isArray(res.data) ? res.data : [];
+    rawData = rows.map(r=>{
+      const rawDate = (r.invoice_date || r.INVOICE_DATE || "").toString().trim();
+      const month = invoiceMonthLabel(rawDate);
+      const state = (r.state || r.STATE || "").trim();
+      const party = (r.party_name || r.PARTY_NAME || "").trim();
+      const itemRaw = (r.item_name || r.ITEM_NAME || "").trim();
+      const item = itemRaw.replace(/\s+/g,' ');
+      return { state, party, item, month, qty: toNum(r.quantity_cs || r.Quantity_CS || 0) };
+    }).filter(r => r.state && r.party && r.item);
+
+    initFilters();
+    setDynamicTheadTop();
+    window.addEventListener('resize', debounce(setDynamicTheadTop, 200));
+    applyFilters();
+  }catch(e){
+    console.error(e);
+    alert('Failed to load data');
+    hideOverlay();
+  }
+}
+
+/* populate filters */
+function initFilters(){
+  const states = [...new Set(rawData.map(r=>r.state))].sort((a,b)=>a.localeCompare(b));
+  const parties = [...new Set(rawData.map(r=>r.party))].sort((a,b)=>a.localeCompare(b));
+  const items = [...new Set(rawData.map(r=>r.item))].sort((a,b)=>a.localeCompare(b));
+  const months = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
+
+  const fill = (id,list) => {
+    const el = document.getElementById(id); el.innerHTML = '';
+    list.forEach(v => el.innerHTML += `<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`);
+  };
+
+  fill('stateFilter', states);
+  fill('partyFilter', parties);
+  fill('itemFilter', items);
+  fill('monthFilter', months);
+  fill('comparisonMonth', months);
+
+  if(months.length >= 2){
+    const last2 = months.slice(-2);
+    [...document.getElementById('comparisonMonth').options].forEach(o=>{ if(last2.includes(o.value)) o.selected = true; });
+  }
+}
+
+/* build aggregated nested map for soft cascade: state -> party -> item -> { month: summedQty, ... } */
+function buildAggregationForSoftCascade(){
+  const map = new Map();
+  rawData.forEach(r=>{
+    const s = r.state, p = r.party, it = r.item;
+    if(!map.has(s)) map.set(s, new Map());
+    const pMap = map.get(s);
+    if(!pMap.has(p)) pMap.set(p, new Map());
+    const iMap = pMap.get(p);
+    if(!iMap.has(it)) iMap.set(it, {});
+    const mon = iMap.get(it);
+    if(r.month){
+      mon[r.month] = (mon[r.month] || 0) + r.qty;
+    } else {
+      mon.__no_month__ = (mon.__no_month__ || 0) + r.qty;
+    }
+  });
+  return map;
+}
+
+/* soft-cascade disabling: disable options not relevant but keep selected ones */
+function updateSoftCascade(monthsToShow){
+  const actualMonthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
+
+  const allowed = { states: new Set(), parties: new Set(), items: new Set() };
+
+  rawData.forEach(r=>{
+    if(r.month && actualMonthsFilter.includes(r.month)){
+      allowed.states.add(r.state);
+      allowed.parties.add(r.party);
+      allowed.items.add(r.item);
+    }
+  });
+
+  const applyDisable = (id, setAllowed) => {
+    const sel = document.getElementById(id);
+    if(!sel) return;
+    [...sel.options].forEach(opt => {
+      if(!setAllowed.has(opt.value) && !opt.selected) opt.disabled = true;
+      else opt.disabled = false;
+    });
+  };
+  applyDisable('stateFilter', allowed.states);
+  applyDisable('partyFilter', allowed.parties);
+  applyDisable('itemFilter', allowed.items);
+}
+
+function getVals(id){ const el=document.getElementById(id); if(!el) return []; return [...el.selectedOptions].map(o=>o.value); }
+
+// Helper function to render total rows (party subtotal, state total, grand total)
+function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow, compPair) {
+    let rowHtml = '';
+    let rowClass = '';
+    let itemLabel = ''; // For the Item_Name column in total rows (e.g., SUM Party, TOTAL State)
+
+    if (type === 'party') {
+        rowClass = 'subtotal-row';
+        itemLabel = `SUM ${escapeHTML(label)}`;
+    } else if (type === 'state') {
+        rowClass = 'state-total-row';
+        itemLabel = `TOTAL ${escapeHTML(label)}`;
+    } else if (type === 'grand') {
+        rowClass = 'grandtotal-row';
+        itemLabel = label; // "GRAND TOTAL"
+    }
+
+    rowHtml += `<tr class="${rowClass}">`;
+    for (const h of headers) {
+        if (showCols.includes(h)) {
+            // For 'Show Columns' headers (State, Party_Name, Item_Name)
+            if (h === 'Item_Name') {
+                rowHtml += `<td><b>${itemLabel}</b></td>`;
+            } else if (h === 'State' && type === 'state') {
+                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`; // Display state name in State column for state total
+            } else if (h === 'Party_Name' && (type === 'state' || type === 'grand')) {
+                rowHtml += '<td></td>'; // Party column empty for state/grand total
+            } else if (h === 'State' && type === 'grand') {
+                rowHtml += '<td></td>'; // State column empty for grand total
+            } else if (h === 'Party_Name' && type === 'party') {
+                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`; // Party name in Party column for party subtotal
+            } else {
+                rowHtml += '<td></td>'; // Other showCols empty for total rows
+            }
+        } else if (monthsToShow.includes(h)) {
+            // For month columns
+            rowHtml += `<td><b>${(totalsMap[h] || 0).toLocaleString()}</b></td>`;
+        } else if (h === 'Δ' || h === '% Change') {
+            // For comparison columns
+            if (compPair.length >= 2) {
+                const v1 = totalsMap[compPair[0]] || 0;
+                const v2 = totalsMap[compPair[1]] || 0;
+                if (h === 'Δ') {
+                    const diff = v2 - v1;
+                    const bg = diff > 0 ? 'var(--up-bg)' : (diff < 0 ? 'var(--down-bg)' : '');
+                    rowHtml += `<td style="background:${bg};"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
+                } else {
+                    const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
+                    const col = pct > 0 ? '#16a34a' : (pct < 0 ? '#dc2626' : '');
+                    rowHtml += `<td style="color:${col}">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
+                }
+            } else {
+                rowHtml += '<td></td>';
+            }
+        } else {
+            rowHtml += '<td></td>'; // Fallback for any other unexpected header
+        }
+    }
+    rowHtml += '</tr>';
+    return rowHtml;
+}
+
+
+/* render final table */
+function applyFilters(){
+  showOverlay();
+  setTimeout(()=>{
+    const showCols = getVals('showColumns');
+    const selStates = getVals('stateFilter');
+    const selParties = getVals('partyFilter');
+    const selItems = getVals('itemFilter');
+    const visibleMonths = getVals('monthFilter');
+    const compSel = getVals('comparisonMonth');
+
+    // Use rawData directly and apply filters, then group for display
+    const monthsAll = [...new Set(rawData.map(r=>r.month).filter(Boolean))].sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
+    const monthsToShow = visibleMonths.length ? visibleMonths : monthsAll.slice();
+    const compSorted = compSel.slice().sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
+    const compPair = compSorted.length >= 2 ? compSorted.slice(-2) : [];
+
+    updateSoftCascade(monthsToShow);
+
+    // --- Dynamic Aggregation based on showCols ---
+    const groupedData = new Map(); // key -> { State: ..., Party_Name: ..., Item_Name: ..., month1: sum, month2: sum }
+
+    rawData.forEach(r => {
+        // Apply initial selection filters to raw data before grouping
+        if (selStates.length && !selStates.includes(r.state)) return;
+        if (selParties.length && !selParties.includes(r.party)) return;
+        if (selItems.length && !selItems.includes(r.item)) return;
+
+        let groupKeyParts = [];
+        let groupRow = {};
+
+        showCols.forEach(col => {
+            let val;
+            if (col === 'State') val = r.state;
+            else if (col === 'Party_Name') val = r.party;
+            else if (col === 'Item_Name') val = r.item;
+            
+            if (val) {
+                groupKeyParts.push(val);
+                groupRow[col] = val;
+            } else {
+                groupKeyParts.push(""); 
+                groupRow[col] = "";
+            }
+        });
+
+        const groupKey = groupKeyParts.join('___');
+
+        if (!groupedData.has(groupKey)) {
+            groupedData.set(groupKey, { ...groupRow });
+            monthsToShow.forEach(m => groupedData.get(groupKey)[m] = 0);
+        }
+
+        const currentGroup = groupedData.get(groupKey);
+        if (r.month && monthsToShow.includes(r.month)) { // Only sum if month is visible
+            currentGroup[r.month] = (currentGroup[r.month] || 0) + r.qty;
+        }
+    });
+
+    const sortedGroupKeys = [...groupedData.keys()].sort();
+
+    // Headers (unchanged)
+    const headers = [...showCols, ...monthsToShow];
+    if(compPair.length >= 2) headers.push('Δ','% Change');
+    document.getElementById('comparisonHead').innerHTML = '<tr>' + headers.map(h=>`<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
+
+    let html = '';
+    const grand = Object.fromEntries(monthsToShow.map(m=>[m,0]));
+
+    // For state and party subtotals, we need to track values dynamically as we iterate
+    const stateTotals = new Map(); // state -> { month: sum, ... }
+    const partyTotals = new Map(); // state_party -> { month: sum, ... }
+
+    let lastState = null;
+    let lastParty = null;
+
+    for (const groupKey of sortedGroupKeys) {
+        const rowData = groupedData.get(groupKey);
+
+        // Check if this row has any non-zero values for monthsToShow, otherwise skip
+        if (!monthsToShow.some(m => (rowData[m] || 0) > 0)) continue;
+
+        const currentState = rowData.State;
+        const currentParty = rowData.Party_Name;
+
+        // Render Party Subtotal if party changes (within the same state) OR state changes
+        if (lastParty && (currentParty !== lastParty || currentState !== lastState)) {
+             const ptKey = lastState + '___' + lastParty;
+             const pt = partyTotals.get(ptKey) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
+             if (monthsToShow.some(m => pt[m] > 0)) {
+                 html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
+             }
+             partyTotals.delete(ptKey); // Clear party total after rendering
+        }
+
+        // Render State Total if state changes AND lastState was not null
+        if (lastState && currentState !== lastState) {
+            const st = stateTotals.get(lastState) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
+            if(monthsToShow.some(m => st[m] > 0)){
+                html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
+            }
+            stateTotals.delete(lastState); // Clear state total after rendering
+            // Also ensure any remaining party totals for the old state are cleared
+            partyTotals.forEach((v,k) => { if(k.startsWith(lastState + '___')) partyTotals.delete(k); });
+        }
+
+
+        // --- Main Grouped Data Row ---
+        html += '<tr>';
+        for(const h of headers){
+          if(showCols.includes(h)) {
+              html += `<td>${escapeHTML(rowData[h] || '')}</td>`;
+          }
+          else if(monthsToShow.includes(h)){
+            const v = rowData[h] || 0;
+            const idx = monthsToShow.indexOf(h);
+            let bg = '';
+            if(compPair.length === 0 && idx > 0){
+              const prev = monthsToShow[idx-1];
+              const prevV = rowData[prev] || 0;
+              bg = v > prevV ? `background:${'var(--up-bg)'};` : (v < prevV ? `background:${'var(--down-bg)'};` : '');
+            }
+            html += `<td style="${bg}">${v ? v.toLocaleString() : ''}</td>`;
+            grand[h] += v; // Accumulate grand total
+
+            // Accumulate state and party totals
+            if (currentState) {
+                const stateT = stateTotals.get(currentState) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
+                stateT[h] += v;
+                stateTotals.set(currentState, stateT);
+            }
+            if (currentParty) { // Only accumulate party total if Party_Name is actually displayed
+                const partyTKey = currentState + '___' + currentParty; // Key for party total
+                const partyT = partyTotals.get(partyTKey) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
+                partyT[h] += v;
+                partyTotals.set(partyTKey, partyT);
+            }
+          } else if(h === 'Δ' || h === '% Change'){
+            if(compPair.length >= 2){
+              const v1 = rowData[compPair[0]] || 0;
+              const v2 = rowData[compPair[1]] || 0;
+              if(h === 'Δ'){
+                const diff = v2 - v1;
+                const bg = diff > 0 ? 'var(--up-bg)' : (diff < 0 ? 'var(--down-bg)' : '');
+                html += `<td style="background:${bg};"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
+              } else {
+                const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
+                const col = pct > 0 ? '#16a34a' : (pct < 0 ? '#dc2626' : '');
+                html += `<td style="color:${col}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;
+              }
+            } else html += '<td></td>';
+          } else html += '<td></td>';
+        }
+        html += '</tr>';
+
+        lastState = currentState;
+        lastParty = currentParty;
+    }
+
+    // After loop, render any remaining Party Subtotal (for the very last group)
+    if (lastParty) {
+        const ptKey = lastState + '___' + lastParty;
+        const pt = partyTotals.get(ptKey) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
+        if (monthsToShow.some(m => pt[m] > 0)) {
+            html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
+        }
+    }
+
+    // After loop, render any remaining State Total (for the very last state)
+    if (lastState) {
+        const st = stateTotals.get(lastState) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
+        if(monthsToShow.some(m => st[m] > 0)){
+            html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
+        }
+    }
+
+    // grand total
+    let f = '';
+    const grandTotalHasData = monthsToShow.some(m => grand[m] > 0);
+    if (grandTotalHasData) {
+      f += renderTotalRow('grand', 'GRAND TOTAL', grand, headers, showCols, monthsToShow, compPair);
+    }
+
+    document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
+    document.getElementById('comparisonFoot').innerHTML = f;
+    hideOverlay();
+  }, 80);
+}
+
+/* events + soft cascade + export */
+const debouncedApply = debounce(()=>applyFilters(), 200);
+
+['showColumns','stateFilter','partyFilter','itemFilter','monthFilter','comparisonMonth'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', ()=>{
+    const monthsToShow = getVals('monthFilter');
+    updateSoftCascade(monthsToShow);
+    debouncedApply();
+  });
+});
+
+document.getElementById('clearBtn').onclick = () => location.reload();
+
+document.getElementById('toggleFiltersBtn').onclick = () => {
+  const row = document.getElementById('filtersRow'), btn = document.getElementById('toggleFiltersBtn');
+  if(row.style.display === 'none'){
+    row.style.display = 'flex';
+    btn.textContent = 'Hide Filters';
+  }
+  else {
+    row.style.display = 'none';
+    btn.textContent = 'Show Filters';
+  }
+  setDynamicTheadTop();
+};
+
+document.getElementById('exportBtn').onclick = async () => {
+  showOverlay();
+  try{
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Comparison');
+    const headerRow = [...document.querySelectorAll('#comparisonHead tr th')].map(th => th.innerText.trim());
+    ws.addRow(headerRow).font = { bold: true };
+
+    const bodyRows = [...document.querySelectorAll('#comparisonBody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
+    bodyRows.forEach(r => ws.addRow(r));
+
+    const footerRows = [...document.querySelectorAll('#comparisonFoot tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
+    footerRows.forEach(r => ws.addRow(r).font = { bold: true });
+
+
+    ws.columns.forEach(c => c.width = 18);
+    const buf = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }catch(e){ console.error('Export failed', e); alert('Export failed'); }
+  finally{ hideOverlay(); }
+};
+
+/* init page */
 loadData();
 </script>
 </body>
