@@ -23,9 +23,6 @@
   --subtotal-overlay: rgba(255,247,204,0.55);  /* pale yellow overlay */
   --state-overlay: rgba(230,246,255,0.55);     /* light blue overlay */
   --grand-overlay: rgba(186,230,253,0.6);      /* darker blue blue overlay */
-
-  /* computed top sticky value will be set dynamically by JS */
-  --thead-top: 200px;
 }
 
 /* base */
@@ -34,7 +31,7 @@ body{font-family:Inter,system-ui,Arial;margin:0;background:#f6f9fc;color:#0f172a
 
 /* header */
 header{
-  display:flex;align-items:top;justify-content:top;gap:16px;
+  display:flex;align-items:center;justify-content:center;gap:16px;
   padding:14px 16px;background:linear-gradient(90deg,var(--accent1),var(--accent2));
   color:#fff;position:sticky;top:0;z-index:1400;
 }
@@ -60,13 +57,21 @@ header h1{margin:0;font-weight:900;font-size:1.35rem}
 .filter-box select{width:200px;padding:6px;border-radius:8px;border:1.5px solid #c7d2fe;background:#fff;font-weight:700;height:120px}
 select option:disabled{color:#999;background:#f3f4f6}
 
-/* table wrapper */
-.table-wrapper{max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - 260px);}
+/* table wrapper - this is the scroll container for the table.
+   We WILL stick the thead relative to this element (top:0),
+   so the header stays at top of the table viewport while you scroll the table body. */
+.table-wrapper{
+  max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;
+  box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - 260px);
+  position: relative; /* establishes containing block for sticky children */
+}
 
 /* table */
-/* Header and cell alignment */
+table{border-collapse:collapse;width:100%;min-width:1100px}
+
+/* Header: stick to top of .table-wrapper (not viewport) */
 thead th {
-  text-align: center;               /* center header text */
+  text-align: center;
   vertical-align: middle;
   padding: 6px 8px;
   border: 2px solid #2d3748;
@@ -74,20 +79,20 @@ thead th {
   background: linear-gradient(90deg, #e0e7ff, #c7d2fe);
   color: var(--navy);
   position: sticky;
-  top: var(--thead-top);
-  z-index: 1310;
+  top: 0;            /* <-- important: stick inside .table-wrapper at its top */
+  z-index: 10;       /* keep above tbody rows while scrolling inside wrapper */
 }
 
 /* Data cell alignment */
 tbody td {
-  text-align: center;               /* center data text */
+  text-align: center;
   vertical-align: middle;
   padding: 6px 8px;
   border: 2px solid #2d3748;
   font-weight: 600;
 }
 
-/* hide any accidental <th> inside tbody (safety) */
+/* hide any accidental th inside tbody (safety) */
 tbody th { display: none; }
 
 /* zebra striping (applies to all rows incl subtotals/totals) */
@@ -166,9 +171,11 @@ tbody td{height:34px}
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
-/* ---------------------
-  FINAL robust implementation (sanitizing accidental th in tbody)
-----------------------*/
+/* Implementation notes:
+ - We removed dynamic top-offset for thead and instead use top:0 so thead sticks inside .table-wrapper.
+ - This prevents the header from appearing mid-page; it will remain at top of the table scroll viewport.
+ - All other logic (grouping, subtotals, grand total, soft-cascade, export) preserved.
+*/
 
 const API_URL = "/get_data/lighthouse_sales";
 let rawData = [];
@@ -188,18 +195,6 @@ function parseDateFlexible(s){
 }
 function invoiceMonthLabel(s){ const dt = parseDateFlexible(s); return dt ? dt.toLocaleString('default',{month:'short',year:'2-digit'}) : ""; }
 
-function setDynamicTheadTop(){
-  const header = document.querySelector('header');
-  const toolbar = document.querySelector('.toolbar');
-  const filters = document.getElementById('filtersWrapper');
-  let topVal = 0;
-  if(header) topVal += header.getBoundingClientRect().height;
-  if(toolbar) topVal += toolbar.getBoundingClientRect().height;
-  if(filters) topVal += filters.getBoundingClientRect().height;
-  topVal = Math.max(0, topVal + 0);
-  document.documentElement.style.setProperty('--thead-top', topVal + 'px');
-}
-
 async function loadData(){
   showOverlay();
   try{
@@ -216,8 +211,6 @@ async function loadData(){
     }).filter(r => r.state && r.party && r.item);
 
     initFilters();
-    setDynamicTheadTop();
-    window.addEventListener('resize', debounce(setDynamicTheadTop, 200));
     applyFilters();
   }catch(e){
     console.error(e);
@@ -249,30 +242,9 @@ function initFilters(){
   }
 }
 
-function buildAggregationForSoftCascade(){
-  const map = new Map();
-  rawData.forEach(r=>{
-    const s = r.state, p = r.party, it = r.item;
-    if(!map.has(s)) map.set(s, new Map());
-    const pMap = map.get(s);
-    if(!pMap.has(p)) pMap.set(p, new Map());
-    const iMap = pMap.get(p);
-    if(!iMap.has(it)) iMap.set(it, {});
-    const mon = iMap.get(it);
-    if(r.month){
-      mon[r.month] = (mon[r.month] || 0) + r.qty;
-    } else {
-      mon.__no_month__ = (mon.__no_month__ || 0) + r.qty;
-    }
-  });
-  return map;
-}
-
 function updateSoftCascade(monthsToShow){
   const actualMonthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
-
   const allowed = { states: new Set(), parties: new Set(), items: new Set() };
-
   rawData.forEach(r=>{
     if(r.month && actualMonthsFilter.includes(r.month)){
       allowed.states.add(r.state);
@@ -280,7 +252,6 @@ function updateSoftCascade(monthsToShow){
       allowed.items.add(r.item);
     }
   });
-
   const applyDisable = (id, setAllowed) => {
     const sel = document.getElementById(id);
     if(!sel) return;
@@ -301,33 +272,19 @@ function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow,
     let rowClass = '';
     let itemLabel = '';
 
-    if (type === 'party') {
-        rowClass = 'subtotal-row';
-        itemLabel = `SUM ${escapeHTML(label)}`;
-    } else if (type === 'state') {
-        rowClass = 'state-total-row';
-        itemLabel = `TOTAL ${escapeHTML(label)}`;
-    } else if (type === 'grand') {
-        rowClass = 'grandtotal-row';
-        itemLabel = label;
-    }
+    if (type === 'party') { rowClass = 'subtotal-row'; itemLabel = `SUM ${escapeHTML(label)}`; }
+    else if (type === 'state') { rowClass = 'state-total-row'; itemLabel = `TOTAL ${escapeHTML(label)}`; }
+    else if (type === 'grand') { rowClass = 'grandtotal-row'; itemLabel = label; }
 
     rowHtml += `<tr class="${rowClass}">`;
     for (const h of headers) {
         if (showCols.includes(h)) {
-            if (h === 'Item_Name') {
-                rowHtml += `<td><b>${itemLabel}</b></td>`;
-            } else if (h === 'State' && type === 'state') {
-                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`;
-            } else if (h === 'Party_Name' && (type === 'state' || type === 'grand')) {
-                rowHtml += '<td></td>';
-            } else if (h === 'State' && type === 'grand') {
-                rowHtml += '<td></td>';
-            } else if (h === 'Party_Name' && type === 'party') {
-                rowHtml += `<td><b>${escapeHTML(label)}</b></td>`;
-            } else {
-                rowHtml += '<td></td>';
-            }
+            if (h === 'Item_Name') rowHtml += `<td><b>${itemLabel}</b></td>`;
+            else if (h === 'State' && type === 'state') rowHtml += `<td><b>${escapeHTML(label)}</b></td>`;
+            else if (h === 'Party_Name' && (type === 'state' || type === 'grand')) rowHtml += '<td></td>';
+            else if (h === 'State' && type === 'grand') rowHtml += '<td></td>';
+            else if (h === 'Party_Name' && type === 'party') rowHtml += `<td><b>${escapeHTML(label)}</b></td>`;
+            else rowHtml += '<td></td>';
         } else if (monthsToShow.includes(h)) {
             rowHtml += `<td><b>${(totalsMap[h] || 0).toLocaleString()}</b></td>`;
         } else if (h === 'Δ' || h === '% Change') {
@@ -343,18 +300,14 @@ function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow,
                     const col = pct > 0 ? '#16a34a' : (pct < 0 ? '#dc2626' : '');
                     rowHtml += `<td style="color:${col}">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
                 }
-            } else {
-                rowHtml += '<td></td>';
-            }
-        } else {
-            rowHtml += '<td></td>';
-        }
+            } else rowHtml += '<td></td>';
+        } else rowHtml += '<td></td>';
     }
     rowHtml += '</tr>';
     return rowHtml;
 }
 
-/* render final table (fixed version — header only once, proper totals) */
+/* render final table */
 function applyFilters() {
   showOverlay();
 
@@ -366,7 +319,7 @@ function applyFilters() {
     const visibleMonths = getVals('monthFilter');
     const compSel = getVals('comparisonMonth');
 
-    // Reset table before rebuilding (clears any leftover rows)
+    // clear body & foot before building fresh content
     document.getElementById('comparisonBody').innerHTML = '';
     document.getElementById('comparisonFoot').innerHTML = '';
 
@@ -374,9 +327,7 @@ function applyFilters() {
       (a, b) => new Date('01 ' + a) - new Date('01 ' + b)
     );
     const monthsToShow = visibleMonths.length ? visibleMonths : monthsAll.slice();
-    const compSorted = compSel
-      .slice()
-      .sort((a, b) => new Date('01 ' + a) - new Date('01 ' + b));
+    const compSorted = compSel.slice().sort((a, b) => new Date('01 ' + a) - new Date('01 ' + b));
     const compPair = compSorted.length >= 2 ? compSorted.slice(-2) : [];
 
     updateSoftCascade(monthsToShow);
@@ -391,14 +342,7 @@ function applyFilters() {
       let groupKeyParts = [];
       let groupRow = {};
       showCols.forEach(col => {
-        let val =
-          col === 'State'
-            ? r.state
-            : col === 'Party_Name'
-            ? r.party
-            : col === 'Item_Name'
-            ? r.item
-            : '';
+        let val = col === 'State' ? r.state : col === 'Party_Name' ? r.party : col === 'Item_Name' ? r.item : '';
         groupKeyParts.push(val);
         groupRow[col] = val;
       });
@@ -410,19 +354,15 @@ function applyFilters() {
       }
 
       const groupRowData = groupedData.get(groupKey);
-      if (r.month && monthsToShow.includes(r.month))
-        groupRowData[r.month] += r.qty;
+      if (r.month && monthsToShow.includes(r.month)) groupRowData[r.month] += r.qty;
     });
 
     /* ---------- Create header once ---------- */
     const headers = [...showCols, ...monthsToShow];
     if (compPair.length >= 2) headers.push('Δ', '% Change');
     document.getElementById('comparisonHead').innerHTML =
-      '<tr>' +
-      headers.map(h => `<th style="text-align:center;">${escapeHTML(h)}</th>`).join('') +
-      '</tr>';
+      '<tr>' + headers.map(h => `<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
 
-    /* Make a Set of header text to guard against rows that equal header labels */
     const headerTextSet = new Set(headers.map(h => String(h).trim()));
 
     /* ---------- Build rows ---------- */
@@ -442,39 +382,30 @@ function applyFilters() {
 
       if (!monthsToShow.some(m => (row[m] || 0) > 0)) continue;
 
-      // PARTY subtotal (when party changes)
+      // party subtotal when party changes
       if (lastParty && (currentParty !== lastParty || currentState !== lastState)) {
         const pKey = `${lastState}___${lastParty}`;
         const pt = partyTotals.get(pKey);
-        if (pt && monthsToShow.some(m => pt[m] > 0))
-          html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
+        if (pt && monthsToShow.some(m => pt[m] > 0)) html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
         partyTotals.delete(pKey);
       }
 
-      // STATE total (when state changes)
+      // state total when state changes
       if (lastState && currentState !== lastState) {
         const st = stateTotals.get(lastState);
-        if (st && monthsToShow.some(m => st[m] > 0))
-          html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
+        if (st && monthsToShow.some(m => st[m] > 0)) html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
         stateTotals.delete(lastState);
       }
 
-      // ---------- HEADER-GUARD: skip rows whose showCol values exactly match header labels ----------
-      // This prevents rows like ["State","Party_Name","Item_Name", "Jul 25", ...] from being emitted.
+      // HEADER-GUARD: skip rows where showCols cells exactly equal header labels
       let wouldMatchHeader = false;
       for (const sc of showCols) {
         const cellVal = String(row[sc] || '').trim();
         if (cellVal && headerTextSet.has(cellVal)) { wouldMatchHeader = true; break; }
       }
-      if (wouldMatchHeader) {
-        // skip this erroneous row (safety)
-        lastState = currentState;
-        lastParty = currentParty;
-        continue;
-      }
-      // ------------------------------------------------------------------------------------------
+      if (wouldMatchHeader) { lastState = currentState; lastParty = currentParty; continue; }
 
-      // Render data row
+      // data row
       html += '<tr>';
       for (const h of headers) {
         if (showCols.includes(h)) {
@@ -485,12 +416,7 @@ function applyFilters() {
           let bg = '';
           if (compPair.length === 0 && idx > 0) {
             const prevV = row[monthsToShow[idx - 1]] || 0;
-            bg =
-              v > prevV
-                ? `background:${'var(--up-bg)'};`
-                : v < prevV
-                ? `background:${'var(--down-bg)'};`
-                : '';
+            bg = v > prevV ? `background:${'var(--up-bg)'};` : v < prevV ? `background:${'var(--down-bg)'};` : '';
           }
           html += `<td style="${bg} text-align:center;">${v ? v.toLocaleString() : ''}</td>`;
           grand[h] += v;
@@ -525,33 +451,27 @@ function applyFilters() {
       lastParty = currentParty;
     }
 
-    // After loop: remaining party & state subtotals
+    // trailing party & state totals
     if (lastParty) {
       const ptKey = `${lastState}___${lastParty}`;
       const pt = partyTotals.get(ptKey);
-      if (pt && monthsToShow.some(m => pt[m] > 0))
-        html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
+      if (pt && monthsToShow.some(m => pt[m] > 0)) html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
     }
     if (lastState) {
       const st = stateTotals.get(lastState);
-      if (st && monthsToShow.some(m => st[m] > 0))
-        html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
+      if (st && monthsToShow.some(m => st[m] > 0)) html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
     }
 
-    // Grand total
+    // grand total
     let f = '';
-    if (monthsToShow.some(m => grand[m] > 0))
-      f = renderTotalRow('grand', 'GRAND TOTAL', grand, headers, showCols, monthsToShow, compPair);
+    if (monthsToShow.some(m => grand[m] > 0)) f = renderTotalRow('grand', 'GRAND TOTAL', grand, headers, showCols, monthsToShow, compPair);
 
-    // Apply to DOM
-    document.getElementById('comparisonBody').innerHTML =
-      html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
+    document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
     document.getElementById('comparisonFoot').innerHTML = f;
 
     hideOverlay();
   }, 100);
 }
-
 
 /* events + soft cascade + export */
 const debouncedApply = debounce(()=>applyFilters(), 200);
@@ -576,7 +496,7 @@ document.getElementById('toggleFiltersBtn').onclick = () => {
     row.style.display = 'none';
     btn.textContent = 'Show Filters';
   }
-  setDynamicTheadTop();
+  // no top recalculation needed now; thead sticks inside the table-wrapper
 };
 
 document.getElementById('exportBtn').onclick = async () => {
