@@ -22,7 +22,7 @@
 
   --subtotal-overlay: rgba(255,247,204,0.55);  /* pale yellow overlay */
   --state-overlay: rgba(230,246,255,0.55);     /* light blue overlay */
-  --grand-overlay: rgba(186,230,253,0.6);      /* darker blue overlay */
+  --grand-overlay: rgba(186,230,253,0.6);      /* darker blue blue overlay */
 
   /* computed top sticky value will be set dynamically by JS */
   --thead-top: 200px;
@@ -81,9 +81,6 @@ tbody tr:nth-child(even) { background: #f9fafb; }
 tr.subtotal-row td { background: var(--subtotal-overlay); font-weight:900; }
 tr.state-total-row td { background: var(--state-overlay); font-weight:900; }
 tr.grandtotal-row td { background: var(--grand-overlay); font-weight:900; }
-tr.state-total-row td:first-child { border-top: 3px solid var(--navy); }
-
-
 
 /* compact */
 tbody td{height:34px}
@@ -111,18 +108,33 @@ tbody td{height:34px}
 <div id="filtersWrapper">
   <div class="filters" id="filtersRow">
     <div class="filter-box">
-      <label>Show Columns</label>
-      <select id="showColumns" multiple>
+      <label for="showColumns">Show Columns</label>
+      <select id="showColumns" multiple aria-label="Select columns to display">
         <option value="State" selected>State</option>
         <option value="Party_Name" selected>Party_Name</option>
         <option value="Item_Name" selected>Item_Name</option>
       </select>
     </div>
-    <div class="filter-box"><label>State</label><select id="stateFilter" multiple></select></div>
-    <div class="filter-box"><label>Party Name</label><select id="partyFilter" multiple></select></div>
-    <div class="filter-box"><label>Item Name</label><select id="itemFilter" multiple></select></div>
-    <div class="filter-box"><label>Month_Name</label><select id="monthFilter" multiple></select></div>
-    <div class="filter-box"><label>Comparison Month</label><select id="comparisonMonth" multiple></select></div>
+    <div class="filter-box">
+      <label for="stateFilter">State</label>
+      <select id="stateFilter" multiple aria-label="Filter by State"></select>
+    </div>
+    <div class="filter-box">
+      <label for="partyFilter">Party Name</label>
+      <select id="partyFilter" multiple aria-label="Filter by Party Name"></select>
+    </div>
+    <div class="filter-box">
+      <label for="itemFilter">Item Name</label>
+      <select id="itemFilter" multiple aria-label="Filter by Item Name"></select>
+    </div>
+    <div class="filter-box">
+      <label for="monthFilter">Month_Name</label>
+      <select id="monthFilter" multiple aria-label="Filter by Month Name"></select>
+    </div>
+    <div class="filter-box">
+      <label for="comparisonMonth">Comparison Month</label>
+      <select id="comparisonMonth" multiple aria-label="Select months for comparison"></select>
+    </div>
   </div>
 </div>
 
@@ -175,6 +187,9 @@ function setDynamicTheadTop(){
   let topVal = 0;
   if(header) topVal += header.getBoundingClientRect().height;
   if(toolbar) topVal += toolbar.getBoundingClientRect().height;
+  // Only add filters height if it's visible. If it's hidden, its height is 0.
+  // The 'filtersRow' has display:flex or none, and its parent 'filtersWrapper' wraps it.
+  // So checking filtersWrapper's height should be sufficient.
   if(filters) topVal += filters.getBoundingClientRect().height;
   // add 0-4px safety margin
   topVal = Math.max(0, topVal + 0);
@@ -201,9 +216,13 @@ async function loadData(){
     initFilters();
     setDynamicTheadTop();          // set top once
     window.addEventListener('resize', debounce(setDynamicTheadTop, 200));
-    applyFilters();
-  }catch(e){ console.error(e); alert('Failed to load data'); }
-  finally{ hideOverlay(); }
+    applyFilters(); // This will show overlay internally and hide it when rendering is done
+  }catch(e){
+    console.error(e);
+    alert('Failed to load data');
+    hideOverlay(); // Hide overlay if data loading itself fails
+  }
+  // The finally block of loadData is removed as applyFilters manages its own overlay hiding.
 }
 
 /* populate filters */
@@ -256,16 +275,17 @@ function buildAggregation(){
 
 /* soft-cascade disabling (Option B): disable options not relevant but keep selected ones */
 function updateSoftCascade(monthsToShow){
-  const monthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
+  // If no months are specifically selected in the monthFilter, consider all months for allowing options
+  const actualMonthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
+
   const allowed = { states: new Set(), parties: new Set(), items: new Set() };
 
   rawData.forEach(r=>{
-    if(monthsFilter.length){
-      if(r.month && monthsFilter.includes(r.month)){
-        allowed.states.add(r.state); allowed.parties.add(r.party); allowed.items.add(r.item);
-      }
-    } else {
-      allowed.states.add(r.state); allowed.parties.add(r.party); allowed.items.add(r.item);
+    // Only consider data rows that belong to one of the actualMonthsFilter
+    if(r.month && actualMonthsFilter.includes(r.month)){
+      allowed.states.add(r.state);
+      allowed.parties.add(r.party);
+      allowed.items.add(r.item);
     }
   });
 
@@ -273,6 +293,7 @@ function updateSoftCascade(monthsToShow){
     const sel = document.getElementById(id);
     if(!sel) return;
     [...sel.options].forEach(opt => {
+      // Disable options that are not in the allowed set AND are not currently selected
       if(!setAllowed.has(opt.value) && !opt.selected) opt.disabled = true;
       else opt.disabled = false;
     });
@@ -290,7 +311,7 @@ function getVals(id){ const el=document.getElementById(id); if(!el) return []; r
    - only rows with at least one non-zero in monthsToShow will be shown
 */
 function applyFilters(){
-  showOverlay();
+  showOverlay(); // Show overlay at the start of filtering/rendering process
   setTimeout(()=>{
     const showCols = getVals('showColumns');
     const selStates = getVals('stateFilter');
@@ -341,9 +362,10 @@ function applyFilters(){
         const visibleItems = [];
         for(const [item,mon] of iMap.entries()){
           if(selItems.length && !selItems.includes(item)) continue;
-          if(monthsToShow.length && monthsToShow.some(m => (mon[m] || 0) > 0)) visibleItems.push([item,mon]);
+          // Only add item if it has data for at least one of the monthsToShow
+          if(monthsToShow.some(m => (mon[m] || 0) > 0)) visibleItems.push([item,mon]);
         }
-        if(visibleItems.length === 0) continue;
+        if(visibleItems.length === 0) continue; // Skip party if no items are visible
 
         // sort items for stable output
         visibleItems.sort((a,b)=>a[0].localeCompare(b[0]));
@@ -359,7 +381,7 @@ function applyFilters(){
               const v = mon[h] || 0;
               const idx = monthsToShow.indexOf(h);
               let bg = '';
-              if(idx > 0){
+              if(compPair.length === 0 && idx > 0){ // Apply comparison styling only if no specific comparison months are selected
                 const prev = monthsToShow[idx-1];
                 const prevV = mon[prev] || 0;
                 bg = v > prevV ? `background:${'var(--up-bg)'};` : `background:${'var(--down-bg)'};`;
@@ -372,11 +394,11 @@ function applyFilters(){
                 const v2 = mon[compPair[1]] || 0;
                 if(h === 'Δ'){
                   const diff = v2 - v1;
-                  const bg = diff > 0 ? 'var(--up-bg)' : 'var(--down-bg)';
+                  const bg = diff > 0 ? 'var(--up-bg)' : (diff < 0 ? 'var(--down-bg)' : '');
                   html += `<td style="background:${bg};"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
                 } else {
-                  const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
-                  const col = pct > 0 ? '#16a34a' : '#dc2626';
+                  const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0); // If v1 is 0 and v2 is not, 100% growth
+                  const col = pct > 0 ? '#16a34a' : (pct < 0 ? '#dc2626' : '');
                   html += `<td style="color:${col}">${pct>0?'+':''}${pct.toFixed(1)}%</td>`;
                 }
               } else html += '<td></td>';
@@ -401,40 +423,47 @@ function applyFilters(){
 
       // state total
       const st = Object.fromEntries(monthsToShow.map(m=>[m,0]));
-      for(const [party,iMap] of pMap.entries()){
-        if(Array.isArray(iMap)){
-          // not expected, but safe guard
-          continue;
-        }
+      // Iterate through visible parties and their visible items to sum for state total
+      for(const party of partiesSorted){
+        if(selParties.length && !selParties.includes(party)) continue;
+        const iMap = pMap.get(party);
         for(const [item,mon] of iMap.entries()){
-          if(monthsToShow.length) monthsToShow.forEach(m => st[m] += (mon[m] || 0));
+          if(selItems.length && !selItems.includes(item)) continue;
+          if(monthsToShow.some(m => (mon[m] || 0) > 0)){ // Check if item is visible for months
+            monthsToShow.forEach(m => st[m] += (mon[m] || 0));
+          }
         }
       }
-      html += '<tr class="state-total-row">';
-for (const h of headers) {
-  if (monthsToShow.includes(h)) {
-    html += `<td><b>${st[h].toLocaleString()}</b></td>`;
-  } else if (['Item_Name', 'Party_Name', 'State'].includes(h)) {
-    html += `<td><b>TOTAL ${escapeHTML(state)}</b></td>`;
-  } else {
-    html += '<td></td>';
-  }
-}
-html += '</tr>';
+
+      // Only show state total if it has a non-zero value for any of the monthsToShow
+      if(monthsToShow.some(m => st[m] > 0)){
+        html += '<tr class="state-total-row">';
+        for(const h of headers){
+          if(monthsToShow.includes(h)) html += `<td><b>${st[h].toLocaleString()}</b></td>`;
+          else if(h === 'Item_Name') html += `<td><b>TOTAL ${escapeHTML(state)}</b></td>`;
+          else html += '<td></td>';
+        }
+        html += '</tr>';
+      }
     } // states loop
 
-    // grand total
-    let f = '<tr class="grandtotal-row">';
-    for(const h of headers){
-      if(monthsToShow.includes(h)) f += `<td><b>${grand[h].toLocaleString()}</b></td>`;
-      else if(h === 'Item_Name') f += `<td><b>GRAND TOTAL</b></td>`;
-      else f += '<td></td>';
+    // grand total - only if there's any data to display
+    const anyGrandTotal = monthsToShow.some(m => grand[m] > 0);
+    let f = '';
+    if (anyGrandTotal || (html && html !== `<tr><td colspan="${headers.length}">No Data</td></tr>`)) {
+      f += '<tr class="grandtotal-row">';
+      for(const h of headers){
+        if(monthsToShow.includes(h)) f += `<td><b>${grand[h].toLocaleString()}</b></td>`;
+        else if(h === 'Item_Name') f += `<td><b>GRAND TOTAL</b></td>`;
+        else f += '<td></td>';
+      }
+      f += '</tr>';
     }
-    f += '</tr>';
+
 
     document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
     document.getElementById('comparisonFoot').innerHTML = f;
-    hideOverlay();
+    hideOverlay(); // Hide overlay only when rendering is fully complete
   }, 80);
 }
 
@@ -453,8 +482,15 @@ document.getElementById('clearBtn').onclick = () => location.reload();
 
 document.getElementById('toggleFiltersBtn').onclick = () => {
   const row = document.getElementById('filtersRow'), btn = document.getElementById('toggleFiltersBtn');
-  if(row.style.display === 'none'){ row.style.display = 'flex'; btn.textContent = 'Hide Filters'; }
-  else { row.style.display = 'none'; btn.textContent = 'Show Filters'; }
+  if(row.style.display === 'none'){
+    row.style.display = 'flex';
+    btn.textContent = 'Hide Filters';
+  }
+  else {
+    row.style.display = 'none';
+    btn.textContent = 'Show Filters';
+  }
+  setDynamicTheadTop(); // Recalculate sticky header top after showing/hiding filters
 };
 
 document.getElementById('exportBtn').onclick = async () => {
@@ -462,8 +498,19 @@ document.getElementById('exportBtn').onclick = async () => {
   try{
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Comparison');
-    const rows = [...document.querySelectorAll('#comparisonTable tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
-    rows.forEach((r,i)=>{ const row = ws.addRow(r); if(i===0) row.font = { bold: true }; });
+    // Get headers
+    const headerRow = [...document.querySelectorAll('#comparisonHead tr th')].map(th => th.innerText.trim());
+    ws.addRow(headerRow).font = { bold: true };
+
+    // Get body rows
+    const bodyRows = [...document.querySelectorAll('#comparisonBody tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
+    bodyRows.forEach(r => ws.addRow(r));
+
+    // Get footer rows (grand total)
+    const footerRows = [...document.querySelectorAll('#comparisonFoot tr')].map(tr => [...tr.children].map(td => td.innerText.trim()));
+    footerRows.forEach(r => ws.addRow(r).font = { bold: true });
+
+
     ws.columns.forEach(c => c.width = 18);
     const buf = await wb.xlsx.writeBuffer();
     saveAs(new Blob([buf]), `comparison_${new Date().toISOString().slice(0,10)}.xlsx`);
