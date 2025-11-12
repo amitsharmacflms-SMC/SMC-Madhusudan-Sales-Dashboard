@@ -319,7 +319,6 @@ function applyFilters() {
     const visibleMonths = getVals('monthFilter');
     const compSel = getVals('comparisonMonth');
 
-    // clear body & foot before building fresh content
     document.getElementById('comparisonBody').innerHTML = '';
     document.getElementById('comparisonFoot').innerHTML = '';
 
@@ -332,54 +331,58 @@ function applyFilters() {
 
     updateSoftCascade(monthsToShow);
 
-    /* ---------- Build grouped data ---------- */
+    /* ---------- Grouped Data ---------- */
     const groupedData = new Map();
-    const isStateOnly = showCols.length === 1 && showCols[0] === 'State';
+
+    // If only "State" is selected, aggregate by state only
+    const aggregateByStateOnly = showCols.length === 1 && showCols.includes('State');
 
     rawData.forEach(r => {
       if (selStates.length && !selStates.includes(r.state)) return;
       if (selParties.length && !selParties.includes(r.party)) return;
       if (selItems.length && !selItems.includes(r.item)) return;
 
-      // Group key depends on selection
-      let key = '';
-      if (isStateOnly) key = r.state;
-      else key = showCols.map(c => (c === 'State' ? r.state : c === 'Party_Name' ? r.party : r.item)).join('___');
+      const key = aggregateByStateOnly
+        ? r.state
+        : showCols.map(col =>
+            col === 'State' ? r.state : col === 'Party_Name' ? r.party : col === 'Item_Name' ? r.item : ''
+          ).join('___');
 
       if (!groupedData.has(key)) {
-        const rowObj = {};
+        const obj = {};
         showCols.forEach(c => {
-          if (c === 'State') rowObj.State = r.state;
-          if (c === 'Party_Name') rowObj.Party_Name = r.party;
-          if (c === 'Item_Name') rowObj.Item_Name = r.item;
+          obj[c] = c === 'State' ? r.state : c === 'Party_Name' ? r.party : c === 'Item_Name' ? r.item : '';
         });
-        monthsToShow.forEach(m => (rowObj[m] = 0));
-        groupedData.set(key, rowObj);
+        monthsToShow.forEach(m => (obj[m] = 0));
+        groupedData.set(key, obj);
       }
 
-      const row = groupedData.get(key);
-      if (r.month && monthsToShow.includes(r.month)) row[r.month] += r.qty;
+      const g = groupedData.get(key);
+      if (r.month && monthsToShow.includes(r.month)) g[r.month] += r.qty;
     });
 
-    /* ---------- Create header once ---------- */
+    /* ---------- Header ---------- */
     const headers = [...showCols, ...monthsToShow];
     if (compPair.length >= 2) headers.push('Δ', '% Change');
     document.getElementById('comparisonHead').innerHTML =
       '<tr>' + headers.map(h => `<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
 
-    /* ---------- Build rows ---------- */
+    /* ---------- Build Table Rows ---------- */
     let html = '';
     const grand = Object.fromEntries(monthsToShow.map(m => [m, 0]));
+    const sortedKeys = [...groupedData.keys()].sort();
 
-    for (const [key, row] of groupedData.entries()) {
+    sortedKeys.forEach(k => {
+      const row = groupedData.get(k);
       html += '<tr>';
-      for (const h of headers) {
+
+      headers.forEach(h => {
         if (showCols.includes(h)) {
           html += `<td style="text-align:center;">${escapeHTML(row[h] || '')}</td>`;
         } else if (monthsToShow.includes(h)) {
           const v = row[h] || 0;
-          html += `<td style="text-align:center;">${v ? v.toLocaleString() : ''}</td>`;
           grand[h] += v;
+          html += `<td style="text-align:center;">${v ? v.toLocaleString() : ''}</td>`;
         } else if (h === 'Δ' || h === '% Change') {
           if (compPair.length >= 2) {
             const v1 = row[compPair[0]] || 0;
@@ -393,19 +396,23 @@ function applyFilters() {
               const col = pct > 0 ? '#16a34a' : pct < 0 ? '#dc2626' : '';
               html += `<td style="color:${col}; text-align:center;">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
             }
-          } else html += '<td style="text-align:center;"></td>';
+          } else {
+            html += `<td style="text-align:center;"></td>`;
+          }
         }
-      }
-      html += '</tr>';
-    }
+      });
 
-    /* ---------- Add Grand Total ---------- */
-    let footHTML = '<tr class="grandtotal-row">';
+      html += '</tr>';
+    });
+
+    /* ---------- Grand Total Row ---------- */
+    let f = '<tr class="grandtotal-row">';
     headers.forEach(h => {
       if (showCols.includes(h)) {
-        footHTML += `<td style="text-align:center;"><b>${h === 'State' ? 'GRAND TOTAL' : ''}</b></td>`;
+        if (h === showCols[0]) f += `<td style="text-align:center;"><b>GRAND TOTAL</b></td>`;
+        else f += '<td></td>';
       } else if (monthsToShow.includes(h)) {
-        footHTML += `<td style="text-align:center;"><b>${(grand[h] || 0).toLocaleString()}</b></td>`;
+        f += `<td style="text-align:center;"><b>${(grand[h] || 0).toLocaleString()}</b></td>`;
       } else if (h === 'Δ' || h === '% Change') {
         if (compPair.length >= 2) {
           const v1 = grand[compPair[0]] || 0;
@@ -413,19 +420,21 @@ function applyFilters() {
           if (h === 'Δ') {
             const diff = v2 - v1;
             const bg = diff > 0 ? 'var(--up-bg)' : diff < 0 ? 'var(--down-bg)' : '';
-            footHTML += `<td style="background:${bg}; text-align:center;"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
+            f += `<td style="background:${bg}; text-align:center;"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
           } else {
             const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
             const col = pct > 0 ? '#16a34a' : pct < 0 ? '#dc2626' : '';
-            footHTML += `<td style="color:${col}; text-align:center;"><b>${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</b></td>`;
+            f += `<td style="color:${col}; text-align:center;"><b>${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</b></td>`;
           }
-        } else footHTML += '<td style="text-align:center;"></td>';
+        } else f += '<td></td>';
       }
     });
-    footHTML += '</tr>';
+    f += '</tr>';
 
-    document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}" style="text-align:center;">No Data</td></tr>`;
-    document.getElementById('comparisonFoot').innerHTML = footHTML;
+    /* ---------- Inject Table ---------- */
+    document.getElementById('comparisonBody').innerHTML =
+      html || `<tr><td colspan="${headers.length}" style="text-align:center;">No Data</td></tr>`;
+    document.getElementById('comparisonFoot').innerHTML = f;
 
     hideOverlay();
   }, 100);
