@@ -20,9 +20,9 @@
   --up-bg: rgba(220,252,231,0.9);    /* light green */
   --down-bg: rgba(254,226,226,0.9);  /* light red */
 
-  --subtotal-overlay: rgba(255,247,204,0.55);  /* pale yellow overlay */
-  --state-overlay: rgba(230,246,255,0.55);     /* light blue overlay */
-  --grand-overlay: rgba(186,230,253,0.6);      /* darker blue blue overlay */
+  --subtotal-overlay: rgba(255,247,204,0.9);  /* pale yellow overlay */
+  --state-overlay: rgba(230,246,255,0.9);     /* light blue overlay */
+  --grand-overlay: rgba(186,230,253,0.95);    /* darker blue overlay */
 }
 
 /* base */
@@ -57,40 +57,41 @@ header h1{margin:0;font-weight:900;font-size:1.35rem}
 .filter-box select{width:200px;padding:6px;border-radius:8px;border:1.5px solid #c7d2fe;background:#fff;font-weight:700;height:120px}
 select option:disabled{color:#999;background:#f3f4f6}
 
-/* table wrapper - this is the scroll container for the table.
-   We WILL stick the thead relative to this element (top:0),
-   so the header stays at top of the table viewport while you scroll the table body. */
+/* table wrapper - scroll container for table. thead sticks inside this container */
 .table-wrapper{
   max-width:1500px;margin:18px auto;border-radius:8px;overflow:auto;background:#fff;
   box-shadow:0 6px 18px rgba(4,8,15,0.06); height: calc(100vh - 260px);
-  position: relative; /* establishes containing block for sticky children */
+  position: relative;
 }
 
 /* table */
 table{border-collapse:collapse;width:100%;min-width:1100px}
 
-/* Header: stick to top of .table-wrapper (not viewport) */
+/* Header: stick to top of .table-wrapper */
 thead th {
   text-align: center;
   vertical-align: middle;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border: 2px solid #2d3748;
-  font-weight: 800;
+  font-weight: 900;
   background: linear-gradient(90deg, #e0e7ff, #c7d2fe);
   color: var(--navy);
   position: sticky;
-  top: 0;            /* <-- important: stick inside .table-wrapper at its top */
-  z-index: 10;       /* keep above tbody rows while scrolling inside wrapper */
+  top: 0;
+  z-index: 12;
 }
 
-/* Data cell alignment */
+/* body cells */
 tbody td {
   text-align: center;
   vertical-align: middle;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border: 2px solid #2d3748;
-  font-weight: 600;
+  font-weight: 900; /* bold data */
 }
+
+/* footer (grand total) styling */
+tfoot td { text-align:center; vertical-align:middle; padding:8px 10px; font-weight:900; border:2px solid #2d3748; }
 
 /* hide any accidental th inside tbody (safety) */
 tbody th { display: none; }
@@ -99,13 +100,13 @@ tbody th { display: none; }
 tbody tr:nth-child(odd) { background: #ffffff; }
 tbody tr:nth-child(even) { background: #f9fafb; }
 
-/* overlays for subtotal/state/grand rows -- semi-transparent so zebra shows through */
+/* overlays for subtotal/state/grand rows */
 tr.subtotal-row td { background: var(--subtotal-overlay); font-weight:900; }
 tr.state-total-row td { background: var(--state-overlay); font-weight:900; }
 tr.grandtotal-row td { background: var(--grand-overlay); font-weight:900; }
 
 /* compact */
-tbody td{height:34px}
+tbody td{height:38px}
 
 /* overlay indicator */
 .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(255,255,255,0.75);z-index:3000;font-weight:900;color:var(--navy)}
@@ -171,11 +172,16 @@ tbody td{height:34px}
 <div id="overlay" class="overlay">Processing...</div>
 
 <script>
-/* Implementation notes:
- - We removed dynamic top-offset for thead and instead use top:0 so thead sticks inside .table-wrapper.
- - This prevents the header from appearing mid-page; it will remain at top of the table scroll viewport.
- - All other logic (grouping, subtotals, grand total, soft-cascade, export) preserved.
-*/
+/* -------------------------------
+  All logic in one file:
+  - sums duplicates per (state,party,item,month)
+  - soft-cascade disabling (Option B): disables irrelevant options but keeps selected
+  - single thead only (stuck inside .table-wrapper)
+  - state subtotals when relevant
+  - grand total always present
+  - month-over-month coloring (previous month comparison)
+  - bold, centered numeric cells
+---------------------------------*/
 
 const API_URL = "/get_data/lighthouse_sales";
 let rawData = [];
@@ -185,16 +191,19 @@ function hideOverlay(){document.getElementById('overlay').classList.remove('show
 function toNum(v){return Number(v)||0}
 function debounce(fn, ms=200){let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }}
 function escapeHTML(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+/* date helpers */
 function parseDateFlexible(s){
   if(!s) return null;
   s = String(s).trim();
   if(/^\d{8}$/.test(s)){ const d=+s.slice(0,2), m=+s.slice(2,4), y=+s.slice(4,8); return new Date(y,m-1,d); }
   const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if(m) return new Date(+m[1],+m[2]-1,+m[3]);
-  const d = new Date(s); return isNaN(d)?null:d;
+  const d = new Date(s); return isNaN(d) ? null : d;
 }
 function invoiceMonthLabel(s){ const dt = parseDateFlexible(s); return dt ? dt.toLocaleString('default',{month:'short',year:'2-digit'}) : ""; }
 
+/* load and normalize */
 async function loadData(){
   showOverlay();
   try{
@@ -219,6 +228,7 @@ async function loadData(){
   }
 }
 
+/* populate filters */
 function initFilters(){
   const states = [...new Set(rawData.map(r=>r.state))].sort((a,b)=>a.localeCompare(b));
   const parties = [...new Set(rawData.map(r=>r.party))].sort((a,b)=>a.localeCompare(b));
@@ -242,31 +252,52 @@ function initFilters(){
   }
 }
 
+/* Soft cascade disabling: disables irrelevant options but keeps previously selected ones active */
 function updateSoftCascade(monthsToShow){
-  const actualMonthsFilter = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
-  const allowed = { states: new Set(), parties: new Set(), items: new Set() };
+  const selStates = getVals('stateFilter'), selParties = getVals('partyFilter'), selItems = getVals('itemFilter');
+  const actualMonths = monthsToShow && monthsToShow.length ? monthsToShow : [...new Set(rawData.map(r=>r.month).filter(Boolean))];
+
+  // We compute allowed sets per option type by checking existence of a data row
+  // that satisfies: row.option == candidate && row.month in actualMonths &&
+  // also matches other current selections (soft cascade: if the OTHER filters have selections,
+  // only allow options that can pair with them). But we keep already selected values enabled.
+
+  const allowedStates = new Set();
+  const allowedParties = new Set();
+  const allowedItems = new Set();
+
   rawData.forEach(r=>{
-    if(r.month && actualMonthsFilter.includes(r.month)){
-      allowed.states.add(r.state);
-      allowed.parties.add(r.party);
-      allowed.items.add(r.item);
-    }
+    if(actualMonths.length && (!r.month || !actualMonths.includes(r.month))) return;
+
+    // For state candidates: check if there exists a row where r.state === candidate and (if there are party selections, r.party is among them OR party selection empty), (if there are item selections ...).
+    // We'll implement symmetric logic by checking row against current selections.
+    const stateOk = (!selParties.length || selParties.includes(r.party)) && (!selItems.length || selItems.includes(r.item));
+    const partyOk = (!selStates.length || selStates.includes(r.state)) && (!selItems.length || selItems.includes(r.item));
+    const itemOk = (!selStates.length || selStates.includes(r.state)) && (!selParties.length || selParties.includes(r.party));
+
+    if(stateOk) allowedStates.add(r.state);
+    if(partyOk) allowedParties.add(r.party);
+    if(itemOk) allowedItems.add(r.item);
   });
-  const applyDisable = (id, setAllowed) => {
+
+  const applyDisable = (id, allowedSet) => {
     const sel = document.getElementById(id);
     if(!sel) return;
     [...sel.options].forEach(opt => {
-      if(!setAllowed.has(opt.value) && !opt.selected) opt.disabled = true;
+      if(!allowedSet.has(opt.value) && !opt.selected) opt.disabled = true;
       else opt.disabled = false;
     });
   };
-  applyDisable('stateFilter', allowed.states);
-  applyDisable('partyFilter', allowed.parties);
-  applyDisable('itemFilter', allowed.items);
+
+  applyDisable('stateFilter', allowedStates);
+  applyDisable('partyFilter', allowedParties);
+  applyDisable('itemFilter', allowedItems);
 }
 
+/* helper to read selected options */
 function getVals(id){ const el=document.getElementById(id); if(!el) return []; return [...el.selectedOptions].map(o=>o.value); }
 
+/* helper to render subtotal/state/grand rows */
 function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow, compPair) {
     let rowHtml = '';
     let rowClass = '';
@@ -286,7 +317,7 @@ function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow,
             else if (h === 'Party_Name' && type === 'party') rowHtml += `<td><b>${escapeHTML(label)}</b></td>`;
             else rowHtml += '<td></td>';
         } else if (monthsToShow.includes(h)) {
-            rowHtml += `<td><b>${(totalsMap[h] || 0).toLocaleString()}</b></td>`;
+            rowHtml += `<td style="text-align:center;"><b>${(totalsMap[h] || 0).toLocaleString()}</b></td>`;
         } else if (h === 'Δ' || h === '% Change') {
             if (compPair.length >= 2) {
                 const v1 = totalsMap[compPair[0]] || 0;
@@ -294,11 +325,11 @@ function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow,
                 if (h === 'Δ') {
                     const diff = v2 - v1;
                     const bg = diff > 0 ? 'var(--up-bg)' : (diff < 0 ? 'var(--down-bg)' : '');
-                    rowHtml += `<td style="background:${bg};"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
+                    rowHtml += `<td style="background:${bg}; text-align:center;"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
                 } else {
                     const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
                     const col = pct > 0 ? '#16a34a' : (pct < 0 ? '#dc2626' : '');
-                    rowHtml += `<td style="color:${col}">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
+                    rowHtml += `<td style="color:${col}; text-align:center;"><b>${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</b></td>`;
                 }
             } else rowHtml += '<td></td>';
         } else rowHtml += '<td></td>';
@@ -307,82 +338,183 @@ function renderTotalRow(type, label, totalsMap, headers, showCols, monthsToShow,
     return rowHtml;
 }
 
-/* render final table */
+/* ----------------------
+   MAIN: applyFilters
+   - smart aggregation depending on showCols
+   - state & party subtotals
+   - month-over-month coloring
+-----------------------*/
 function applyFilters() {
   showOverlay();
 
   setTimeout(() => {
-    const showCols = getVals('showColumns');
+    const showCols = getVals('showColumns');               // e.g. ["State","Party_Name","Item_Name"]
     const selStates = getVals('stateFilter');
     const selParties = getVals('partyFilter');
     const selItems = getVals('itemFilter');
     const visibleMonths = getVals('monthFilter');
     const compSel = getVals('comparisonMonth');
 
+    // clear previous DOM output quickly
     document.getElementById('comparisonBody').innerHTML = '';
     document.getElementById('comparisonFoot').innerHTML = '';
 
-    const monthsAll = [...new Set(rawData.map(r => r.month).filter(Boolean))].sort(
-      (a, b) => new Date('01 ' + a) - new Date('01 ' + b)
-    );
+    // months to show
+    const monthsAll = [...new Set(rawData.map(r => r.month).filter(Boolean))].sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
     const monthsToShow = visibleMonths.length ? visibleMonths : monthsAll.slice();
-    const compSorted = compSel.slice().sort((a, b) => new Date('01 ' + a) - new Date('01 ' + b));
+    const compSorted = compSel.slice().sort((a,b)=> new Date('01 '+a) - new Date('01 '+b));
     const compPair = compSorted.length >= 2 ? compSorted.slice(-2) : [];
 
+    // update soft cascade (disable irrelevant options) based on current months filter and other selections
     updateSoftCascade(monthsToShow);
 
-    /* ---------- Grouped Data ---------- */
+    /* ---------- Build grouped dataset
+       - If only State is selected, aggregate by state
+       - Otherwise, aggregate by the chosen showCols combination
+    */
     const groupedData = new Map();
-
-    // If only "State" is selected, aggregate by state only
     const aggregateByStateOnly = showCols.length === 1 && showCols.includes('State');
 
+    // sum duplicates per (state,party,item,month) but grouped to showCols
     rawData.forEach(r => {
+      // filter by user selections
       if (selStates.length && !selStates.includes(r.state)) return;
       if (selParties.length && !selParties.includes(r.party)) return;
       if (selItems.length && !selItems.includes(r.item)) return;
+      if (monthsToShow.length && r.month && !monthsToShow.includes(r.month)) return;
 
+      // compute key & initial row object
       const key = aggregateByStateOnly
         ? r.state
-        : showCols.map(col =>
-            col === 'State' ? r.state : col === 'Party_Name' ? r.party : col === 'Item_Name' ? r.item : ''
-          ).join('___');
+        : showCols.map(c => (c === 'State' ? r.state : c === 'Party_Name' ? r.party : c === 'Item_Name' ? r.item : '')).join('___');
 
       if (!groupedData.has(key)) {
-        const obj = {};
-        showCols.forEach(c => {
-          obj[c] = c === 'State' ? r.state : c === 'Party_Name' ? r.party : c === 'Item_Name' ? r.item : '';
-        });
-        monthsToShow.forEach(m => (obj[m] = 0));
-        groupedData.set(key, obj);
+        const base = {};
+        if (aggregateByStateOnly) {
+          base.State = r.state;
+        } else {
+          showCols.forEach(c => base[c] = (c === 'State' ? r.state : c === 'Party_Name' ? r.party : c === 'Item_Name' ? r.item : ''));
+        }
+        monthsToShow.forEach(m => base[m] = 0);
+        groupedData.set(key, base);
       }
 
+      // add qty to month column
       const g = groupedData.get(key);
       if (r.month && monthsToShow.includes(r.month)) g[r.month] += r.qty;
     });
 
-    /* ---------- Header ---------- */
+    /* ---------- Build header once ---------- */
     const headers = [...showCols, ...monthsToShow];
     if (compPair.length >= 2) headers.push('Δ', '% Change');
+
     document.getElementById('comparisonHead').innerHTML =
       '<tr>' + headers.map(h => `<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
 
-    /* ---------- Build Table Rows ---------- */
+    /* ---------- Iterate grouped rows and render with subtotals/totals ---------- */
     let html = '';
     const grand = Object.fromEntries(monthsToShow.map(m => [m, 0]));
+    const stateTotals = new Map();   // state -> { month: sum }
+    const partyTotals = new Map();   // state___party -> { month: sum }
+
     const sortedKeys = [...groupedData.keys()].sort();
 
-    sortedKeys.forEach(k => {
-      const row = groupedData.get(k);
-      html += '<tr>';
+    let lastState = null;
+    let lastParty = null;
+    let rowsInStateCount = 0; // count visible data rows in current state (for subtotal decision)
+    let currentStateRowCountMap = new Map(); // state -> count of visible grouped data rows
 
-      headers.forEach(h => {
+    // precompute rows-per-state to decide whether to show state subtotal
+    sortedKeys.forEach(key => {
+      const row = groupedData.get(key);
+      const stateVal = row.State || row['State'] || (row['State'] === undefined ? row['State'] : null) || row['State']; // robust
+      // better detection: if showCols contains State, row.State else if aggregateByStateOnly it's the key
+      const stateName = aggregateByStateOnly ? key : (row['State'] || row['State'] || row['State']);
+      // Determine state for this grouped row:
+      let stateForRow = '';
+      if (aggregateByStateOnly) stateForRow = key;
+      else if (showCols.includes('State')) stateForRow = row['State'];
+      else stateForRow = ''; // no State column requested (unlikely)
+      // count only rows that have any month > 0
+      const hasValue = monthsToShow.some(m => (row[m] || 0) > 0);
+      if (hasValue) {
+        const s = stateForRow || '';
+        currentStateRowCountMap.set(s, (currentStateRowCountMap.get(s) || 0) + 1);
+      }
+    });
+
+    // Now iterate and render rows, printing party subtotal when party ends and state subtotal when state ends
+    for (const key of sortedKeys) {
+      const row = groupedData.get(key);
+      // determine state & party for this grouped row (may be undefined if that column not requested)
+      const stateVal = (row['State'] !== undefined) ? row['State'] : (aggregateByStateOnly ? key : '');
+      const partyVal = (row['Party_Name'] !== undefined) ? row['Party_Name'] : '';
+
+      // skip rows with no values
+      if (!monthsToShow.some(m => (row[m] || 0) > 0)) {
+        // update trackers and continue
+        lastState = stateVal || lastState;
+        lastParty = partyVal || lastParty;
+        continue;
+      }
+
+      // If party changed (and we had a lastParty), output party subtotal
+      if (lastParty && (partyVal !== lastParty || stateVal !== lastState)) {
+        const ptKey = `${lastState}___${lastParty}`;
+        const pt = partyTotals.get(ptKey);
+        if (pt && monthsToShow.some(m => pt[m] > 0)) {
+          html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
+        }
+        partyTotals.delete(ptKey);
+      }
+
+      // If state changed, output previous state total (but only if that state had 2+ visible rows OR some rule)
+      if (lastState && stateVal !== lastState) {
+        const st = stateTotals.get(lastState);
+        if (st && monthsToShow.some(m => st[m] > 0) && (currentStateRowCountMap.get(lastState) >= 2)) {
+          html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
+        } else if (st && monthsToShow.some(m => st[m] > 0) && !currentStateRowCountMap.get(lastState)) {
+          // fallback: still print state total if present and good (rare)
+          html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
+        }
+        stateTotals.delete(lastState);
+        // clear party totals for old state
+        [...partyTotals.keys()].forEach(k => { if(k.startsWith(lastState + '___')) partyTotals.delete(k); });
+      }
+
+      // Render the row itself
+      html += '<tr>';
+      for (const h of headers) {
         if (showCols.includes(h)) {
-          html += `<td style="text-align:center;">${escapeHTML(row[h] || '')}</td>`;
+          html += `<td>${escapeHTML(row[h] || '')}</td>`;
         } else if (monthsToShow.includes(h)) {
           const v = row[h] || 0;
+          // month-over-month coloring comparing to previous month in monthsToShow sequence
+          const idx = monthsToShow.indexOf(h);
+          let bg = '';
+          if (idx > 0) {
+            const prev = monthsToShow[idx - 1];
+            const prevV = row[prev] || 0;
+            bg = v > prevV ? `background:${'var(--up-bg)'};` : (v < prevV ? `background:${'var(--down-bg)'};` : '');
+          }
+          html += `<td style="${bg}">${v ? v.toLocaleString() : ''}</td>`;
+
+          // accumulate grand/state/party totals
           grand[h] += v;
-          html += `<td style="text-align:center;">${v ? v.toLocaleString() : ''}</td>`;
+
+          // state totals
+          if (stateVal) {
+            const st = stateTotals.get(stateVal) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
+            st[h] += v;
+            stateTotals.set(stateVal, st);
+          }
+          // party totals
+          if (partyVal) {
+            const pKey = `${stateVal}___${partyVal}`;
+            const pt = partyTotals.get(pKey) || Object.fromEntries(monthsToShow.map(m=>[m,0]));
+            pt[h] += v;
+            partyTotals.set(pKey, pt);
+          }
         } else if (h === 'Δ' || h === '% Change') {
           if (compPair.length >= 2) {
             const v1 = row[compPair[0]] || 0;
@@ -390,59 +522,55 @@ function applyFilters() {
             if (h === 'Δ') {
               const diff = v2 - v1;
               const bg = diff > 0 ? 'var(--up-bg)' : diff < 0 ? 'var(--down-bg)' : '';
-              html += `<td style="background:${bg}; text-align:center;"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
+              html += `<td style="background:${bg}"><b>${diff>0?'+':''}${diff.toLocaleString()}</b></td>`;
             } else {
               const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
               const col = pct > 0 ? '#16a34a' : pct < 0 ? '#dc2626' : '';
-              html += `<td style="color:${col}; text-align:center;">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
+              html += `<td style="color:${col}"><b>${pct>0?'+':''}${pct.toFixed(1)}%</b></td>`;
             }
-          } else {
-            html += `<td style="text-align:center;"></td>`;
-          }
+          } else html += '<td></td>';
+        } else {
+          html += '<td></td>';
         }
-      });
-
-      html += '</tr>';
-    });
-
-    /* ---------- Grand Total Row ---------- */
-    let f = '<tr class="grandtotal-row">';
-    headers.forEach(h => {
-      if (showCols.includes(h)) {
-        if (h === showCols[0]) f += `<td style="text-align:center;"><b>GRAND TOTAL</b></td>`;
-        else f += '<td></td>';
-      } else if (monthsToShow.includes(h)) {
-        f += `<td style="text-align:center;"><b>${(grand[h] || 0).toLocaleString()}</b></td>`;
-      } else if (h === 'Δ' || h === '% Change') {
-        if (compPair.length >= 2) {
-          const v1 = grand[compPair[0]] || 0;
-          const v2 = grand[compPair[1]] || 0;
-          if (h === 'Δ') {
-            const diff = v2 - v1;
-            const bg = diff > 0 ? 'var(--up-bg)' : diff < 0 ? 'var(--down-bg)' : '';
-            f += `<td style="background:${bg}; text-align:center;"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
-          } else {
-            const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
-            const col = pct > 0 ? '#16a34a' : pct < 0 ? '#dc2626' : '';
-            f += `<td style="color:${col}; text-align:center;"><b>${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</b></td>`;
-          }
-        } else f += '<td></td>';
       }
-    });
-    f += '</tr>';
+      html += '</tr>';
 
-    /* ---------- Inject Table ---------- */
-    document.getElementById('comparisonBody').innerHTML =
-      html || `<tr><td colspan="${headers.length}" style="text-align:center;">No Data</td></tr>`;
+      lastState = stateVal;
+      lastParty = partyVal;
+    } // end rows loop
+
+    // After loop: print trailing party subtotal & state total if applicable
+    if (lastParty) {
+      const ptKey = `${lastState}___${lastParty}`;
+      const pt = partyTotals.get(ptKey);
+      if (pt && monthsToShow.some(m => pt[m] > 0)) html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
+    }
+    if (lastState) {
+      const st = stateTotals.get(lastState);
+      if (st && monthsToShow.some(m => st[m] > 0) && (currentStateRowCountMap.get(lastState) >= 2)) {
+        html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
+      } else if (st && monthsToShow.some(m => st[m] > 0) && !currentStateRowCountMap.get(lastState)) {
+        html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
+      }
+    }
+
+    // Grand total row (always if there's any data)
+    let f = '';
+    const grandHas = monthsToShow.some(m => grand[m] > 0);
+    if (grandHas) {
+      f = renderTotalRow('grand', 'GRAND TOTAL', grand, headers, showCols, monthsToShow, compPair);
+    }
+
+    // Inject to DOM
+    document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
     document.getElementById('comparisonFoot').innerHTML = f;
 
     hideOverlay();
   }, 100);
 }
 
-/* events + soft cascade + export */
+/* events and export */
 const debouncedApply = debounce(()=>applyFilters(), 200);
-
 ['showColumns','stateFilter','partyFilter','itemFilter','monthFilter','comparisonMonth'].forEach(id=>{
   document.getElementById(id).addEventListener('change', ()=>{
     const monthsToShow = getVals('monthFilter');
@@ -455,15 +583,8 @@ document.getElementById('clearBtn').onclick = () => location.reload();
 
 document.getElementById('toggleFiltersBtn').onclick = () => {
   const row = document.getElementById('filtersRow'), btn = document.getElementById('toggleFiltersBtn');
-  if(row.style.display === 'none'){
-    row.style.display = 'flex';
-    btn.textContent = 'Hide Filters';
-  }
-  else {
-    row.style.display = 'none';
-    btn.textContent = 'Show Filters';
-  }
-  // no top recalculation needed now; thead sticks inside the table-wrapper
+  if(row.style.display === 'none'){ row.style.display = 'flex'; btn.textContent = 'Hide Filters'; }
+  else { row.style.display = 'none'; btn.textContent = 'Show Filters'; }
 };
 
 document.getElementById('exportBtn').onclick = async () => {
@@ -487,7 +608,7 @@ document.getElementById('exportBtn').onclick = async () => {
   finally{ hideOverlay(); }
 };
 
-/* init page */
+/* init */
 loadData();
 </script>
 </body>
