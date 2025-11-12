@@ -334,27 +334,31 @@ function applyFilters() {
 
     /* ---------- Build grouped data ---------- */
     const groupedData = new Map();
+    const isStateOnly = showCols.length === 1 && showCols[0] === 'State';
+
     rawData.forEach(r => {
       if (selStates.length && !selStates.includes(r.state)) return;
       if (selParties.length && !selParties.includes(r.party)) return;
       if (selItems.length && !selItems.includes(r.item)) return;
 
-      let groupKeyParts = [];
-      let groupRow = {};
-      showCols.forEach(col => {
-        let val = col === 'State' ? r.state : col === 'Party_Name' ? r.party : col === 'Item_Name' ? r.item : '';
-        groupKeyParts.push(val);
-        groupRow[col] = val;
-      });
+      // Group key depends on selection
+      let key = '';
+      if (isStateOnly) key = r.state;
+      else key = showCols.map(c => (c === 'State' ? r.state : c === 'Party_Name' ? r.party : r.item)).join('___');
 
-      const groupKey = groupKeyParts.join('___');
-      if (!groupedData.has(groupKey)) {
-        groupedData.set(groupKey, { ...groupRow });
-        monthsToShow.forEach(m => (groupedData.get(groupKey)[m] = 0));
+      if (!groupedData.has(key)) {
+        const rowObj = {};
+        showCols.forEach(c => {
+          if (c === 'State') rowObj.State = r.state;
+          if (c === 'Party_Name') rowObj.Party_Name = r.party;
+          if (c === 'Item_Name') rowObj.Item_Name = r.item;
+        });
+        monthsToShow.forEach(m => (rowObj[m] = 0));
+        groupedData.set(key, rowObj);
       }
 
-      const groupRowData = groupedData.get(groupKey);
-      if (r.month && monthsToShow.includes(r.month)) groupRowData[r.month] += r.qty;
+      const row = groupedData.get(key);
+      if (r.month && monthsToShow.includes(r.month)) row[r.month] += r.qty;
     });
 
     /* ---------- Create header once ---------- */
@@ -363,72 +367,19 @@ function applyFilters() {
     document.getElementById('comparisonHead').innerHTML =
       '<tr>' + headers.map(h => `<th>${escapeHTML(h)}</th>`).join('') + '</tr>';
 
-    const headerTextSet = new Set(headers.map(h => String(h).trim()));
-
     /* ---------- Build rows ---------- */
     let html = '';
     const grand = Object.fromEntries(monthsToShow.map(m => [m, 0]));
-    const stateTotals = new Map();
-    const partyTotals = new Map();
 
-    let lastState = null;
-    let lastParty = null;
-    const sortedGroupKeys = [...groupedData.keys()].sort();
-
-    for (const key of sortedGroupKeys) {
-      const row = groupedData.get(key);
-      const currentState = row.State;
-      const currentParty = row.Party_Name;
-
-      if (!monthsToShow.some(m => (row[m] || 0) > 0)) continue;
-
-      // party subtotal when party changes
-      if (lastParty && (currentParty !== lastParty || currentState !== lastState)) {
-        const pKey = `${lastState}___${lastParty}`;
-        const pt = partyTotals.get(pKey);
-        if (pt && monthsToShow.some(m => pt[m] > 0)) html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
-        partyTotals.delete(pKey);
-      }
-
-      // state total when state changes
-      if (lastState && currentState !== lastState) {
-        const st = stateTotals.get(lastState);
-        if (st && monthsToShow.some(m => st[m] > 0)) html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
-        stateTotals.delete(lastState);
-      }
-
-      // HEADER-GUARD: skip rows where showCols cells exactly equal header labels
-      let wouldMatchHeader = false;
-      for (const sc of showCols) {
-        const cellVal = String(row[sc] || '').trim();
-        if (cellVal && headerTextSet.has(cellVal)) { wouldMatchHeader = true; break; }
-      }
-      if (wouldMatchHeader) { lastState = currentState; lastParty = currentParty; continue; }
-
-      // data row
+    for (const [key, row] of groupedData.entries()) {
       html += '<tr>';
       for (const h of headers) {
         if (showCols.includes(h)) {
           html += `<td style="text-align:center;">${escapeHTML(row[h] || '')}</td>`;
         } else if (monthsToShow.includes(h)) {
           const v = row[h] || 0;
-          const idx = monthsToShow.indexOf(h);
-          let bg = '';
-          if (compPair.length === 0 && idx > 0) {
-            const prevV = row[monthsToShow[idx - 1]] || 0;
-            bg = v > prevV ? `background:${'var(--up-bg)'};` : v < prevV ? `background:${'var(--down-bg)'};` : '';
-          }
-          html += `<td style="${bg} text-align:center;">${v ? v.toLocaleString() : ''}</td>`;
+          html += `<td style="text-align:center;">${v ? v.toLocaleString() : ''}</td>`;
           grand[h] += v;
-
-          const sT = stateTotals.get(currentState) || Object.fromEntries(monthsToShow.map(m => [m, 0]));
-          sT[h] += v;
-          stateTotals.set(currentState, sT);
-
-          const pKey = `${currentState}___${currentParty}`;
-          const pT = partyTotals.get(pKey) || Object.fromEntries(monthsToShow.map(m => [m, 0]));
-          pT[h] += v;
-          partyTotals.set(pKey, pT);
         } else if (h === 'Δ' || h === '% Change') {
           if (compPair.length >= 2) {
             const v1 = row[compPair[0]] || 0;
@@ -442,32 +393,39 @@ function applyFilters() {
               const col = pct > 0 ? '#16a34a' : pct < 0 ? '#dc2626' : '';
               html += `<td style="color:${col}; text-align:center;">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</td>`;
             }
-          } else html += '<td></td>';
+          } else html += '<td style="text-align:center;"></td>';
         }
       }
       html += '</tr>';
-
-      lastState = currentState;
-      lastParty = currentParty;
     }
 
-    // trailing party & state totals
-    if (lastParty) {
-      const ptKey = `${lastState}___${lastParty}`;
-      const pt = partyTotals.get(ptKey);
-      if (pt && monthsToShow.some(m => pt[m] > 0)) html += renderTotalRow('party', lastParty, pt, headers, showCols, monthsToShow, compPair);
-    }
-    if (lastState) {
-      const st = stateTotals.get(lastState);
-      if (st && monthsToShow.some(m => st[m] > 0)) html += renderTotalRow('state', lastState, st, headers, showCols, monthsToShow, compPair);
-    }
+    /* ---------- Add Grand Total ---------- */
+    let footHTML = '<tr class="grandtotal-row">';
+    headers.forEach(h => {
+      if (showCols.includes(h)) {
+        footHTML += `<td style="text-align:center;"><b>${h === 'State' ? 'GRAND TOTAL' : ''}</b></td>`;
+      } else if (monthsToShow.includes(h)) {
+        footHTML += `<td style="text-align:center;"><b>${(grand[h] || 0).toLocaleString()}</b></td>`;
+      } else if (h === 'Δ' || h === '% Change') {
+        if (compPair.length >= 2) {
+          const v1 = grand[compPair[0]] || 0;
+          const v2 = grand[compPair[1]] || 0;
+          if (h === 'Δ') {
+            const diff = v2 - v1;
+            const bg = diff > 0 ? 'var(--up-bg)' : diff < 0 ? 'var(--down-bg)' : '';
+            footHTML += `<td style="background:${bg}; text-align:center;"><b>${diff > 0 ? '+' : ''}${diff.toLocaleString()}</b></td>`;
+          } else {
+            const pct = v1 ? (((v2 - v1) / v1) * 100) : (v2 ? 100 : 0);
+            const col = pct > 0 ? '#16a34a' : pct < 0 ? '#dc2626' : '';
+            footHTML += `<td style="color:${col}; text-align:center;"><b>${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</b></td>`;
+          }
+        } else footHTML += '<td style="text-align:center;"></td>';
+      }
+    });
+    footHTML += '</tr>';
 
-    // grand total
-    let f = '';
-    if (monthsToShow.some(m => grand[m] > 0)) f = renderTotalRow('grand', 'GRAND TOTAL', grand, headers, showCols, monthsToShow, compPair);
-
-    document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}">No Data</td></tr>`;
-    document.getElementById('comparisonFoot').innerHTML = f;
+    document.getElementById('comparisonBody').innerHTML = html || `<tr><td colspan="${headers.length}" style="text-align:center;">No Data</td></tr>`;
+    document.getElementById('comparisonFoot').innerHTML = footHTML;
 
     hideOverlay();
   }, 100);
