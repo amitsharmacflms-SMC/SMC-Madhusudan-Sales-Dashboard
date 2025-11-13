@@ -528,9 +528,14 @@ async function loadData(view) {
         cb.checked = last5AvgCols.some(v => v.toUpperCase() === cb.value.toUpperCase());
       });
 
-      // Subtotal by DISTRICT
+      // Subtotal by STATE
       getInputs("TOTAL").forEach(cb => {
-        if (cb.value.toUpperCase() === "DISTRICT") cb.checked = true;
+        if (cb.value.toUpperCase() === "STATE") cb.checked = true;
+      });
+
+      // Subtotal by MANAGER_NAME
+      getInputs("TOTAL").forEach(cb => {
+        if (cb.value.toUpperCase() === "MANAGER_NAME") cb.checked = true;
       });
 
       // Product = ONLY “ALL IN CASES”
@@ -546,7 +551,7 @@ async function loadData(view) {
       // Save these defaults
       const forcedDefaults = {
         "MONTH / YEAR": last5AvgCols,
-        "TOTAL": ["DISTRICT"],
+        "TOTAL": ["STATE","MANAGER_NAME"],
         "PRODUCT": ["ALL IN CASES"],
         "STATE": getInputs("STATE").map(cb => cb.value),
         "MANAGER_NAME": getInputs("MANAGER_NAME").map(cb => cb.value),
