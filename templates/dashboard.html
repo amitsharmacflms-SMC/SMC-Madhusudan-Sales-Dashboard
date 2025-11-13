@@ -479,7 +479,7 @@ function buildFilters() {
 
 /* -------------------- LOAD DATA (final: show last 5 AVG_Q columns by default) -------------------- */
 /* -------------------- LOAD DATA (auto District subtotal + ALL products + latest 5 quarters) -------------------- */
-/* -------------------- LOAD DATA (final - District subtotal + ALL products + last 5 quarters) -------------------- */
+/* -------------------- LOAD DATA (force default: last 5 AVG_Q + District subtotal + All products) -------------------- */
 async function loadData(view) {
   const loader = document.getElementById("loader");
   loader.classList.remove("hidden");
@@ -498,48 +498,46 @@ async function loadData(view) {
     originalKeys = Object.keys(data[0] || {});
     console.log("originalKeys:", originalKeys);
 
-    // Step 1 — detect all AVG_Q columns (normalize case + underscores)
+    /* 🔹 Step 1 — Detect all AVG_Q columns flexibly */
     const avgColsInData = originalKeys.filter(k => k.toUpperCase().startsWith("AVG_Q"));
     const normalizeKey = k => k.toUpperCase().replace(/[-_]/g, "");
     const avgColsSorted = monthOrder.filter(m =>
       avgColsInData.some(k => normalizeKey(k) === normalizeKey(m))
     );
 
-    // Step 2 — pick last 5 quarters
     const last5AvgCols = avgColsSorted.slice(-5);
-    console.log("✅ Default last 5 AVG_Q columns detected:", last5AvgCols);
-    localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols));
+    console.log("✅ Default last 5 AVG_Q columns:", last5AvgCols);
 
-    // Step 3 — build filters fresh
+    /* 🔹 Step 2 — Build filters first */
     buildFilters();
 
-    // Step 4 — force defaults after filters are built
+    /* 🔹 Step 3 — FORCE default filter state (ignore localStorage) */
     setTimeout(() => {
       const getInputs = title =>
         Array.from(document.querySelectorAll(`#filtersContainer input[name='${title}']`));
 
-      console.log("🧩 Applying forced defaults: 5 QTR + District + All products");
+      console.log("Applying forced defaults: District subtotal + All Products + last 5 quarters");
 
-      // ✅ Last 5 quarters checked
+      // ✅ Force last 5 AVG_Q columns
       getInputs("MONTH / YEAR").forEach(cb => {
         cb.checked = last5AvgCols.some(v => v.toUpperCase() === cb.value.toUpperCase());
       });
 
-      // ✅ Group by District subtotal
+      // ✅ Force subtotal by District
       getInputs("TOTAL").forEach(cb => {
-        cb.checked = (cb.value.toUpperCase() === "DISTRICT");
+        if (cb.value.toUpperCase() === "DISTRICT") cb.checked = true;
       });
 
-      // ✅ All products checked
+      // ✅ Force all products checked
       getInputs("PRODUCT").forEach(cb => (cb.checked = true));
 
-      // ✅ All States, Managers, Districts, Parties also checked (optional but safer)
+      // ✅ Force “All” selections in other filters too
       ["STATE", "MANAGER_NAME", "DISTRICT", "PARTY_NAME"].forEach(f => {
         getInputs(f).forEach(cb => (cb.checked = true));
       });
 
-      // ✅ Save this as the new baseline
-      const forcedDefaults = {
+      // ✅ Save this state for sync between Product ↔ SKU
+      const forcedFilters = {
         "MONTH / YEAR": last5AvgCols,
         "TOTAL": ["DISTRICT"],
         "PRODUCT": getInputs("PRODUCT").map(cb => cb.value),
@@ -548,18 +546,17 @@ async function loadData(view) {
         "DISTRICT": getInputs("DISTRICT").map(cb => cb.value),
         "PARTY_NAME": getInputs("PARTY_NAME").map(cb => cb.value)
       };
-      localStorage.setItem("savedFilters", JSON.stringify(forcedDefaults));
+      localStorage.setItem("savedFilters", JSON.stringify(forcedFilters));
 
-      // ✅ Render table now
+      // ✅ Render the table
       applyFilters(false);
-
-    }, 800); // Wait longer to ensure filters fully rendered
+    }, 600);
 
   } catch (err) {
     console.error("Error loading data:", err);
     loader.textContent = "⚠ Error loading data: " + err.message;
   } finally {
-    setTimeout(() => loader.classList.add("hidden"), 300);
+    setTimeout(() => loader.classList.add("hidden"), 400);
   }
 }
 
