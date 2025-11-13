@@ -378,88 +378,99 @@ async function loadData(view) {
 
     buildFilters();
 
-    // apply saved filters or defaults after filters are rendered
-    setTimeout(() => {
-      const getInputs = title => Array.from(document.querySelectorAll(`#filtersContainer input[name='${title}']`));
-      const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
-      const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
+    // Saved filters OR defaults applied AFTER filters are built
+setTimeout(() => {
 
-      const hasAnySavedSelected = Object.values(saved).some(arr => Array.isArray(arr) && arr.length > 0);
+    const getInputs = title =>
+        Array.from(document.querySelectorAll(`#filtersContainer input[name='${title}']`));
 
-      if (hasAnySavedSelected) {
+    const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
+    const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
+
+    const hasAnySavedSelected = Object.values(saved).some(
+        arr => Array.isArray(arr) && arr.length > 0
+    );
+
+    if (hasAnySavedSelected) {
         console.log("Restoring saved filters:", saved);
+
         Object.entries(saved).forEach(([title, values]) => {
-          getInputs(title).forEach(cb => {
-            cb.checked = values.some(v => String(v).toUpperCase() === String(cb.value).toUpperCase());
-          });
-          // update 'All' checkbox
-          const allCb = document.getElementById(`all_${title.replace(/\s+/g,"_")}`);
-          if (allCb) {
-            const allOptions = getInputs(title);
-            allCb.checked = allOptions.every(cb => cb.checked);
-          }
+            getInputs(title).forEach(cb => {
+                cb.checked = values.some(
+                    v => String(v).toUpperCase() === String(cb.value).toUpperCase()
+                );
+            });
+
+            // Update “All” checkbox
+            const allCb = document.getElementById(`all_${title.replace(/\s+/g, "_")}`);
+            if (allCb) {
+                const allOptions = getInputs(title);
+                allCb.checked = allOptions.every(cb => cb.checked);
+            }
         });
-      } else {
+
+    } else {
         console.log("Applying new default behavior (STATE + ALL IN CASES + last 5 AVG_Q + TOTAL=STATE).");
 
-// --- 0) UNCHECK EVERYTHING FIRST ---
-document.querySelectorAll(`#filtersContainer input[type='checkbox']`).forEach(cb => {
-    cb.checked = false;
-});
+        // --- 0) UNCHECK EVERYTHING FIRST ---
+        document.querySelectorAll(`#filtersContainer input[type='checkbox']`)
+            .forEach(cb => cb.checked = false);
 
-// --- 1) STATE = ALL SELECTED ---
-getInputs("STATE").forEach(cb => cb.checked = true);
+        // --- 1) STATE = ALL SELECTED ---
+        getInputs("STATE").forEach(cb => cb.checked = true);
 
-// --- 2) PRODUCT = ONLY “ALL IN CASES” ---
-getInputs("PRODUCT").forEach(cb => {
-    if (cb.value.toUpperCase().trim() === "ALL IN CASES") {
-        cb.checked = true;   // select only this one
-    } else {
-        cb.checked = false;  // unselect all others
+        // --- 2) PRODUCT = ONLY “ALL IN CASES” ---
+        getInputs("PRODUCT").forEach(cb => {
+            cb.checked = (cb.value.toUpperCase().trim() === "ALL IN CASES");
+        });
+
+        // --- 3) MONTH / YEAR = ONLY LAST 5 AVG_Q ---
+        getInputs("MONTH / YEAR").forEach(cb => {
+            if (last5AvgCols.map(x => x.toUpperCase()).includes(cb.value.toUpperCase())) {
+                cb.checked = true;
+            }
+        });
+
+        // --- 4) TOTAL = ONLY STATE ---
+        getInputs("TOTAL").forEach(cb => {
+            cb.checked = (cb.value.toUpperCase().trim() === "STATE");
+        });
+
+        // --- 5) COMPARISON = NONE ---
+        getInputs("COMPARISON").forEach(cb => cb.checked = false);
+
+        // --- Update ALL checkboxes ---
+        function updateAllBox(title) {
+            const allCb = document.getElementById(`all_${title.replace(/\s+/g, "_")}`);
+            if (!allCb) return;
+            const opts = getInputs(title);
+            allCb.checked = opts.length > 0 && opts.every(cb => cb.checked);
+        }
+
+        updateAllBox("STATE");
+        updateAllBox("PRODUCT");
+        updateAllBox("MONTH / YEAR");
+        updateAllBox("TOTAL");
+
+        // Save defaults for next load
+        const defaultSave = {};
+        [...document.querySelectorAll("#filtersContainer .filter-box strong")]
+            .forEach(h => {
+                const title = h.textContent.trim();
+                defaultSave[title] = [...document.querySelectorAll(
+                    `input[name='${title}']:checked`
+                )].map(i => i.value);
+            });
+
+        localStorage.setItem("savedFilters", JSON.stringify(defaultSave));
+        localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols));
     }
-});
 
-// --- 3) MONTH / YEAR = ONLY LAST 5 AVG_Q COLUMNS ---
-getInputs("MONTH / YEAR").forEach(cb => {
-    if (last5AvgCols.map(x => x.toUpperCase()).includes(cb.value.toUpperCase())) {
-        cb.checked = true;
-    }
-});
+    // Render table using the final applied defaults
+    applyFilters(false);
 
-// --- 4) TOTAL = ONLY STATE ---
-getInputs("TOTAL").forEach(cb => {
-    cb.checked = (cb.value.toUpperCase().trim() === "STATE");
-});
+}, 600); // <-- THIS NOW HAS A PROPER OPENING setTimeout(() => {
 
-// --- 5) COMPARISON = NONE ---
-getInputs("COMPARISON").forEach(cb => cb.checked = false);
-
-// --- Update “All” checkboxes correctly ---
-function updateAllBox(title) {
-    const allCb = document.getElementById(`all_${title.replace(/\s+/g,"_")}`);
-    if (!allCb) return;
-    const opts = getInputs(title);
-    allCb.checked = opts.length > 0 && opts.every(cb => cb.checked);
-}
-
-updateAllBox("STATE");
-updateAllBox("PRODUCT");
-updateAllBox("MONTH / YEAR");
-updateAllBox("TOTAL");
-
-// Save defaults for next load
-const defaultSave = {};
-[...document.querySelectorAll("#filtersContainer .filter-box strong")].forEach(h => {
-    const title = h.textContent.trim();
-    defaultSave[title] = [...document.querySelectorAll(`input[name='${title}']:checked`)].map(i => i.value);
-});
-localStorage.setItem("savedFilters", JSON.stringify(defaultSave));
-localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols));
-
-
-      // Render table using currently selected/saved/default filters
-      applyFilters(false);
-    }, 600);
 
   } catch (err) {
     console.error("Error loading data:", err);
