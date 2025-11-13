@@ -478,6 +478,7 @@ function buildFilters() {
 
 
 /* -------------------- LOAD DATA (final: show last 5 AVG_Q columns by default) -------------------- */
+/* -------------------- LOAD DATA (auto District subtotal + ALL products + latest 5 quarters) -------------------- */
 async function loadData(view) {
   const loader = document.getElementById("loader");
   loader.classList.remove("hidden");
@@ -496,38 +497,28 @@ async function loadData(view) {
     originalKeys = Object.keys(data[0] || {});
     console.log("originalKeys:", originalKeys);
 
-    // Step 1 — Detect all available AVG_Q columns
+    /* 🔹 Step 1 — Detect all available AVG_Q columns (case/dash/underscore tolerant) */
     const avgColsInData = originalKeys.filter(k => k.toUpperCase().startsWith("AVG_Q"));
-
-// normalize both sides for loose matching (remove dashes/underscores)
-function normalizeKey(k) {
-  return k.toUpperCase().replace(/[-_]/g, "");
-}
-
-const avgColsSorted = monthOrder.filter(m =>
-  avgColsInData.some(k => normalizeKey(k) === normalizeKey(m))
-);
-
-const last5AvgCols = avgColsSorted.slice(-5);
-
+    const normalizeKey = k => k.toUpperCase().replace(/[-_]/g, "");
+    const avgColsSorted = monthOrder.filter(m =>
+      avgColsInData.some(k => normalizeKey(k) === normalizeKey(m))
+    );
+    const last5AvgCols = avgColsSorted.slice(-5);
     localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols));
-    console.log("Default last 5 AVG_Q columns:", last5AvgCols);
+    console.log("✅ Default last 5 AVG_Q columns:", last5AvgCols);
 
-    // Step 3 — Build filters
+    /* 🔹 Step 2 — Build filters */
     buildFilters();
 
-    // Step 4 — Wait for filters DOM to be ready, then apply saved filters or defaults
+    /* 🔹 Step 3 — Apply saved filters or defaults */
     setTimeout(() => {
       const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
       const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
-
       const getInputs = title =>
         Array.from(document.querySelectorAll(`#filtersContainer input[name='${title}']`));
 
-      // ✅ Check if there are actually any saved filters selected
-      const hasAnySelected = Object.values(saved).some(
-        arr => Array.isArray(arr) && arr.length > 0
-      );
+      // Check if any filters are already saved
+      const hasAnySelected = Object.values(saved).some(arr => Array.isArray(arr) && arr.length > 0);
 
       if (hasAnySelected) {
         console.log("Restoring saved filters:", saved);
@@ -537,15 +528,33 @@ const last5AvgCols = avgColsSorted.slice(-5);
           });
         });
       } else {
-        console.log("Applying default last 5 AVG_Q columns:", defaults);
+        /* 🔹 Step 4 — Default setup (District subtotal + All products + latest 5 quarters) */
+        console.log("Applying default filters: last 5 AVG_Q + District totals + All products");
+
+        // ✅ Default last 5 quarters
         getInputs("MONTH / YEAR").forEach(cb => {
           cb.checked = defaults.some(v => v.toUpperCase() === cb.value.toUpperCase());
         });
+
+        // ✅ Default subtotal by District
+        getInputs("TOTAL").forEach(cb => {
+          if (cb.value.toUpperCase() === "DISTRICT") cb.checked = true;
+        });
+
+        // ✅ Default ALL products checked
+        getInputs("PRODUCT").forEach(cb => {
+          cb.checked = true;
+        });
+
+        // ✅ Optionally: also show ALL State/Manager/District/Party
+        ["STATE", "MANAGER_NAME", "DISTRICT", "PARTY_NAME"].forEach(f => {
+          getInputs(f).forEach(cb => (cb.checked = true));
+        });
       }
 
-      // Step 5 — Render table after setting filters
+      // 🔹 Step 5 — Render table
       applyFilters(false);
-    }, 500); // wait to ensure DOM is ready
+    }, 500);
 
   } catch (err) {
     console.error("Error loading data:", err);
