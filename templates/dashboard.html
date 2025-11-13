@@ -710,7 +710,7 @@ function renderTable(dataToRender, selected, alreadyGrouped = false){
   // Header row
   const isNumericCol = c => monthOrder.includes(c) || c === "COMPARISON";
   tHead.innerHTML = "<tr>" + colsToShow.map(c => `<th class="${isNumericCol(c)?'sortable':''}" data-col="${c}">${c}${isNumericCol(c)?'<span class="sort-icon">↕️</span>':''}</th>`).join("") + "</tr>";
-  addSorting(colsToShow); // Re-add sorting listeners after header update
+  addSorting(colsToShow);
 
   let grouped = dataToRender;
   if (!alreadyGrouped) {
@@ -730,10 +730,16 @@ function renderTable(dataToRender, selected, alreadyGrouped = false){
     });
     grouped = [...map.values()];
   }
-  currentGroupedData = grouped; // Store for global access (e.g., sorting)
+  currentGroupedData = grouped;
 
   // Build table body HTML
   let rowsHtml = "";
+
+  // Helper to get number value by normalized column
+  function safeGetNum(obj, col) {
+    // Try original, uppercase, lowercase
+    return Number(obj[col]) || Number(obj[col.toUpperCase()]) || Number(obj[col.toLowerCase()]) || 0;
+  }
 
   if(totalCols.length){
     // group by totalCols
@@ -748,8 +754,7 @@ function renderTable(dataToRender, selected, alreadyGrouped = false){
       rows.forEach(r => rowsHtml += buildRowHtml(r, colsToShow, selected));
       // subtotal for group
       const subtotal = {};
-      monthCols.forEach(m => subtotal[m] = rows.reduce((s, rr) => s + (Number(rr[m])||0), 0));
-      // build subtotal cells aligned with colsToShow order
+      monthCols.forEach(m => subtotal[m] = rows.reduce((s, rr) => s + safeGetNum(rr, m), 0));
       const subCells = colsToShow.map((c, idx) => {
         if(c === "COMPARISON" && (selected["COMPARISON"]||[]).length === 2){
           const [a,b] = selected["COMPARISON"];
@@ -771,18 +776,16 @@ function renderTable(dataToRender, selected, alreadyGrouped = false){
     });
 
   } else {
-    // simple rendering (no subtotal groups)
     grouped.forEach(r => rowsHtml += buildRowHtml(r, colsToShow, selected));
   }
 
-  // Insert to DOM
   tBody.innerHTML = rowsHtml;
 
   // grand total footer
   tFoot.innerHTML = "";
   if(grouped.length){
     const totals = {};
-    monthCols.forEach(m => totals[m] = grouped.reduce((s,r)=>s + (Number(r[m])||0), 0));
+    monthCols.forEach(m => totals[m] = grouped.reduce((s,r)=>s + safeGetNum(r, m), 0));
     const totalCells = colsToShow.map((c, idx) => {
       if(c === "COMPARISON" && (selected["COMPARISON"]||[]).length === 2){
         const [a,b] = selected["COMPARISON"];
