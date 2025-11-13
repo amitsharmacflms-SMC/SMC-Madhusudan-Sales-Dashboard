@@ -206,7 +206,7 @@
       z-index:50;
       background: linear-gradient(90deg,#eef2ff,#e0e7ff);
       text-transform: uppercase; /* All headers capital letters */
-      text-align: center; /* Center align all headers */
+      text-align: center !important; /* Center align all headers */
     }
     .dark-mode thead th { background:#0b1220; color:#cfe8ff; }
 
@@ -443,17 +443,21 @@ function buildFilters() {
 
     const allId = `all_${title.replace(/\s+/g,"_")}`;
 
-    // Auto-check "All" for all text and product columns by default
-    // MONTH / YEAR and COMPARISON will not have 'All' checked unless specifically set later
-    const shouldCheck = checkAll;
+    let optionsHtml = "";
+    if (title === "MONTH / YEAR" || title === "COMPARISON") {
+        optionsHtml = vals
+            .map(v => `<label><input type="checkbox" name="${title}" value="${v}"> ${v.toUpperCase()}</label>`)
+            .join("");
+    } else {
+        optionsHtml = vals
+            .map(v => `<label><input type="checkbox" name="${title}" value="${v}" ${checkAll ? "checked" : ""}> ${v}</label>`)
+            .join("");
+    }
 
-    const optionsHtml = vals
-      .map(v => `<label><input type="checkbox" name="${title}" value="${v}" ${shouldCheck ? "checked" : ""}> ${v}</label>`)
-      .join("");
 
     box.innerHTML = `
       <strong>${title}</strong>
-      <label class="all-label"><input type="checkbox" data-all="${title}" id="${allId}" ${shouldCheck ? "checked" : ""}> All</label>
+      <label class="all-label"><input type="checkbox" data-all="${title}" id="${allId}" ${checkAll ? "checked" : ""}> All</label>
       <div class="options" style="max-height:220px;overflow:auto;padding-right:6px;">${optionsHtml}</div>`;
     filters.appendChild(box);
   }
@@ -465,9 +469,12 @@ function buildFilters() {
 
   order.forEach(f => {
     if (f === "SHOW COLUMNS") makeBox(f, textCols, true); // Now includes PARTY_NAME, check all by default
-    else if (f === "MONTH / YEAR") makeBox(f, actualMonthYearCols, false); // Do NOT check all by default
-    else if (f === "COMPARISON") makeBox(f, actualComparisonCols, false); // Do NOT check all by default
-    else if (f === "TOTAL") makeBox(f, textCols, false); // Check STATE and MANAGER_NAME later
+    else if (f === "MONTH / YEAR") makeBox(f, actualMonthYearCols, false); // Do NOT check all by default, set later
+    else if (f === "COMPARISON") makeBox(f, actualComparisonCols, false); // Do NOT check all by default, set later
+    else if (f === "TOTAL") {
+        const totalOpts = textCols.filter(c => c === "STATE" || c === "MANAGER_NAME" || c === "DISTRICT");
+        makeBox(f, textCols, false); // Set to default STATE, MANAGER_NAME, DISTRICT later
+    }
     else if (textCols.includes(f)) {
       const vals = [...new Set(fullData.map(r => getVal(r, f)))].filter(Boolean).sort();
       makeBox(f, vals, true); // Check all by default for other text columns
@@ -557,7 +564,7 @@ async function loadData(view) {
       } else {
         console.log("Applying default selections (no saved filters found).");
 
-        // Select ALL options for all filters initially
+        // Set ALL checkboxes for ALL filters
         document.querySelectorAll(`#filtersContainer input[type='checkbox']`).forEach(cb => {
             cb.checked = true;
         });
@@ -565,18 +572,18 @@ async function loadData(view) {
         // Special handling for TOTAL: default to STATE, MANAGER_NAME, DISTRICT
         const defaultTotalCols = ["STATE", "MANAGER_NAME", "DISTRICT"];
         getInputs("TOTAL").forEach(cb => {
-            cb.checked = defaultTotalCols.some(col => col.toUpperCase() === cb.value.toUpperCase());
+            cb.checked = defaultTotalCols.includes(cb.value.toUpperCase());
         });
         // Update 'All' checkbox for TOTAL filter after setting defaults
         const totalAllCb = document.getElementById(`all_TOTAL`);
         if(totalAllCb) {
             const totalOptions = getInputs("TOTAL");
-            totalAllCb.checked = totalOptions.every(cb => cb.checked);
+            totalAllCb.checked = totalOptions.every(cb => cb.checked); // Should be false if not all are checked
         }
 
-        // Special handling for MONTH / YEAR: select last 5 AVG columns as default
+        // MONTH / YEAR: select ALL month/year options by default when no filters are saved
         getInputs("MONTH / YEAR").forEach(cb => {
-            cb.checked = last5AvgCols.some(v => v.toUpperCase() === cb.value.toUpperCase());
+            cb.checked = true;
         });
         // Update 'All' checkbox for MONTH / YEAR filter
         const monthYearAllCb = document.getElementById(`all_MONTH_/_YEAR`);
@@ -585,6 +592,14 @@ async function loadData(view) {
             monthYearAllCb.checked = monthYearOptions.every(cb => cb.checked);
         }
 
+        // COMPARISON: No default selection, keep all unchecked
+        getInputs("COMPARISON").forEach(cb => {
+          cb.checked = false;
+        });
+        const comparisonAllCb = document.getElementById(`all_COMPARISON`);
+        if (comparisonAllCb) comparisonAllCb.checked = false;
+
+
         // Save these initial defaults after setting them
         const initialDefaults = {};
         [...document.querySelectorAll("#filtersContainer .filter-box strong")].forEach(h => {
@@ -592,7 +607,7 @@ async function loadData(view) {
             initialDefaults[title] = [...document.querySelectorAll(`input[name='${title}']:checked`)].map(i => i.value);
         });
         localStorage.setItem("savedFilters", JSON.stringify(initialDefaults));
-        localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols));
+        localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols)); // Still save last 5 AVG, but not apply by default on clear
       }
       // Render the table with the applied (saved or default) filters
       applyFilters(false);
@@ -682,6 +697,7 @@ function renderTable(dataToRender, selected, alreadyGrouped = false){
   const tBody = document.getElementById("tableBody");
   const tFoot = document.getElementById("tableFoot");
 
+  // Ensure SHOW COLUMNS are always available for grouping, even if not explicitly selected
   const showCols = (selected["SHOW COLUMNS"] && selected["SHOW COLUMNS"].length) ? selected["SHOW COLUMNS"] : baseTextCols;
   const monthCols = (selected["MONTH / YEAR"] && selected["MONTH / YEAR"].length) ? selected["MONTH / YEAR"] : monthOrder.filter(m => originalKeys.includes(m.toUpperCase()));
   const totalCols = selected["TOTAL"] || [];
@@ -738,14 +754,14 @@ function renderTable(dataToRender, selected, alreadyGrouped = false){
         if(c === "COMPARISON" && (selected["COMPARISON"]||[]).length === 2){
           const [a,b] = selected["COMPARISON"];
           const diff = (subtotal[b]||0) - (subtotal[a]||0);
-          const cls = diff > 0 ? 'bg-pos' : (diff < 0 ? 'bg-neg' : ''); // Added diff < 0 check for bg-neg
+          const cls = diff > 0 ? 'bg-pos' : (diff < 0 ? 'bg-neg' : '');
           return `<td class="numeric ${cls}">${diff}</td>`;
         }
         if(monthOrder.includes(c)){
           const val = subtotal[c] || 0;
           let prev = null;
           for(let j = idx-1; j >= 0; j--){ if(monthOrder.includes(colsToShow[j])){ prev = subtotal[colsToShow[j]]; break; } }
-          const cls = (prev !== null) ? (val > prev ? 'bg-pos' : (val < prev ? 'bg-neg' : '')) : ''; // Handle zero comparison and no change
+          const cls = (prev !== null) ? (val > prev ? 'bg-pos' : (val < prev ? 'bg-neg' : '')) : '';
           return `<td class="numeric ${cls}">${val}</td>`;
         }
         if(idx === firstTextColIndex) return `<td class="subtotal-label">Subtotal</td>`;
@@ -771,14 +787,14 @@ function renderTable(dataToRender, selected, alreadyGrouped = false){
       if(c === "COMPARISON" && (selected["COMPARISON"]||[]).length === 2){
         const [a,b] = selected["COMPARISON"];
         const diff = (totals[b]||0) - (totals[a]||0);
-        const cls = diff > 0 ? 'bg-pos' : (diff < 0 ? 'bg-neg' : ''); // Added diff < 0 check for bg-neg
+        const cls = diff > 0 ? 'bg-pos' : (diff < 0 ? 'bg-neg' : '');
         return `<td class="numeric ${cls}"><b>${diff}</b></td>`;
       }
       if(monthOrder.includes(c)){
         const val = totals[c] || 0;
         let prev = null;
         for(let j = idx-1; j >= 0; j--){ if(monthOrder.includes(colsToShow[j])){ prev = totals[colsToShow[j]]; break; } }
-        const cls = (prev !== null) ? (val > prev ? 'bg-pos' : (val < prev ? 'bg-neg' : '')) : ''; // Handle zero comparison and no change
+        const cls = (prev !== null) ? (val > prev ? 'bg-pos' : (val < prev ? 'bg-neg' : '')) : '';
         return `<td class="numeric ${cls}"><b>${val}</b></td>`;
       }
       if(idx === firstTextColIndex) return `<td class="subtotal-label"><b>TOTAL</b></td>`;
@@ -798,9 +814,9 @@ function buildRowHtml(row, colsToShow, selected){
       if(compare.length === 2){
         const [a,b] = compare;
         const diff = (Number(row[b])||0) - (Number(row[a])||0);
-        const cls = diff > 0 ? 'bg-pos' : (diff < 0 ? 'bg-neg' : ''); // Added diff < 0 check for bg-neg
+        const cls = diff > 0 ? 'bg-pos' : (diff < 0 ? 'bg-neg' : '');
         return `<td class="numeric ${cls}">${diff}</td>`;
-      } else return `<td></td>`;
+      } else return `<td class="numeric"></td>`; // Ensure numeric class for empty comparison too
     }
 
     if(monthOrder.includes(c)){
@@ -813,7 +829,7 @@ function buildRowHtml(row, colsToShow, selected){
           break;
         }
       }
-      const cls = (prevVal !== null) ? (num > prevVal ? 'bg-pos' : (num < prevVal ? 'bg-neg' : '')) : ''; // Handle zero comparison and no change
+      const cls = (prevVal !== null) ? (num > prevVal ? 'bg-pos' : (num < prevVal ? 'bg-neg' : '')) : '';
       return `<td class="numeric ${cls}">${num}</td>`;
     }
 
