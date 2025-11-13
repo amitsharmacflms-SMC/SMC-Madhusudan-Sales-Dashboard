@@ -480,7 +480,7 @@ function buildFilters() {
 
 
 
-/* -------------------- LOAD DATA (force default: District subtotal + All products + last 5 quarters) -------------------- */
+/* -------------------- LOAD DATA (force: only “ALL IN CASES”, hide Party_Name, District subtotal + last 5 quarters) -------------------- */
 async function loadData(view) {
   const loader = document.getElementById("loader");
   loader.classList.remove("hidden");
@@ -495,11 +495,18 @@ async function loadData(view) {
       return;
     }
 
+    // Store and clean
     fullData = data;
     originalKeys = Object.keys(data[0] || {});
     console.log("originalKeys:", originalKeys);
 
-    // Detect all available AVG_Q columns dynamically
+    /* Step 1 — Hide PARTY_NAME completely */
+    fullData.forEach(r => { delete r.PARTY_NAME; delete r.party_name; });
+
+    /* Step 2 — Keep only “ALL IN CASES” in data (for Product filter and display) */
+    fullData = fullData.filter(r => String(getVal(r, "PRODUCT")).toUpperCase() === "ALL IN CASES");
+
+    /* Step 3 — Detect all AVG_Q columns dynamically */
     const avgColsInData = originalKeys.filter(k => k.toUpperCase().startsWith("AVG_Q"));
     const normalizeKey = k => k.toUpperCase().replace(/[-_]/g, "");
     const avgColsSorted = monthOrder.filter(m =>
@@ -508,47 +515,49 @@ async function loadData(view) {
     const last5AvgCols = avgColsSorted.slice(-5);
     console.log("✅ Default last 5 AVG_Q columns:", last5AvgCols);
 
-    // Build filters
+    /* Step 4 — Build filters normally (PARTY_NAME will be absent automatically) */
     buildFilters();
 
-    // Force default filters (District subtotal + All products + All values)
+    /* Step 5 — Force default filter selection */
     setTimeout(() => {
       const getInputs = title =>
         Array.from(document.querySelectorAll(`#filtersContainer input[name='${title}']`));
 
-      // Last 5 AVG_Q columns
+      // Select only last 5 quarters
       getInputs("MONTH / YEAR").forEach(cb => {
         cb.checked = last5AvgCols.some(v => v.toUpperCase() === cb.value.toUpperCase());
       });
 
-      // District subtotal
+      // Subtotal by DISTRICT
       getInputs("TOTAL").forEach(cb => {
         if (cb.value.toUpperCase() === "DISTRICT") cb.checked = true;
       });
 
-      // All products selected
-      getInputs("PRODUCT").forEach(cb => (cb.checked = true));
+      // Product = ONLY “ALL IN CASES”
+      getInputs("PRODUCT").forEach(cb => {
+        cb.checked = cb.value.toUpperCase() === "ALL IN CASES";
+      });
 
-      // All states / managers / districts / parties selected
-      ["STATE", "MANAGER_NAME", "DISTRICT", "PARTY_NAME"].forEach(f => {
+      // Select all values for state, manager, district
+      ["STATE", "MANAGER_NAME", "DISTRICT"].forEach(f => {
         getInputs(f).forEach(cb => (cb.checked = true));
       });
 
-      // Save to localStorage
-      const forced = {
+      // Save these defaults
+      const forcedDefaults = {
         "MONTH / YEAR": last5AvgCols,
         "TOTAL": ["DISTRICT"],
-        "PRODUCT": getInputs("PRODUCT").map(cb => cb.value),
+        "PRODUCT": ["ALL IN CASES"],
         "STATE": getInputs("STATE").map(cb => cb.value),
         "MANAGER_NAME": getInputs("MANAGER_NAME").map(cb => cb.value),
-        "DISTRICT": getInputs("DISTRICT").map(cb => cb.value),
-        "PARTY_NAME": getInputs("PARTY_NAME").map(cb => cb.value)
+        "DISTRICT": getInputs("DISTRICT").map(cb => cb.value)
       };
-      localStorage.setItem("savedFilters", JSON.stringify(forced));
+      localStorage.setItem("savedFilters", JSON.stringify(forcedDefaults));
 
       // Render
       applyFilters(false);
     }, 600);
+
   } catch (err) {
     console.error("Error loading data:", err);
     loader.textContent = "⚠ Error loading data: " + err.message;
