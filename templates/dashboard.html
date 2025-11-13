@@ -200,7 +200,13 @@
 
     /* Sticky Header - ensure visible while scrolling */
     table { border-collapse:collapse; width:100%; }
-    thead th { position: sticky; top:0; z-index:50; background: linear-gradient(90deg,#eef2ff,#e0e7ff); }
+    thead th {
+      position: sticky;
+      top:0;
+      z-index:50;
+      background: linear-gradient(90deg,#eef2ff,#e0e7ff);
+      text-transform: uppercase; /* All headers capital letters */
+    }
     .dark-mode thead th { background:#0b1220; color:#cfe8ff; }
 
     th.sortable { cursor:pointer; }
@@ -231,8 +237,6 @@
 
     /* ensure numeric cells center */
     td.numeric { text-align:center; vertical-align:middle; font-weight:700; color:#000; }
-
-   
 
 
 
@@ -331,6 +335,7 @@ let originalKeys = [];
 let currentGroupedData = []; // Global to store grouped data for sorting
 let currentSelectedFilters = {}; // Global to store current selected filters
 
+// Added PARTY_NAME back to baseTextCols
 const baseTextCols = ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
 const monthOrder = [
   "APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
@@ -422,7 +427,7 @@ function buildFilters() {
   const filters = document.getElementById("filtersContainer");
   filters.innerHTML = "";
   const headers = originalKeys.map(norm);
-  const textCols = baseTextCols.filter(c => headers.includes(c));
+  const textCols = baseTextCols.filter(c => headers.includes(c)); // baseTextCols now includes PARTY_NAME
   const order =
     currentView === "product"
       ? ["SHOW COLUMNS","MONTH / YEAR","STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","COMPARISON","TOTAL"]
@@ -458,12 +463,11 @@ function buildFilters() {
   const actualComparisonCols = actualMonthYearCols.filter(c => !c.toUpperCase().startsWith("AVG_"));
 
   order.forEach(f => {
-    if (f === "SHOW COLUMNS") makeBox(f, textCols.filter(c => c !== "PARTY_NAME"), true); // Exclude Party_Name
+    if (f === "SHOW COLUMNS") makeBox(f, textCols, true); // Now includes PARTY_NAME
     else if (f === "MONTH / YEAR") makeBox(f, actualMonthYearCols, false); // Use actual month/year columns
     else if (f === "COMPARISON") makeBox(f, actualComparisonCols, false); // Use actual month columns for comparison
-    else if (f === "TOTAL") makeBox(f, textCols.filter(c => c !== "PARTY_NAME" && c !== "DISTRICT"), false); // Exclude Party_Name and District
+    else if (f === "TOTAL") makeBox(f, textCols, false); // Now includes PARTY_NAME and DISTRICT
     else if (textCols.includes(f)) {
-      if (f === "PARTY_NAME") return; // Skip Party_Name entirely
       const vals = [...new Set(fullData.map(r => getVal(r, f)))].filter(Boolean).sort();
       makeBox(f, vals, false);
     }
@@ -514,11 +518,11 @@ async function loadData(view) {
     originalKeys = Object.keys(data[0] || {});
     console.log("originalKeys:", originalKeys);
 
-    /* Step 1 — Hide PARTY_NAME completely */
-    fullData.forEach(r => { delete r.PARTY_NAME; delete r.party_name; });
+    /* Step 1 — No longer hiding PARTY_NAME, it's included */
+    // Removed: fullData.forEach(r => { delete r.PARTY_NAME; delete r.party_name; });
 
-    /* Step 2 — Keep only “ALL IN CASES” in data (for Product filter and display) */
-    fullData = fullData.filter(r => String(getVal(r, "PRODUCT")).toUpperCase() === "ALL IN CASES");
+    /* Step 2 — No longer filtering for only “ALL IN CASES” */
+    // Removed: fullData = fullData.filter(r => String(getVal(r, "PRODUCT")).toUpperCase() === "ALL IN CASES");
 
     /* Step 3 — Detect all AVG_Q columns dynamically */
     const avgColsInData = originalKeys.filter(k => k.toUpperCase().startsWith("AVG_Q"));
@@ -529,7 +533,7 @@ async function loadData(view) {
     const last5AvgCols = avgColsSorted.slice(-5);
     console.log("✅ Default last 5 AVG_Q columns:", last5AvgCols);
 
-    /* Step 4 — Build filters normally (PARTY_NAME and DISTRICT will be absent automatically if filtered out from textCols and TOTAL options) */
+    /* Step 4 — Build filters normally */
     buildFilters();
 
     /* Step 5 — Force default filter selection */
@@ -543,21 +547,29 @@ async function loadData(view) {
       });
 
       const defaultTotals = [];
-      // Subtotal by STATE and MANAGER_NAME
+      // Subtotal by STATE and MANAGER_NAME by default
       getInputs("TOTAL").forEach(cb => {
         if (cb.value.toUpperCase() === "STATE" || cb.value.toUpperCase() === "MANAGER_NAME") {
           cb.checked = true;
           defaultTotals.push(cb.value);
         }
       });
-
-      // Product = ONLY “ALL IN CASES”
-      getInputs("PRODUCT").forEach(cb => {
-        cb.checked = cb.value.toUpperCase() === "ALL IN CASES";
+      // Also check PARTY_NAME in TOTAL if it's there and you want it as a default subtotal
+      getInputs("TOTAL").forEach(cb => {
+        if (cb.value.toUpperCase() === "PARTY_NAME" && !defaultTotals.includes("PARTY_NAME")) {
+            cb.checked = true;
+            defaultTotals.push(cb.value);
+        }
       });
 
-      // Select all values for state, manager, district
-      ["STATE", "MANAGER_NAME", "DISTRICT"].forEach(f => {
+
+      // Select all products by default now
+      getInputs("PRODUCT").forEach(cb => {
+        cb.checked = true;
+      });
+
+      // Select all values for state, manager, district, party_name
+      ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT", "PARTY_NAME"].forEach(f => {
         getInputs(f).forEach(cb => (cb.checked = true));
       });
 
@@ -567,11 +579,12 @@ async function loadData(view) {
       // Save these defaults
       const forcedDefaults = {
         "MONTH / YEAR": last5AvgCols,
-        "TOTAL": defaultTotals, // Corrected
-        "PRODUCT": ["ALL IN CASES"],
+        "TOTAL": defaultTotals, // Corrected to use defaultTotals array
+        "PRODUCT": getInputs("PRODUCT").map(cb => cb.value), // All products
         "STATE": getInputs("STATE").map(cb => cb.value),
         "MANAGER_NAME": getInputs("MANAGER_NAME").map(cb => cb.value),
-        "DISTRICT": getInputs("DISTRICT").map(cb => cb.value)
+        "DISTRICT": getInputs("DISTRICT").map(cb => cb.value),
+        "PARTY_NAME": getInputs("PARTY_NAME").map(cb => cb.value)
       };
       localStorage.setItem("savedFilters", JSON.stringify(forcedDefaults));
 
@@ -588,7 +601,8 @@ async function loadData(view) {
   }
 }
 
-    // Step 4 — Apply saved filters or default 5 AVG columns
+    // This section is for applying saved filters after loadData.
+    // Ensure it correctly restores the defaults if no saved filters exist.
 setTimeout(() => {
   const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
   const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
@@ -607,9 +621,26 @@ setTimeout(() => {
       });
     });
   } else {
-    console.log("Applying default last 5 AVG_Q columns:", defaults);
+    // If no saved filters, apply the hardcoded defaults again
+    console.log("Applying default filters (no saved filters found).");
+
+    const last5AvgColsDefault = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
     getInputs("MONTH / YEAR").forEach(cb => {
-      cb.checked = defaults.some(v => v.toUpperCase() === cb.value.toUpperCase());
+        cb.checked = last5AvgColsDefault.some(v => v.toUpperCase() === cb.value.toUpperCase());
+    });
+
+    getInputs("TOTAL").forEach(cb => {
+        if (cb.value.toUpperCase() === "STATE" || cb.value.toUpperCase() === "MANAGER_NAME") {
+            cb.checked = true;
+        }
+    });
+
+    getInputs("PRODUCT").forEach(cb => { // Select all products by default if no saved filters
+      cb.checked = true;
+    });
+
+    ["STATE", "MANAGER_NAME", "DISTRICT", "PARTY_NAME"].forEach(f => {
+      getInputs(f).forEach(cb => (cb.checked = true));
     });
   }
 
@@ -638,8 +669,8 @@ function applyFilters(save = true) {
 
       const cascade =
         currentView === "product"
-          ? ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT"]
-          : ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT", "SKU"];
+          ? ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT", "PARTY_NAME"] // Added PARTY_NAME
+          : ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT", "SKU", "PARTY_NAME"]; // Added PARTY_NAME
 
       // Step 1 — filter the data based on current selection
       let filtered = [...fullData];
@@ -685,14 +716,14 @@ function renderTable(dataToRender, selected, alreadyGrouped = false){
   const tBody = document.getElementById("tableBody");
   const tFoot = document.getElementById("tableFoot");
 
-  const showCols = (selected["SHOW COLUMNS"] && selected["SHOW COLUMNS"].length) ? selected["SHOW COLUMNS"] : baseTextCols.filter(c => c !== "PARTY_NAME");
+  const showCols = (selected["SHOW COLUMNS"] && selected["SHOW COLUMNS"].length) ? selected["SHOW COLUMNS"] : baseTextCols; // baseTextCols now includes Party_Name
   const monthCols = (selected["MONTH / YEAR"] && selected["MONTH / YEAR"].length) ? selected["MONTH / YEAR"] : monthOrder.filter(m => originalKeys.includes(m.toUpperCase()));
   const totalCols = selected["TOTAL"] || [];
 
-  let colsToShow = [...showCols.filter(c => c !== "PARTY_NAME"), ...monthCols];
+  let colsToShow = [...showCols, ...monthCols];
   if((selected["COMPARISON"]||[]).length === 2) colsToShow.push("COMPARISON");
 
-  const firstTextColIndex = colsToShow.findIndex(c => showCols.includes(c));
+  const firstTextColIndex = colsToShow.findIndex(c => showCols.includes(c)); // Find index of first visible text column
 
   // Header row
   const isNumeric = c => monthOrder.includes(c) || c === "COMPARISON";
@@ -748,7 +779,7 @@ function renderTable(dataToRender, selected, alreadyGrouped = false){
           const val = subtotal[c] || 0;
           let prev = null;
           for(let j = idx-1; j >= 0; j--){ if(monthOrder.includes(colsToShow[j])){ prev = subtotal[colsToShow[j]]; break; } }
-          const cls = (prev !== null && prev !== 0) ? (val > prev ? 'bg-pos' : 'bg-neg') : '';
+          const cls = (prev !== null) ? (val > prev ? 'bg-pos' : 'bg-neg') : ''; // Changed prev !== 0
           return `<td class="numeric ${cls}" style="color:black">${val}</td>`;
         }
         if(idx === firstTextColIndex) return `<td class="subtotal-label">Subtotal</td>`;
@@ -781,7 +812,7 @@ function renderTable(dataToRender, selected, alreadyGrouped = false){
         const val = totals[c] || 0;
         let prev = null;
         for(let j = idx-1; j >= 0; j--){ if(monthOrder.includes(colsToShow[j])){ prev = totals[colsToShow[j]]; break; } }
-        const cls = (prev !== null && prev !== 0) ? (val > prev ? 'bg-pos' : 'bg-neg') : '';
+        const cls = (prev !== null) ? (val > prev ? 'bg-pos' : 'bg-neg') : ''; // Changed prev !== 0
         return `<td class="numeric ${cls}" style="color:black">${val}</td>`;
       }
       if(idx === firstTextColIndex) return `<td class="subtotal-label"><b>TOTAL</b></td>`;
@@ -816,7 +847,7 @@ function buildRowHtml(row, colsToShow, selected){
           break;
         }
       }
-      const cls = (prevVal !== null && prevVal !== 0) ? (num > prevVal ? 'bg-pos' : 'bg-neg') : '';
+      const cls = (prevVal !== null) ? (num > prevVal ? 'bg-pos' : 'bg-neg') : ''; // Changed prev !== 0
       return `<td class="numeric ${cls}" style="color:black">${num}</td>`;
     }
 
@@ -926,21 +957,6 @@ async function exportExcel(){
 
 /* ensure overlay hidden at start */
 hideOverlay();
-
-
-
-
-
-
-
-
-  // Step 6: Add compact message
-  // This message is already handled by the mobile-tip class logic below for consistency
-  // const msg = document.createElement("div");
-  // msg.textContent = "📊 Mobile mode active: Simplified view for speed.";
-  // msg.style.cssText = "text-align:center;color:#4b5563;font-size:0.85rem;padding:6px;background:#f3f4f6;margin-bottom:6px;border-radius:6px;";
-  // document.querySelector("main").prepend(msg);
-
 
 
 /* ---------- MOBILE PERFORMANCE OPTIMIZATION ---------- */
