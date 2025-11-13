@@ -479,7 +479,7 @@ function buildFilters() {
 
 /* -------------------- LOAD DATA (final: show last 5 AVG_Q columns by default) -------------------- */
 /* -------------------- LOAD DATA (auto District subtotal + ALL products + latest 5 quarters) -------------------- */
-/* -------------------- LOAD DATA (force default: last 5 AVG_Q + District subtotal + All products) -------------------- */
+/* -------------------- LOAD DATA (force default: District subtotal + All products + last 5 quarters) -------------------- */
 async function loadData(view) {
   const loader = document.getElementById("loader");
   loader.classList.remove("hidden");
@@ -498,46 +498,43 @@ async function loadData(view) {
     originalKeys = Object.keys(data[0] || {});
     console.log("originalKeys:", originalKeys);
 
-    /* 🔹 Step 1 — Detect all AVG_Q columns flexibly */
+    // Step 1 — Detect all AVG_Q columns dynamically
     const avgColsInData = originalKeys.filter(k => k.toUpperCase().startsWith("AVG_Q"));
     const normalizeKey = k => k.toUpperCase().replace(/[-_]/g, "");
     const avgColsSorted = monthOrder.filter(m =>
       avgColsInData.some(k => normalizeKey(k) === normalizeKey(m))
     );
-
     const last5AvgCols = avgColsSorted.slice(-5);
     console.log("✅ Default last 5 AVG_Q columns:", last5AvgCols);
 
-    /* 🔹 Step 2 — Build filters first */
+    // Step 2 — Build filters
     buildFilters();
 
-    /* 🔹 Step 3 — FORCE default filter state (ignore localStorage) */
+    // Step 3 — Force default filters (District subtotal + All Products + All values)
     setTimeout(() => {
       const getInputs = title =>
         Array.from(document.querySelectorAll(`#filtersContainer input[name='${title}']`));
 
-      console.log("Applying forced defaults: District subtotal + All Products + last 5 quarters");
-
-      // ✅ Force last 5 AVG_Q columns
+      // 1️⃣ Last 5 AVG_Q
       getInputs("MONTH / YEAR").forEach(cb => {
         cb.checked = last5AvgCols.some(v => v.toUpperCase() === cb.value.toUpperCase());
       });
 
-      // ✅ Force subtotal by District
+      // 2️⃣ District subtotal
       getInputs("TOTAL").forEach(cb => {
         if (cb.value.toUpperCase() === "DISTRICT") cb.checked = true;
       });
 
-      // ✅ Force all products checked
+      // 3️⃣ All Products selected
       getInputs("PRODUCT").forEach(cb => (cb.checked = true));
 
-      // ✅ Force “All” selections in other filters too
+      // 4️⃣ All States, Managers, Districts, Parties selected
       ["STATE", "MANAGER_NAME", "DISTRICT", "PARTY_NAME"].forEach(f => {
         getInputs(f).forEach(cb => (cb.checked = true));
       });
 
-      // ✅ Save this state for sync between Product ↔ SKU
-      const forcedFilters = {
+      // Save to localStorage for sync between Product ↔ SKU
+      const forced = {
         "MONTH / YEAR": last5AvgCols,
         "TOTAL": ["DISTRICT"],
         "PRODUCT": getInputs("PRODUCT").map(cb => cb.value),
@@ -546,9 +543,9 @@ async function loadData(view) {
         "DISTRICT": getInputs("DISTRICT").map(cb => cb.value),
         "PARTY_NAME": getInputs("PARTY_NAME").map(cb => cb.value)
       };
-      localStorage.setItem("savedFilters", JSON.stringify(forcedFilters));
+      localStorage.setItem("savedFilters", JSON.stringify(forced));
 
-      // ✅ Render the table
+      // Finally render
       applyFilters(false);
     }, 600);
 
@@ -558,6 +555,13 @@ async function loadData(view) {
   } finally {
     setTimeout(() => loader.classList.add("hidden"), 400);
   }
+}
+
+/* -------------------- CLEAR FILTERS (same default as initial load) -------------------- */
+function clearFilters() {
+  console.log("🧹 Resetting to default: District subtotal + All products + last 5 quarters");
+  localStorage.removeItem("savedFilters");
+  loadData(currentView);  // reload same defaults
 }
 
     // Step 4 — Apply saved filters or default 5 AVG columns
