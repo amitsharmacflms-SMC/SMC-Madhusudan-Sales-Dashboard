@@ -364,11 +364,14 @@ function initUI(){
   document.getElementById("toggleFiltersBtn").addEventListener("click", toggleFilters);
   document.getElementById("clearBtn").addEventListener("click", ()=>{ runIdle(clearFilters); });
   document.getElementById("exportBtn").addEventListener("click", ()=>{ showOverlay(120); runIdle(exportExcel); });
-  document.getElementById("toggleViewBtn").addEventListener("click", ()=>{
-    currentView = currentView === "product" ? "sku" : "product";
-    document.getElementById("toggleViewBtn").textContent = currentView === "product" ? "Switch to SKU View" : "Switch to Product View";
-    loadData(currentView);
-  });
+  document.getElementById("toggleViewBtn").addEventListener("click", () => {
+  localStorage.removeItem("savedFilters");
+  currentView = currentView === "product" ? "sku" : "product";
+  document.getElementById("toggleViewBtn").textContent =
+    currentView === "product" ? "Switch to SKU View" : "Switch to Product View";
+  loadData(currentView);
+});
+
 
   const themeBtn = document.getElementById("themeToggle");
   if(localStorage.getItem("theme")==="dark"){ document.documentElement.classList.add("dark-mode"); themeBtn.textContent = "Light Mode"; }
@@ -477,8 +480,6 @@ function buildFilters() {
 
 
 
-/* -------------------- LOAD DATA (final: show last 5 AVG_Q columns by default) -------------------- */
-/* -------------------- LOAD DATA (auto District subtotal + ALL products + latest 5 quarters) -------------------- */
 /* -------------------- LOAD DATA (force default: District subtotal + All products + last 5 quarters) -------------------- */
 async function loadData(view) {
   const loader = document.getElementById("loader");
@@ -498,7 +499,7 @@ async function loadData(view) {
     originalKeys = Object.keys(data[0] || {});
     console.log("originalKeys:", originalKeys);
 
-    // Step 1 — Detect all AVG_Q columns dynamically
+    // Detect all available AVG_Q columns dynamically
     const avgColsInData = originalKeys.filter(k => k.toUpperCase().startsWith("AVG_Q"));
     const normalizeKey = k => k.toUpperCase().replace(/[-_]/g, "");
     const avgColsSorted = monthOrder.filter(m =>
@@ -507,33 +508,33 @@ async function loadData(view) {
     const last5AvgCols = avgColsSorted.slice(-5);
     console.log("✅ Default last 5 AVG_Q columns:", last5AvgCols);
 
-    // Step 2 — Build filters
+    // Build filters
     buildFilters();
 
-    // Step 3 — Force default filters (District subtotal + All Products + All values)
+    // Force default filters (District subtotal + All products + All values)
     setTimeout(() => {
       const getInputs = title =>
         Array.from(document.querySelectorAll(`#filtersContainer input[name='${title}']`));
 
-      // 1️⃣ Last 5 AVG_Q
+      // Last 5 AVG_Q columns
       getInputs("MONTH / YEAR").forEach(cb => {
         cb.checked = last5AvgCols.some(v => v.toUpperCase() === cb.value.toUpperCase());
       });
 
-      // 2️⃣ District subtotal
+      // District subtotal
       getInputs("TOTAL").forEach(cb => {
         if (cb.value.toUpperCase() === "DISTRICT") cb.checked = true;
       });
 
-      // 3️⃣ All Products selected
+      // All products selected
       getInputs("PRODUCT").forEach(cb => (cb.checked = true));
 
-      // 4️⃣ All States, Managers, Districts, Parties selected
+      // All states / managers / districts / parties selected
       ["STATE", "MANAGER_NAME", "DISTRICT", "PARTY_NAME"].forEach(f => {
         getInputs(f).forEach(cb => (cb.checked = true));
       });
 
-      // Save to localStorage for sync between Product ↔ SKU
+      // Save to localStorage
       const forced = {
         "MONTH / YEAR": last5AvgCols,
         "TOTAL": ["DISTRICT"],
@@ -545,10 +546,9 @@ async function loadData(view) {
       };
       localStorage.setItem("savedFilters", JSON.stringify(forced));
 
-      // Finally render
+      // Render
       applyFilters(false);
     }, 600);
-
   } catch (err) {
     console.error("Error loading data:", err);
     loader.textContent = "⚠ Error loading data: " + err.message;
@@ -561,7 +561,7 @@ async function loadData(view) {
 function clearFilters() {
   console.log("🧹 Resetting to default: District subtotal + All products + last 5 quarters");
   localStorage.removeItem("savedFilters");
-  loadData(currentView);  // reload same defaults
+  loadData(currentView);
 }
 
     // Step 4 — Apply saved filters or default 5 AVG columns
