@@ -385,7 +385,9 @@ setTimeout(() => {
         Array.from(document.querySelectorAll(`#filtersContainer input[name='${title}']`));
 
     const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
+    const defaultSaved = JSON.parse(localStorage.getItem("defaultSavedFilters") || "{}");
     const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
+
 
     const hasAnySavedSelected = Object.values(saved).some(
         arr => Array.isArray(arr) && arr.length > 0
@@ -462,9 +464,9 @@ setTimeout(() => {
                 )].map(i => i.value);
             });
 
-        localStorage.setItem("savedFilters", JSON.stringify(defaultSave));
+        localStorage.setItem("defaultSavedFilters", JSON.stringify(defaultSave));
         localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols));
-    }
+        }
 
     // Render table using the final applied defaults
     applyFilters(false);
