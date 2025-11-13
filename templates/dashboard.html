@@ -400,46 +400,62 @@ async function loadData(view) {
           }
         });
       } else {
-        console.log("Applying default selections (no saved filters found).");
+        console.log("Applying new default behavior (STATE + ALL IN CASES + last 5 AVG_Q + TOTAL=STATE).");
 
-        // check all checkboxes by default
-        document.querySelectorAll(`#filtersContainer input[type='checkbox']`).forEach(cb => {
-            cb.checked = true;
-        });
+// --- 0) UNCHECK EVERYTHING FIRST ---
+document.querySelectorAll(`#filtersContainer input[type='checkbox']`).forEach(cb => {
+    cb.checked = false;
+});
 
-        // TOTAL default to STATE, MANAGER_NAME, DISTRICT
-        const defaultTotalCols = ["STATE", "MANAGER_NAME", "DISTRICT"];
-        getInputs("TOTAL").forEach(cb => {
-            cb.checked = defaultTotalCols.includes(String(cb.value).toUpperCase().trim());
-        });
-        const totalAllCb = document.getElementById(`all_TOTAL`);
-        if(totalAllCb) {
-            const totalOptions = getInputs("TOTAL");
-            totalAllCb.checked = totalOptions.length > 0 && totalOptions.every(cb => cb.checked);
-        }
+// --- 1) STATE = ALL SELECTED ---
+getInputs("STATE").forEach(cb => cb.checked = true);
 
-        // MONTH / YEAR: select ALL month/year options by default
-        getInputs("MONTH / YEAR").forEach(cb => { cb.checked = true; });
-        const monthYearAllCb = document.getElementById(`all_MONTH_/_YEAR`);
-        if(monthYearAllCb) {
-            const monthYearOptions = getInputs("MONTH / YEAR");
-            monthYearAllCb.checked = monthYearOptions.length > 0 && monthYearOptions.every(cb => cb.checked);
-        }
+// --- 2) PRODUCT = ONLY “ALL IN CASES” ---
+getInputs("PRODUCT").forEach(cb => {
+    if (cb.value.toUpperCase().trim() === "ALL IN CASES") {
+        cb.checked = true;   // select only this one
+    } else {
+        cb.checked = false;  // unselect all others
+    }
+});
 
-        // COMPARISON: No default selection
-        getInputs("COMPARISON").forEach(cb => cb.checked = false);
-        const comparisonAllCb = document.getElementById(`all_COMPARISON`);
-        if (comparisonAllCb) comparisonAllCb.checked = false;
+// --- 3) MONTH / YEAR = ONLY LAST 5 AVG_Q COLUMNS ---
+getInputs("MONTH / YEAR").forEach(cb => {
+    if (last5AvgCols.map(x => x.toUpperCase()).includes(cb.value.toUpperCase())) {
+        cb.checked = true;
+    }
+});
 
-        // Save these initial defaults
-        const initialDefaults = {};
-        [...document.querySelectorAll("#filtersContainer .filter-box strong")].forEach(h => {
-            const title = h.textContent.trim();
-            initialDefaults[title] = [...document.querySelectorAll(`input[name='${title}']:checked`)].map(i => i.value);
-        });
-        localStorage.setItem("savedFilters", JSON.stringify(initialDefaults));
-        localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols));
-      }
+// --- 4) TOTAL = ONLY STATE ---
+getInputs("TOTAL").forEach(cb => {
+    cb.checked = (cb.value.toUpperCase().trim() === "STATE");
+});
+
+// --- 5) COMPARISON = NONE ---
+getInputs("COMPARISON").forEach(cb => cb.checked = false);
+
+// --- Update “All” checkboxes correctly ---
+function updateAllBox(title) {
+    const allCb = document.getElementById(`all_${title.replace(/\s+/g,"_")}`);
+    if (!allCb) return;
+    const opts = getInputs(title);
+    allCb.checked = opts.length > 0 && opts.every(cb => cb.checked);
+}
+
+updateAllBox("STATE");
+updateAllBox("PRODUCT");
+updateAllBox("MONTH / YEAR");
+updateAllBox("TOTAL");
+
+// Save defaults for next load
+const defaultSave = {};
+[...document.querySelectorAll("#filtersContainer .filter-box strong")].forEach(h => {
+    const title = h.textContent.trim();
+    defaultSave[title] = [...document.querySelectorAll(`input[name='${title}']:checked`)].map(i => i.value);
+});
+localStorage.setItem("savedFilters", JSON.stringify(defaultSave));
+localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols));
+
 
       // Render table using currently selected/saved/default filters
       applyFilters(false);
