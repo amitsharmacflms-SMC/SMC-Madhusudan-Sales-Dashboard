@@ -479,6 +479,7 @@ function buildFilters() {
 
 /* -------------------- LOAD DATA (final: show last 5 AVG_Q columns by default) -------------------- */
 /* -------------------- LOAD DATA (auto District subtotal + ALL products + latest 5 quarters) -------------------- */
+/* -------------------- LOAD DATA (final - District subtotal + ALL products + last 5 quarters) -------------------- */
 async function loadData(view) {
   const loader = document.getElementById("loader");
   loader.classList.remove("hidden");
@@ -497,64 +498,62 @@ async function loadData(view) {
     originalKeys = Object.keys(data[0] || {});
     console.log("originalKeys:", originalKeys);
 
-    /* 🔹 Step 1 — Detect all available AVG_Q columns (case/dash/underscore tolerant) */
+    // Step 1 — detect all AVG_Q columns (normalize case + underscores)
     const avgColsInData = originalKeys.filter(k => k.toUpperCase().startsWith("AVG_Q"));
     const normalizeKey = k => k.toUpperCase().replace(/[-_]/g, "");
     const avgColsSorted = monthOrder.filter(m =>
       avgColsInData.some(k => normalizeKey(k) === normalizeKey(m))
     );
-    const last5AvgCols = avgColsSorted.slice(-5);
-    localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols));
-    console.log("✅ Default last 5 AVG_Q columns:", last5AvgCols);
 
-    /* 🔹 Step 2 — Build filters */
+    // Step 2 — pick last 5 quarters
+    const last5AvgCols = avgColsSorted.slice(-5);
+    console.log("✅ Default last 5 AVG_Q columns detected:", last5AvgCols);
+    localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols));
+
+    // Step 3 — build filters fresh
     buildFilters();
 
-    /* 🔹 Step 3 — Apply saved filters or defaults */
+    // Step 4 — force defaults after filters are built
     setTimeout(() => {
-      const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
-      const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
       const getInputs = title =>
         Array.from(document.querySelectorAll(`#filtersContainer input[name='${title}']`));
 
-      // Check if any filters are already saved
-      const hasAnySelected = Object.values(saved).some(arr => Array.isArray(arr) && arr.length > 0);
+      console.log("🧩 Applying forced defaults: 5 QTR + District + All products");
 
-      if (hasAnySelected) {
-        console.log("Restoring saved filters:", saved);
-        Object.entries(saved).forEach(([title, values]) => {
-          getInputs(title).forEach(cb => {
-            cb.checked = values.some(v => v.toUpperCase() === cb.value.toUpperCase());
-          });
-        });
-      } else {
-        /* 🔹 Step 4 — Default setup (District subtotal + All products + latest 5 quarters) */
-        console.log("Applying default filters: last 5 AVG_Q + District totals + All products");
+      // ✅ Last 5 quarters checked
+      getInputs("MONTH / YEAR").forEach(cb => {
+        cb.checked = last5AvgCols.some(v => v.toUpperCase() === cb.value.toUpperCase());
+      });
 
-        // ✅ Default last 5 quarters
-        getInputs("MONTH / YEAR").forEach(cb => {
-          cb.checked = defaults.some(v => v.toUpperCase() === cb.value.toUpperCase());
-        });
+      // ✅ Group by District subtotal
+      getInputs("TOTAL").forEach(cb => {
+        cb.checked = (cb.value.toUpperCase() === "DISTRICT");
+      });
 
-        // ✅ Default subtotal by District
-        getInputs("TOTAL").forEach(cb => {
-          if (cb.value.toUpperCase() === "DISTRICT") cb.checked = true;
-        });
+      // ✅ All products checked
+      getInputs("PRODUCT").forEach(cb => (cb.checked = true));
 
-        // ✅ Default ALL products checked
-        getInputs("PRODUCT").forEach(cb => {
-          cb.checked = true;
-        });
+      // ✅ All States, Managers, Districts, Parties also checked (optional but safer)
+      ["STATE", "MANAGER_NAME", "DISTRICT", "PARTY_NAME"].forEach(f => {
+        getInputs(f).forEach(cb => (cb.checked = true));
+      });
 
-        // ✅ Optionally: also show ALL State/Manager/District/Party
-        ["STATE", "MANAGER_NAME", "DISTRICT", "PARTY_NAME"].forEach(f => {
-          getInputs(f).forEach(cb => (cb.checked = true));
-        });
-      }
+      // ✅ Save this as the new baseline
+      const forcedDefaults = {
+        "MONTH / YEAR": last5AvgCols,
+        "TOTAL": ["DISTRICT"],
+        "PRODUCT": getInputs("PRODUCT").map(cb => cb.value),
+        "STATE": getInputs("STATE").map(cb => cb.value),
+        "MANAGER_NAME": getInputs("MANAGER_NAME").map(cb => cb.value),
+        "DISTRICT": getInputs("DISTRICT").map(cb => cb.value),
+        "PARTY_NAME": getInputs("PARTY_NAME").map(cb => cb.value)
+      };
+      localStorage.setItem("savedFilters", JSON.stringify(forcedDefaults));
 
-      // 🔹 Step 5 — Render table
+      // ✅ Render table now
       applyFilters(false);
-    }, 500);
+
+    }, 800); // Wait longer to ensure filters fully rendered
 
   } catch (err) {
     console.error("Error loading data:", err);
