@@ -301,8 +301,13 @@ function buildFilters() {
   }
 
   // month/avg columns present in the data (preserve order in monthOrder)
-  const actualMonthYearCols = originalKeys.filter(k => monthOrder.includes(k.toUpperCase())).sort((a,b) => monthOrder.indexOf(a.toUpperCase()) - monthOrder.indexOf(b.toUpperCase()));
-  const actualComparisonCols = actualMonthYearCols.filter(c => !String(c).toUpperCase().startsWith("AVG_"));
+  const actualMonthYearCols =
+    monthOrder.filter(m => originalKeys.map(k=>k.toUpperCase()).includes(m.toUpperCase()));
+
+  const actualComparisonCols = actualMonthYearCols.filter(
+    c => !String(c).toUpperCase().startsWith("AVG_")
+);
+
 
   order.forEach(f => {
     if (f === "SHOW COLUMNS") makeBox(f, textCols, true);
