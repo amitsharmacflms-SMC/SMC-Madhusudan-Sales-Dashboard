@@ -608,7 +608,7 @@ setTimeout(() => {
 
 
 
-/* -------------------- Apply filters + cascade (with save) -------------------- */
+/* -------------------- Apply filters + smart cascade (keeps disabled options visible) -------------------- */
 function applyFilters(save = true) {
   showOverlay(120);
   requestAnimationFrame(() => {
@@ -627,33 +627,39 @@ function applyFilters(save = true) {
 
       const cascade =
         currentView === "product"
-          ? ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT", "PARTY_NAME"]
-          : ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT", "SKU", "PARTY_NAME"];
+          ? ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT"]
+          : ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT", "SKU"];
 
-      // initial filter
+      // Step 1 — filter the data based on current selection
       let filtered = [...fullData];
       cascade.forEach(f => {
         const sel = selected[f] || [];
         if (sel.length) filtered = filtered.filter(r => sel.includes(getVal(r, f)));
       });
 
-      // two-way cascade
+      // Step 2 — smart cascade: disable irrelevant options instead of hiding
       cascade.forEach(f => {
         const box = [...filters.querySelectorAll(".filter-box")].find(
           b => b.querySelector("strong")?.textContent.trim() === f
         );
         if (!box) return;
         const valid = new Set(filtered.map(r => getVal(r, f)).filter(Boolean));
+
         box.querySelectorAll(`input[name='${f}']`).forEach(cb => {
+          const value = cb.value;
           const label = cb.closest("label");
-          if (valid.has(cb.value)) label.style.display = "";
-          else {
-            label.style.display = "none";
-            cb.checked = false;
+
+          if (valid.has(value) || cb.checked) {
+            cb.disabled = false;
+            label.style.opacity = "1";
+          } else {
+            cb.disabled = true;
+            label.style.opacity = "0.4";
           }
         });
       });
 
+      // Step 3 — re-render table
       renderTable(filtered, selected);
     } finally {
       hideOverlay();
