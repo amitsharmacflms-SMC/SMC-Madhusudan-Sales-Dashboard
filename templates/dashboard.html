@@ -498,11 +498,18 @@ async function loadData(view) {
 
     // Step 1 — Detect all available AVG_Q columns
     const avgColsInData = originalKeys.filter(k => k.toUpperCase().startsWith("AVG_Q"));
-    // Step 2 — Sort by monthOrder and pick last 5
-    const avgColsSorted = monthOrder.filter(m =>
-      avgColsInData.some(k => k.toUpperCase() === m.toUpperCase())
-    );
-    const last5AvgCols = avgColsSorted.slice(-5);
+
+// normalize both sides for loose matching (remove dashes/underscores)
+function normalizeKey(k) {
+  return k.toUpperCase().replace(/[-_]/g, "");
+}
+
+const avgColsSorted = monthOrder.filter(m =>
+  avgColsInData.some(k => normalizeKey(k) === normalizeKey(m))
+);
+
+const last5AvgCols = avgColsSorted.slice(-5);
+
     localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols));
     console.log("Default last 5 AVG_Q columns:", last5AvgCols);
 
