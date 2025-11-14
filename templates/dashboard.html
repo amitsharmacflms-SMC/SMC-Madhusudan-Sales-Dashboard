@@ -127,12 +127,14 @@
       </div>
 
       <div class="toolbar" style="display:flex;gap:8px;align-items:center">
-        <button id="exportBtn" class="btn btn-blue">Export</button>
-        <button id="clearBtn" class="btn btn-gray">Clear All Filters</button>
-        <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
-        <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
-        <button id="themeToggle" class="btn btn-gray">Dark Mode</button>
-      </div>
+    <button id="backBtn" class="btn btn-gray">← Back</button>
+    <button id="exportBtn" class="btn btn-blue">Export</button>
+    <button id="clearBtn" class="btn btn-gray">Clear All Filters</button>
+    <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
+    <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
+    <button id="themeToggle" class="btn btn-gray">Dark Mode</button>
+    </div>
+
     </div>
   </header>
 
@@ -208,7 +210,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
   loadData(currentView);
 });
 
-function initUI(){
+function initUI() {
+  document.getElementById("backBtn").addEventListener("click", () => {
+      window.history.back();   // << Back Button Logic
+  });
+
   document.getElementById("toggleFiltersBtn").addEventListener("click", toggleFilters);
   document.getElementById("clearBtn").addEventListener("click", ()=>{ runIdle(clearFilters); });
   document.getElementById("exportBtn").addEventListener("click", ()=>{ showOverlay(120); runIdle(exportExcel); });
@@ -220,6 +226,9 @@ function initUI(){
       currentView === "product" ? "Switch to SKU View" : "Switch to Product View";
     loadData(currentView);
   });
+
+  // dark mode setup...
+}
 
   const themeBtn = document.getElementById("themeToggle");
   if(localStorage.getItem("theme")==="dark"){ document.documentElement.classList.add("dark-mode"); themeBtn.textContent = "Light Mode"; }
