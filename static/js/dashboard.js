@@ -39,7 +39,8 @@
   // ---------- Init ----------
   document.addEventListener('DOMContentLoaded', ()=>{
     initUI();
-    requestAnimationFrame(()=>{ loadData(currentView); });
+    requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ loadData(currentView); });
+});
   });
 
   function initUI(){
