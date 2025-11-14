@@ -32,7 +32,7 @@
     <div class="container header-row" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;">
       <div style="display:flex;align-items:center">
         <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="logo" style="height:40px;">
-        <h1 style="font-size:1.05rem;margin-left:8px;color:var(--navy)">SMC - Madhusudan Sales Dashboard</h1>
+        <h1 style="font-size:1.05rem;margin-left:8px;color:var(--navy)">SMC Madhusudan Sales Dashboard</h1>
       </div>
 
       <div class="toolbar" style="display:flex;gap:8px;align-items:center">
@@ -71,6 +71,6 @@
   </footer>
 
   <!-- Dashboard logic (deferred, placed at bottom) -->
-  <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
-</body>
+    <script src="{{ url_for(\'static\', filename=\'js/dashboard.js\') }}" defer></script>
+\1
 </html>

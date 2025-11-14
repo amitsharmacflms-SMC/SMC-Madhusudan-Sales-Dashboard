@@ -2,6 +2,8 @@
 (function(){
   'use strict';
 
+
+
   // ---------- Config ----------
   let currentView = 'product';
   let fullData = [];
