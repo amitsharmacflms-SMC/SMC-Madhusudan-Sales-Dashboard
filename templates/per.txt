@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SMC Madhusudan Sales Dashboard</title>
+
+  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+  <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
+
+  <!-- ExcelJS + FileSaver for export with styling -->
+  <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+  <style>
+    /* ---------- TABLE + FILTERS ---------- */
+    th, td { padding:4px 6px !important; height:22px !important; font-size:0.85rem; transition:background-color .35s ease; }
+    .subtotal-row td, .grandtotal-row td { height:26px !important; font-weight:700; transition:background-color .35s ease; }
+
+    #filtersWrapper { transition:all .35s ease; opacity:1; max-height:600px; overflow:hidden; }
+    #filtersWrapper.hidden { opacity:0; max-height:0; overflow:hidden; }
+
+
+
+
+/* ---------- MOBILE FILTER ALIGNMENT + PERFORMANCE ---------- */
+@media (max-width: 768px) {
+  body {
+    font-size: 0.9rem;
+    overflow-x: hidden;
+  }
+
+  header {
+    flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  /* Filters scroll vertically and look clean */
+  #filtersContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    background: #f9fafb;
+    border-radius: 10px;
+    max-height: 65vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .filter-box {
+    width: 100%;
+    border: 2px solid #1e3a8a;
+    border-radius: 8px;
+    background: #fff;
+    padding: 8px 10px;
+    box-shadow: none;
+  }
+
+  .filter-box strong {
+    display: block;
+    font-size: 0.9rem;
+    text-align: left;
+    color: #1e3a8a;
+    font-weight: 700;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 3px;
+  }
+
+  .filter-box label {
+    display: inline-block;
+    font-size: 0.85rem;
+    color: #000;
+    padding: 2px 4px;
+    margin: 2px 3px;
+    border-radius: 4px;
+    background: #f3f4f6;
+  }
+
+  .filter-box input[type="checkbox"] {
+    margin-right: 4px;
+    transform: scale(1.1);
+  }
+
+  /* Scroll-friendly filters wrapper */
+  #filtersWrapper {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+
+  #filtersWrapper.active {
+    max-height: 600px;
+  }
+
+  .toolbar button {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+  }
+
+  /* Table scrolls and loads efficiently */
+  .table-wrapper {
+    max-height: 65vh;
+    overflow-x: auto;
+    overflow-y: auto;
+    background: #fff;
+  }
+
+  table th,
+  table td {
+    font-size: 0.75rem;
+    padding: 3px 4px;
+  }
+
+  /* Message for mobile users */
+  .mobile-tip {
+    display: block;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #4b5563;
+    background: #f3f4f6;
+    padding: 4px 6px;
+    border-radius: 6px;
+    margin: 8px auto;
+  }
+}
+
+
+
+
+
+
+    /* ---------- FILTER BOX VISUALS (Enhanced) ---------- */
+
+/* Base box design */
+.filter-box {
+  border: 2px solid #1e3a8a;            /* bold navy outline */
+  border-radius: 10px;
+  padding: 8px 10px;
+  min-width: 180px;
+  background: #fff;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.05);
+  transition: all 0.25s ease-in-out;
+}
+
+/* Hover highlight */
+.filter-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 10px rgba(0,0,0,0.08);
+  border-color: #1d4ed8;                /* brighter blue */
+}
+
+/* Label + title colors */
+.filter-box label {
+  color: #000;
+  font-weight: 600;
+  display: block;
+  padding: 3px 0;
+}
+.filter-box strong {
+  color: #1e3a8a;
+  font-weight: 800;
+  display: block;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  text-align: center;
+  border-bottom: 2px solid #e2e8f0;     /* subtle divider */
+  padding-bottom: 4px;
+}
+
+/* ---------- DARK MODE IMPROVEMENTS ---------- */
+
+/* In dark mode, filter boxes have darker background with same outlines */
+.dark-mode .filter-box {
+  background: #f9fafb;                 /* light gray background */
+  border-color: #1e3a8a;
+  box-shadow: 0 2px 5px rgba(255,255,255,0.1);
+}
+
+/* Ensure all filter text stays visible in dark mode */
+.dark-mode .filter-box label {
+  color: #000 !important;              /* always black text in dark mode */
+  font-weight: 600;
+}
+.dark-mode .filter-box strong {
+  color: #000 !important;              /* strong title black */
+  border-color: #e5e7eb;
+}
+
+
+    /* Sticky Header - ensure visible while scrolling */
+    table { border-collapse:collapse; width:100%; }
+    thead th {
+      position: sticky;
+      top:0;
+      z-index:50;
+      background: linear-gradient(90deg,#eef2ff,#e0e7ff);
+      text-transform: uppercase; /* All headers capital letters */
+      text-align: center !important; /* Center align all headers */
+    }
+    .dark-mode thead th { background:#0b1220; color:#cfe8ff; }
+
+    th.sortable { cursor:pointer; }
+    th.sortable .sort-icon { margin-left:6px; color:#6b7280; font-size:0.85rem; }
+
+    /* Scrollbar style */
+    .table-wrapper::-webkit-scrollbar { height:10px; width:10px; }
+    .table-wrapper::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#2563eb,#4f46e5); border-radius:8px; }
+
+    /* Background color coding for values */
+    td.bg-pos { background-color:#d1fae5 !important; }  /* light green */
+    td.bg-neg { background-color:#fee2e2 !important; }  /* light red */
+
+    /* Overlay message */
+    .overlay::after {
+      content: "Processing...";
+      display:inline-block;
+      padding:8px 14px;
+      border-radius:8px;
+      background: rgba(0,0,0,.6);
+      color:#fff;
+      font-weight:700;
+    }
+
+    /* compact header and row */
+    header .logo { height:40px; }
+    header h1 { font-size:1.05rem; font-weight:800; color:#1e40af; margin-left:8px; }
+
+    /* ensure numeric cells center */
+    td.numeric { text-align:center !important; vertical-align:middle; font-weight:700; color:#000; }
+
+    /* for dark mode: ensure numeric text is black, even with color coding */
+    .dark-mode td.bg-pos,
+    .dark-mode td.bg-neg {
+      color: #000 !important;
+    }
+
+
+/* ---------- DARK MODE VISIBILITY IMPROVEMENTS ---------- */
+
+
+/* Make text (non-numeric) cells have black background + white font */
+.dark-mode td:not(.numeric):not(.bg-pos):not(.bg-neg):not(.subtotal-label) {
+  background-color: #000 !important;
+  color: #fff !important;
+}
+
+/* Improve header contrast */
+.dark-mode th {
+  background-color: #111827 !important; /* dark navy */
+  color: #f9fafb !important;            /* white text */
+  border-bottom: 1px solid #1f2937;
+}
+
+/* Ensure subtotal & total rows remain visible */
+.dark-mode .subtotal-row td,
+.dark-mode .grandtotal-row td {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+.dark-mode td {
+  border-bottom: 1px solid #1e293b;
+}
+
+/* Dark mode specific for subtotal/total labels */
+.dark-mode .subtotal-row td.subtotal-label {
+    background-color: #dbeafe !important; /* Lighter blue for the label background */
+    color: #1e3a8a !important; /* Dark blue text */
+}
+.dark-mode .grandtotal-row td.subtotal-label {
+    background-color: #e9d5ff !important; /* Lighter purple for grand total label background */
+    color: #4c1d95 !important; /* Dark purple text */
+}
+
+
+    /* small responsive tweaks */
+    @media(max-width:900px){ th, td { font-size:.78rem; padding:6px 8px; } }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="container header-row" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;">
+      <div style="display:flex;align-items:center">
+        <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="logo">
+        <h1>SMC Madhusudan Sales Dashboard</h1>
+      </div>
+
+      <div class="toolbar" style="display:flex;gap:8px;align-items:center">
+        <button id="exportBtn" class="btn btn-blue">Export</button>
+        <button id="clearBtn" class="btn btn-gray">Clear All Filters</button>
+        <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
+        <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
+        <button id="themeToggle" class="btn btn-gray">Dark Mode</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="max-width:1500px;margin:12px auto;padding:0 12px;">
+    <section>
+      <div id="filtersWrapper"><div id="filtersContainer" class="filter-bar" style="display:flex;gap:12px;padding:10px;background:#fff;border-radius:10px;overflow-x:auto;"></div></div>
+
+      <div id="loader" class="loader" style="padding:8px;color:#6b7280">Loading data...</div>
+      <div id="overlayLoader" class="overlay hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:3000;"></div>
+
+      <div class="table-wrapper" style="margin-top:10px;background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);overflow:auto;max-height:75vh;">
+        <table id="dataTable" class="hidden" role="table" aria-label="data table" style="min-width:1100px;">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+          <tfoot id="tableFoot"></tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer style="text-align:center;padding:12px;margin-top:16px;border-top:1px solid #e5e7eb;background:#f9fafb">
+    <p>© {{ current_year }} Created & Hosted by <strong>Amit Sharma</strong></p>
+  </footer>
+
+<script>
+/* -------------------- Config & helpers -------------------- */
+let currentView = "product";
+let fullData = [];
+let originalKeys = [];
+let currentGroupedData = []; // Global to store grouped data for sorting
+let currentSelectedFilters = {}; // Global to store current selected filters
+
+// Added PARTY_NAME back to baseTextCols
+const baseTextCols = ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
+const monthOrder = [
+  "APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
+  "OCT-23","NOV-23","DEC-23","AVG_Q3_2023-24","JAN-24","FEB-24","MAR-24","AVG_Q4_2023-24","AVG_YEAR_2023-24",
+  "APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25","OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25",
+  "JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25","APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","OCT-25","AVG_Q3_2025-26","AVG_YEAR_2025-26"
+];
+
+const norm = s => String(s||"").toUpperCase().trim();
+const getVal = (r,k) => r?.[k] ?? r?.[k.toLowerCase()] ?? r?.[k.toUpperCase()] ?? "";
+
+/* overlay helpers */
+let __overlayTimer = null;
+function showOverlay(delay=150){
+  clearTimeout(__overlayTimer);
+  __overlayTimer = setTimeout(()=>document.getElementById("overlayLoader").classList.remove("hidden"), delay);
+}
+function hideOverlay(){
+  clearTimeout(__overlayTimer);
+  document.getElementById("overlayLoader").classList.add("hidden");
+}
+
+/* debounce + idle */
+function debounce(fn, wait=350){ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>fn(...a), wait); }; };
+function runIdle(fn){ if("requestIdleCallback" in window) requestIdleCallback(fn, {timeout:300}); else setTimeout(fn, 200); };
+
+/* -------------------- Initialization -------------------- */
+document.addEventListener("DOMContentLoaded", ()=>{
+  initUI();
+  loadData(currentView);
+});
+
+function initUI(){
+  document.getElementById("toggleFiltersBtn").addEventListener("click", toggleFilters);
+  document.getElementById("clearBtn").addEventListener("click", ()=>{ runIdle(clearFilters); });
+  document.getElementById("exportBtn").addEventListener("click", ()=>{ showOverlay(120); runIdle(exportExcel); });
+  document.getElementById("toggleViewBtn").addEventListener("click", () => {
+    localStorage.removeItem("savedFilters");
+    localStorage.removeItem("default_avg_cols"); // Clear default avg cols too
+    currentView = currentView === "product" ? "sku" : "product";
+    document.getElementById("toggleViewBtn").textContent =
+      currentView === "product" ? "Switch to SKU View" : "Switch to Product View";
+    loadData(currentView);
+  });
+
+
+  const themeBtn = document.getElementById("themeToggle");
+  if(localStorage.getItem("theme")==="dark"){ document.documentElement.classList.add("dark-mode"); themeBtn.textContent = "Light Mode"; }
+  themeBtn.addEventListener("click", ()=>{
+    const html = document.documentElement;
+    if(html.classList.contains("dark-mode")){
+      html.classList.remove("dark-mode"); localStorage.setItem("theme","light"); themeBtn.textContent="Dark Mode";
+    } else {
+      html.classList.add("dark-mode"); localStorage.setItem("theme","dark"); themeBtn.textContent="Light Mode";
+    }
+  });
+}
+
+/* toggle filters (completely hide or show) */
+let filtersVisible = window.innerWidth > 768; // visible on desktop, hidden on mobile initially
+
+function toggleFilters() {
+  const wrapper = document.getElementById("filtersWrapper");
+  const btn = document.getElementById("toggleFiltersBtn");
+
+  if (filtersVisible) {
+    wrapper.classList.remove("active");
+    wrapper.style.maxHeight = "0";
+    btn.textContent = "Show Filters";
+  } else {
+    wrapper.classList.add("active");
+    wrapper.style.maxHeight = "600px";
+    btn.textContent = "Hide Filters";
+  }
+
+  filtersVisible = !filtersVisible;
+}
+
+/* clear filters */
+function clearFilters(){
+  console.log("🧹 Resetting to default: All data in all filters.");
+  localStorage.removeItem("savedFilters");
+  localStorage.removeItem("default_avg_cols"); // Clear the default_avg_cols
+  loadData(currentView);
+}
+
+/* -------------------- BUILD FILTER UI (final fixed version) -------------------- */
+function buildFilters() {
+  const filters = document.getElementById("filtersContainer");
+  filters.innerHTML = "";
+  const headers = originalKeys.map(norm);
+  const textCols = baseTextCols.filter(c => headers.includes(c)); // baseTextCols now includes PARTY_NAME
+  const order =
+    currentView === "product"
+      ? ["SHOW COLUMNS","MONTH / YEAR","STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","COMPARISON","TOTAL"]
+      : ["SHOW COLUMNS","MONTH / YEAR","STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","COMPARISON","TOTAL"];
+
+  const colors = ["#fff7ed","#ecfdf5","#e0f2fe","#fdf2f8","#fef3c7","#e0f2fe","#f3e8ff","#fef2f2","#f3f4f6"];
+  let ci = 0;
+
+  function makeBox(title, vals = [], checkAll = false) {
+    const box = document.createElement("div");
+    box.className = "filter-box";
+    box.style.background = colors[ci++ % colors.length];
+
+    const allId = `all_${title.replace(/\s+/g,"_")}`;
+
+    let optionsHtml = "";
+    if (title === "MONTH / YEAR" || title === "COMPARISON") {
+        optionsHtml = vals
+            .map(v => `<label><input type="checkbox" name="${title}" value="${v}"> ${v.toUpperCase()}</label>`)
+            .join("");
+    } else {
+        optionsHtml = vals
+            .map(v => `<label><input type="checkbox" name="${title}" value="${v}" ${checkAll ? "checked" : ""}> ${v}</label>`)
+            .join("");
+    }
+
+
+    box.innerHTML = `
+      <strong>${title}</strong>
+      <label class="all-label"><input type="checkbox" data-all="${title}" id="${allId}" ${checkAll ? "checked" : ""}> All</label>
+      <div class="options" style="max-height:220px;overflow:auto;padding-right:6px;">${optionsHtml}</div>`;
+    filters.appendChild(box);
+  }
+
+  // Get only month/avg columns present in the data for MONTH / YEAR filter
+  const actualMonthYearCols = originalKeys.filter(k => monthOrder.includes(k.toUpperCase())).sort((a,b) => monthOrder.indexOf(a.toUpperCase()) - monthOrder.indexOf(b.toUpperCase()));
+  // Get only actual months (not AVG) for COMPARISON filter
+  const actualComparisonCols = actualMonthYearCols.filter(c => !c.toUpperCase().startsWith("AVG_"));
+
+  order.forEach(f => {
+    if (f === "SHOW COLUMNS") makeBox(f, textCols, true); // Now includes PARTY_NAME, check all by default
+    else if (f === "MONTH / YEAR") makeBox(f, actualMonthYearCols, false); // Do NOT check all by default, set later
+    else if (f === "COMPARISON") makeBox(f, actualComparisonCols, false); // Do NOT check all by default, set later
+    else if (f === "TOTAL") {
+        const totalOpts = textCols.filter(c => c === "STATE" || c === "MANAGER_NAME" || c === "DISTRICT");
+        makeBox(f, textCols, false); // Set to default STATE, MANAGER_NAME, DISTRICT later
+    }
+    else if (textCols.includes(f)) {
+      const vals = [...new Set(fullData.map(r => getVal(r, f)))].filter(Boolean).sort();
+      makeBox(f, vals, true); // Check all by default for other text columns
+    }
+  });
+
+  // "All" checkbox listeners
+  filters.querySelectorAll("input[data-all]").forEach(cb => {
+    cb.addEventListener("change", e => {
+      const grp = e.target.dataset.all;
+      const checked = e.target.checked;
+      filters.querySelectorAll(`input[name='${grp}']`).forEach(i => (i.checked = checked));
+      runIdle(applyFilters);
+    });
+  });
+
+  filters.addEventListener(
+    "change",
+    debounce(() => {
+      runIdle(() => applyFilters()); // applyFilters calls showOverlay
+    }, 300)
+  );
+}
+
+
+
+
+
+
+/* -------------------- LOAD DATA -------------------- */
+async function loadData(view) {
+  const loader = document.getElementById("loader");
+  loader.classList.remove("hidden");
+  loader.textContent = "Loading data...";
+  showOverlay(100); // Show overlay at the start of data loading
+
+  try {
+    const res = await fetch(`/get_data/${view}`);
+    if (!res.ok) throw new Error("Server returned " + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) {
+      loader.textContent = "No data found";
+      hideOverlay();
+      return;
+    }
+
+    // Store and clean
+    fullData = data;
+    originalKeys = Object.keys(data[0] || {});
+    console.log("originalKeys:", originalKeys);
+
+    /* Step 1 — Detect all AVG_Q columns dynamically */
+    const avgColsInData = originalKeys.filter(k => k.toUpperCase().startsWith("AVG_Q"));
+    const normalizeKey = k => k.toUpperCase().replace(/[-_]/g, "");
+    const avgColsSorted = monthOrder.filter(m =>
+      avgColsInData.some(k => normalizeKey(k) === normalizeKey(m))
+    );
+    const last5AvgCols = avgColsSorted.slice(-5);
+    console.log("✅ Default last 5 AVG_Q columns:", last5AvgCols);
+
+    /* Step 2 — Build filters normally */
+    buildFilters(); // This will initially check "All" for most text filters
+
+    /* Step 3 — Apply saved filters or set initial defaults for MONTH / YEAR and TOTAL */
+    setTimeout(() => {
+      const getInputs = title =>
+        Array.from(document.querySelectorAll(`#filtersContainer input[name='${title}']`));
+
+      const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
+      const defaults = JSON.parse(localStorage.getItem("default_avg_cols") || "[]");
+
+      const hasAnySavedSelected = Object.values(saved).some(arr => Array.isArray(arr) && arr.length > 0);
+
+      if (hasAnySavedSelected) {
+        console.log("Restoring saved filters:", saved);
+        Object.entries(saved).forEach(([title, values]) => {
+          getInputs(title).forEach(cb => {
+            cb.checked = values.some(v => v.toUpperCase() === cb.value.toUpperCase());
+          });
+          // Also update the 'All' checkbox state based on current selections
+          const allCb = document.getElementById(`all_${title.replace(/\s+/g,"_")}`);
+          if (allCb) {
+              const allOptions = getInputs(title);
+              allCb.checked = allOptions.every(cb => cb.checked);
+          }
+        });
+      } else {
+        console.log("Applying default selections (no saved filters found).");
+
+        // Set ALL checkboxes for ALL filters
+        document.querySelectorAll(`#filtersContainer input[type='checkbox']`).forEach(cb => {
+            cb.checked = true;
+        });
+
+        // Special handling for TOTAL: default to STATE, MANAGER_NAME, DISTRICT
+        const defaultTotalCols = ["STATE", "MANAGER_NAME", "DISTRICT"];
+        getInputs("TOTAL").forEach(cb => {
+            cb.checked = defaultTotalCols.includes(cb.value.toUpperCase());
+        });
+        // Update 'All' checkbox for TOTAL filter after setting defaults
+        const totalAllCb = document.getElementById(`all_TOTAL`);
+        if(totalAllCb) {
+            const totalOptions = getInputs("TOTAL");
+            totalAllCb.checked = totalOptions.every(cb => cb.checked); // Should be false if not all are checked
+        }
+
+        // MONTH / YEAR: select ALL month/year options by default when no filters are saved
+        getInputs("MONTH / YEAR").forEach(cb => {
+            cb.checked = true;
+        });
+        // Update 'All' checkbox for MONTH / YEAR filter
+        const monthYearAllCb = document.getElementById(`all_MONTH_/_YEAR`);
+        if(monthYearAllCb) {
+            const monthYearOptions = getInputs("MONTH / YEAR");
+            monthYearAllCb.checked = monthYearOptions.every(cb => cb.checked);
+        }
+
+        // COMPARISON: No default selection, keep all unchecked
+        getInputs("COMPARISON").forEach(cb => {
+          cb.checked = false;
+        });
+        const comparisonAllCb = document.getElementById(`all_COMPARISON`);
+        if (comparisonAllCb) comparisonAllCb.checked = false;
+
+
+        // Save these initial defaults after setting them
+        const initialDefaults = {};
+        [...document.querySelectorAll("#filtersContainer .filter-box strong")].forEach(h => {
+            const title = h.textContent.trim();
+            initialDefaults[title] = [...document.querySelectorAll(`input[name='${title}']:checked`)].map(i => i.value);
+        });
+        localStorage.setItem("savedFilters", JSON.stringify(initialDefaults));
+        localStorage.setItem("default_avg_cols", JSON.stringify(last5AvgCols)); // Still save last 5 AVG, but not apply by default on clear
+      }
+      // Render the table with the applied (saved or default) filters
+      applyFilters(false);
+    }, 600);
+
+  } catch (err) {
+    console.error("Error loading data:", err);
+    loader.textContent = "⚠ Error loading data: " + err.message;
+  } finally {
+    hideOverlay(); // Ensure overlay is hidden
+    setTimeout(() => loader.classList.add("hidden"), 400); // Hide loader after content is shown
+  }
+}
+
+
+/* -------------------- Apply filters + smart cascade (keeps disabled options visible) -------------------- */
+function applyFilters(save = true) {
+  showOverlay(120);
+  requestAnimationFrame(() => {
+    try {
+      const filters = document.getElementById("filtersContainer");
+      const selected = {};
+      [...filters.querySelectorAll(".filter-box strong")].forEach(h => {
+        const title = h.textContent.trim();
+        selected[title] = [...filters.querySelectorAll(`input[name='${title}']:checked`)].map(
+          i => i.value
+        );
+      });
+
+      // ✅ Save selected filters (for syncing Product ↔ SKU)
+      if (save) localStorage.setItem("savedFilters", JSON.stringify(selected));
+      currentSelectedFilters = selected; // Store globally for sorting
+
+      const cascade =
+        currentView === "product"
+          ? ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT", "PARTY_NAME"]
+          : ["STATE", "MANAGER_NAME", "DISTRICT", "PRODUCT", "SKU", "PARTY_NAME"];
+
+      // Step 1 — filter the data based on current selection
+      let filtered = [...fullData];
+      cascade.forEach(f => {
+        const sel = selected[f] || [];
+        if (sel.length) filtered = filtered.filter(r => sel.includes(getVal(r, f)));
+      });
+
+      // Step 2 — smart cascade: disable irrelevant options instead of hiding
+      cascade.forEach(f => {
+        const box = [...filters.querySelectorAll(".filter-box")].find(
+          b => b.querySelector("strong")?.textContent.trim() === f
+        );
+        if (!box) return;
+        const valid = new Set(filtered.map(r => getVal(r, f)).filter(Boolean));
+
+        box.querySelectorAll(`input[name='${f}']`).forEach(cb => {
+          const value = cb.value;
+          const label = cb.closest("label");
+
+          if (valid.has(value) || cb.checked) {
+            cb.disabled = false;
+            label.style.opacity = "1";
+          } else {
+            cb.disabled = true;
+            label.style.opacity = "0.4";
+          }
+        });
+        // Update the 'All' checkbox based on currently enabled/checked options
+        const allCb = document.getElementById(`all_${f.replace(/\s+/g,"_")}`);
+        if(allCb) {
+            const options = box.querySelectorAll(`input[name='${f}']:not([disabled])`);
+            const checkedOptions = box.querySelectorAll(`input[name='${f}']:checked:not([disabled])`);
+            allCb.checked = (options.length > 0 && options.length === checkedOptions.length);
+        }
+      });
+
+      // Step 3 — re-render table
+      renderTable(filtered, selected);
+    } finally {
+      hideOverlay();
+    }
+  });
+}
+
+
+function renderTable(dataToRender, selected, alreadyGrouped = false){
+  const tHead = document.getElementById("tableHead");
+  const tBody = document.getElementById("tableBody");
+  const tFoot = document.getElementById("tableFoot");
+
+  const showCols = (selected["SHOW COLUMNS"] && selected["SHOW COLUMNS"].length) ? selected["SHOW COLUMNS"] : baseTextCols;
+  const monthCols = (selected["MONTH / YEAR"] && selected["MONTH / YEAR"].length) ? selected["MONTH / YEAR"] : monthOrder.filter(m => originalKeys.includes(m.toUpperCase()));
+  const totalCols = selected["TOTAL"] || [];
+  let colsToShow = [...showCols, ...monthCols];
+
+  if((selected["COMPARISON"]||[]).length === 2) colsToShow.push("COMPARISON");
+  const firstTextColIndex = colsToShow.findIndex(c => showCols.includes(c));
+
+  // Utility: normalize key for any object access
+  function safeGet(obj, key) {
+    return obj[key] ?? obj[key.toUpperCase()] ?? obj[key.toLowerCase()] ?? 0;
+  }
+
+  // Header
+  const isNumericCol = c => monthOrder.includes(c) || c === "COMPARISON";
+  tHead.innerHTML = "<tr>" + colsToShow.map(c => `<th class="${isNumericCol(c)?'sortable':''}" data-col="${c}">${c}${isNumericCol(c)?'<span class="sort-icon">↕️</span>':''}</th>`).join("") + "</tr>";
+  addSorting(colsToShow);
+
+  let grouped = dataToRender;
+  if (!alreadyGrouped) {
+    // Group and sum by showCols
+    const map = new Map();
+    dataToRender.forEach(r=>{
+      const key = showCols.map(k => safeGet(r, k)).join("|");
+      if(!map.has(key)){
+        let obj = {};
+        showCols.forEach(k => obj[k] = safeGet(r,k));
+        monthCols.forEach(m => obj[m] = Number(safeGet(r,m)) || 0);
+        map.set(key, obj);
+      } else {
+        let obj = map.get(key);
+        monthCols.forEach(m => obj[m] = (obj[m] || 0) + (Number(safeGet(r,m)) || 0));
+      }
+    });
+    grouped = [...map.values()];
+  }
+
+  currentGroupedData = grouped;
+  let rowsHtml = "";
+
+  if(totalCols.length){
+    // group by totalCols
+    const groups = {};
+    grouped.forEach(row => {
+      const key = totalCols.map(k => row[k]).join("|");
+      if(!groups[key]) groups[key] = [];
+      groups[key].push(row);
+    });
+
+    Object.entries(groups).forEach(([gKey, rows])=>{
+      rows.forEach(r => rowsHtml += buildRowHtml(r, colsToShow, selected));
+      // subtotal for the group
+      const subtotal = {};
+      monthCols.forEach(m => {
+        subtotal[m] = rows.reduce((sum, r) => sum + (Number(safeGet(r,m)) || 0), 0);
+      });
+      const subCells = colsToShow.map((c, idx) => {
+        if(monthOrder.includes(c)){
+          const val = subtotal[c] || 0;
+          let prevVal = null;
+          for(let j = idx-1; j >= 0; j--) {
+            if(monthOrder.includes(colsToShow[j])) { prevVal = subtotal[colsToShow[j]]; break; }
+          }
+          const cls = (prevVal !== null) ? (val > prevVal ? 'bg-pos' : (val < prevVal ? 'bg-neg' : '')) : '';
+          return `<td class="numeric ${cls}">${val}</td>`;
+        }
+        if(idx === firstTextColIndex) return `<td class="subtotal-label">Subtotal</td>`;
+        return `<td></td>`;
+      }).join("");
+      rowsHtml += `<tr class="subtotal-row">${subCells}</tr>`;
+    });
+  } else {
+    grouped.forEach(r => rowsHtml += buildRowHtml(r, colsToShow, selected));
+  }
+
+  tBody.innerHTML = rowsHtml;
+
+  // Compute grand total for all data in all displayed columns
+  const totals = {};
+  monthCols.forEach(m => {
+    totals[m] = grouped.reduce((sum,r)=> sum + (Number(safeGet(r,m)) || 0), 0);
+  });
+
+  // Grand total row
+  const totalCells = colsToShow.map((c, idx) => {
+    if(monthOrder.includes(c)){
+      const val = totals[c] || 0;
+      let prevVal = null;
+      for(let j = idx-1; j >= 0; j--) {
+        if(monthOrder.includes(colsToShow[j])) { prevVal = totals[colsToShow[j]]; break; }
+      }
+      const cls = (prevVal !== null) ? (val > prevVal ? 'bg-pos' : (val < prevVal ? 'bg-neg' : '')) : '';
+      return `<td class="numeric ${cls}"><b>${val}</b></td>`;
+    }
+    if(idx === firstTextColIndex) return `<td class="subtotal-label"><b>TOTAL</b></td>`;
+    return `<td></td>`;
+  }).join("");
+  tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
+  document.getElementById("dataTable").classList.remove("hidden");
+}
+
+
+
+
+
+
+/* helper to build single row HTML */
+function buildRowHtml(row, colsToShow, selected){
+  const cells = colsToShow.map((c, idx) => {
+    if(c === "COMPARISON"){
+      const compare = (selected["COMPARISON"]||[]);
+      if(compare.length === 2){
+        const [a,b] = compare;
+        const diff = (Number(row[b])||0) - (Number(row[a])||0);
+        const cls = diff > 0 ? 'bg-pos' : (diff < 0 ? 'bg-neg' : '');
+        return `<td class="numeric ${cls}">${diff}</td>`;
+      } else return `<td class="numeric"></td>`; // Ensure numeric class for empty comparison too
+    }
+
+    if(monthOrder.includes(c)){
+      const num = Number(row[c]) || 0;
+      // find previous visible month in colsToShow
+      let prevVal = null;
+      for(let j = idx - 1; j >= 0; j--){
+        if(monthOrder.includes(colsToShow[j])){
+          prevVal = Number(row[colsToShow[j]]) || 0;
+          break;
+        }
+      }
+      const cls = (prevVal !== null) ? (num > prevVal ? 'bg-pos' : (num < prevVal ? 'bg-neg' : '')) : '';
+      return `<td class="numeric ${cls}">${num}</td>`;
+    }
+
+    // text columns
+    const txt = row[c] ?? "";
+    return `<td>${txt}</td>`;
+  });
+
+  return `<tr>${cells.join("")}</tr>`;
+}
+
+/* -------------------- Sorting on numeric columns -------------------- */
+function addSorting(colsToShow){
+  const table = document.getElementById("dataTable");
+  const ths = table.querySelectorAll("th.sortable");
+  ths.forEach(th => {
+    th.onclick = () => {
+      const col = th.getAttribute("data-col");
+      const asc = !th.classList.contains("asc");
+
+      // Reset all sort icons
+      table.querySelectorAll("th .sort-icon").forEach(icon => icon.textContent = '↕️');
+      table.querySelectorAll("th").forEach(t => t.classList.remove("asc", "desc"));
+
+      // Set current sort icon
+      th.classList.add(asc ? "asc" : "desc");
+      const sortIcon = th.querySelector('.sort-icon');
+      if (sortIcon) sortIcon.textContent = asc ? '⬆️' : '⬇️';
+
+      // Sort the globally stored grouped data
+      let sortedGrouped = [...currentGroupedData];
+
+      sortedGrouped.sort((a, b) => {
+        const A = Number(a[col]) || 0;
+        const B = Number(b[col]) || 0;
+        return asc ? A - B : B - A;
+      });
+
+      // Re-render the table with the sorted grouped data
+      // Pass alreadyGrouped = true to prevent re-grouping the sorted data
+      renderTable(sortedGrouped, currentSelectedFilters, true);
+    };
+  });
+}
+
+/* -------------------- Export to Excel (ExcelJS) -------------------- */
+async function exportExcel(){
+  try{
+    // load ExcelJS (script included) and FileSaver (included)
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Dashboard Data");
+
+    const table = document.getElementById("dataTable");
+    const rows = Array.from(table.querySelectorAll("tr")).map(tr => Array.from(tr.querySelectorAll("th,td")).map(td => td.innerText.trim()));
+
+    // Add rows
+    rows.forEach((r, i) => {
+      const row = worksheet.addRow(r);
+      // header styling
+      if(i === 0){
+        row.eachCell(cell => {
+          cell.font = { bold: true, color: { argb: "1E3A8A" } };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E0E7FF" } };
+          cell.alignment = { horizontal: "center", vertical: "middle" };
+          cell.border = { top:{style:"thin"}, left:{style:"thin"}, bottom:{style:"thin"}, right:{style:"thin"} };
+        });
+      } else {
+        row.eachCell((cell, colNumber) => {
+          const val = String(cell.value ?? "");
+          // Subtotal cell text check
+          if(val.toUpperCase().includes("SUBTOTAL")){
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E0F2FE" } };
+            cell.font = { bold: true, color: { argb: "1E3A8A" } };
+            cell.alignment = { horizontal: "center", vertical: "middle" };
+          } else if(val.toUpperCase().includes("TOTAL")){
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F3E8FF" } };
+            cell.font = { bold: true, color: { argb: "4C1D95" } };
+            cell.alignment = { horizontal: "center", vertical: "middle" };
+          } else if(!isNaN(parseFloat(val))){
+            const num = parseFloat(val);
+            const bg = num > 0 ? "D1FAE5" : "FEE2E2";
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+            cell.alignment = { horizontal: "center", vertical: "middle" };
+          } else {
+            cell.alignment = { horizontal: "center", vertical: "middle" };
+          }
+        });
+      }
+    });
+
+    // Auto width
+    const colCount = Math.max(...rows.map(r=>r.length));
+    worksheet.columns.forEach(col => col.width = 15);
+    worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const buf = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const fileName = `${currentView}_export_${new Date().toISOString().split("T")[0]}.xlsx`;
+    saveAs(blob, fileName);
+  } catch (err) {
+    console.error("Export failed", err);
+    alert("Export failed: " + err.message);
+  } finally {
+    hideOverlay();
+  }
+}
+
+/* ensure overlay hidden at start */
+hideOverlay();
+
+
+/* ---------- MOBILE PERFORMANCE OPTIMIZATION ---------- */
+const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
+if (isMobile) {
+  console.log("📱 Mobile view detected — optimizing performance...");
+
+  // Add tip message once
+  const msg = document.createElement("div");
+  msg.className = "mobile-tip";
+  msg.textContent = "📊 Mobile mode active — optimized for speed.";
+  document.querySelector("main").prepend(msg);
+
+  // Lightweight table rendering (no hang)
+  const originalRenderTable = renderTable;
+  renderTable = function (filtered, selected, alreadyGrouped = false) {
+    requestAnimationFrame(() => {
+      // Direct call within requestAnimationFrame to defer rendering
+      originalRenderTable(filtered, selected, alreadyGrouped);
+    });
+  };
+
+  // Reduce shadow effects on filters
+  document.querySelectorAll(".filter-box").forEach(b => {
+    b.style.boxShadow = "none";
+  });
+
+  // Add smooth scrolling
+  document.getElementById("filtersContainer").style.scrollBehavior = "smooth";
+}
+
+
+
+
+
+
+</script>
+</body>
+</html>

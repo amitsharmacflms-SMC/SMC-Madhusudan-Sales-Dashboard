@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SMC Madhusudan Sales Dashboard</title>
+
+  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+  <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+  <style>
+    /* Compact table spacing */
+    th, td {
+      padding: 4px 6px !important;
+      height: 22px !important;
+      font-size: 0.85rem;
+    }
+    .subtotal-row td, .grandtotal-row td { height: 26px !important; }
+
+    /* Smooth hide/show animation */
+    #filtersWrapper { transition: all 0.4s ease; opacity: 1; max-height: 600px; overflow: hidden; }
+    #filtersWrapper.hidden { opacity: 0; max-height: 0; overflow: hidden; }
+
+    /* Fix dark mode visibility in filters */
+    .dark-mode .filter-box label { color: #ffffff; }
+    .dark-mode .filter-box strong { color: #93c5fd; }
+
+    /* Sortable headers */
+    th.sortable { cursor: pointer; position: sticky; top: 0; background: #eef2ff; z-index: 5; }
+    th.sortable:hover { background: #dbeafe; }
+    th.sortable span.sort-icon { font-size: 0.8rem; color: #6b7280; margin-left: 4px; }
+
+    /* Sticky header */
+    th { position: sticky; top: 0; background: #eef2ff; z-index: 10; text-align: center; }
+    .dark-mode th { background: #1e293b; color: #93c5fd; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="container header-row">
+      <div class="brand">
+        <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="logo">
+        <h1>SMC Madhusudan Sales Dashboard</h1>
+      </div>
+
+      <div class="toolbar">
+        <button id="exportBtn" class="btn btn-blue">⬇ Export</button>
+        <button id="clearBtn" class="btn btn-gray">🧹 Clear All Filters</button>
+        <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
+        <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
+        <button id="themeToggle" class="btn btn-gray">🌙 Dark Mode</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section>
+      <div id="filtersWrapper">
+        <div id="filtersContainer" class="filter-bar"></div>
+      </div>
+
+      <div id="loader" class="loader">Loading data...</div>
+      <div id="overlayLoader" class="overlay hidden">Updating filters…</div>
+
+      <div class="table-wrapper" style="overflow:auto; max-height: 80vh;">
+        <table id="dataTable" class="hidden">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+          <tfoot id="tableFoot"></tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>© {{ current_year }} Created & Hosted by <strong>Amit Sharma</strong></p>
+  </footer>
+
+<script>
+let currentView="product";
+let fullData=[],originalKeys=[];
+const baseTextCols=["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
+const monthOrder=[
+"APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
+"OCT-23","NOV-23","DEC-23","AVG_Q3_2023-24","JAN-24","FEB-24","MAR-24","AVG_Q4_2023-24","AVG_YEAR_2023-24",
+"APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25","OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25",
+"JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25","APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","AVG_YEAR_2025-26"
+];
+
+const norm=s=>String(s||"").toUpperCase().trim();
+const getVal=(r,k)=>r[k]??r[k.toLowerCase()]??r[k.toUpperCase()]??"";
+function debounce(fn,wait=300){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),wait);}};
+
+document.addEventListener("DOMContentLoaded",()=>{initUI();loadData(currentView);});
+
+function initUI(){
+  document.getElementById("toggleFiltersBtn").addEventListener("click",toggleFilters);
+  document.getElementById("clearBtn").addEventListener("click",()=>safeApplyFilters(clearFilters));
+  document.getElementById("exportBtn").addEventListener("click",exportExcel);
+  document.getElementById("toggleViewBtn").addEventListener("click",()=>{
+    currentView=currentView==="product"?"sku":"product";
+    document.getElementById("toggleViewBtn").textContent=currentView==="product"?"Switch to SKU View":"Switch to Product View";
+    loadData(currentView);
+  });
+
+  const themeBtn=document.getElementById("themeToggle");
+  if(localStorage.getItem("theme")==="dark"){document.documentElement.classList.add("dark-mode");themeBtn.textContent="☀️ Light Mode";}
+  themeBtn.addEventListener("click",()=>{
+    const html=document.documentElement;
+    if(html.classList.contains("dark-mode")){
+      html.classList.remove("dark-mode");
+      localStorage.setItem("theme","light");
+      themeBtn.textContent="🌙 Dark Mode";
+    } else {
+      html.classList.add("dark-mode");
+      localStorage.setItem("theme","dark");
+      themeBtn.textContent="☀️ Light Mode";
+    }
+  });
+}
+
+const safeApplyFilters=(fn)=>{if("requestIdleCallback" in window){requestIdleCallback(fn,{timeout:300});}else{requestAnimationFrame(fn);}};
+
+// ✅ Hide/Show Filters
+let filtersVisible = true;
+function toggleFilters(){
+  const wrapper=document.getElementById("filtersWrapper");
+  const btn=document.getElementById("toggleFiltersBtn");
+  if(filtersVisible){
+    wrapper.classList.add("hidden");
+    btn.textContent="Show Filters";
+    filtersVisible=false;
+  }else{
+    wrapper.classList.remove("hidden");
+    btn.textContent="Hide Filters";
+    filtersVisible=true;
+  }
+}
+
+function clearFilters(){
+  const filters=document.getElementById("filtersContainer");
+  filters.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.checked=false);
+  applyFilters();
+}
+
+/* ---------------- Load Data ---------------- */
+async function loadData(view){
+  const loader=document.getElementById("loader");
+  loader.classList.remove("hidden");
+  try{
+    const res=await fetch(`/get_data/${view}`);
+    const data=await res.json();
+    if(!data.length){loader.textContent="No data found";return;}
+    fullData=data;originalKeys=Object.keys(data[0]);
+    buildFilters();applyFilters();
+  }catch(e){loader.textContent="⚠ Error: "+e.message;}
+  finally{setTimeout(()=>loader.classList.add("hidden"),200);}
+}
+
+/* ---------------- Build Filters ---------------- */
+function buildFilters(){
+  const filters=document.getElementById("filtersContainer");
+  filters.innerHTML="";
+  const headers=originalKeys.map(norm);
+  const textCols=baseTextCols.filter(c=>headers.includes(c));
+  const order=currentView==="product"
+    ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"]
+    :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","SHOW COLUMNS","MONTH / YEAR","COMPARISON","TOTAL"];
+
+  const colors=["#fff7ed","#ecfdf5","#e0f2fe","#fdf2f8","#fef3c7","#e0f2fe","#f3e8ff","#fef2f2","#f3f4f6"];
+  let ci=0;
+  function makeBox(title,vals=[],checkedAll=false){
+    const box=document.createElement("div");
+    box.className="filter-box"; box.style.background=colors[ci++%colors.length];
+    box.innerHTML=`<strong>${title}</strong>
+      <label class="all-label"><input type="checkbox" data-all="${title}"> All</label>
+      <div class="options">${vals.map(v=>`<label><input type="checkbox" name="${title}" value="${v}" ${checkedAll?"checked":""}>${v}</label>`).join("")}</div>`;
+    filters.appendChild(box);
+  }
+
+  order.forEach(f=>{
+    if(f==="SHOW COLUMNS")makeBox(f,textCols,true);
+    else if(f==="MONTH / YEAR"||f==="COMPARISON")makeBox(f,monthOrder,true);
+    else if(f==="TOTAL")makeBox(f,textCols,false);
+    else if(textCols.includes(f)){
+      const vals=[...new Set(fullData.map(r=>getVal(r,f)))].filter(Boolean).sort();
+      makeBox(f,vals,false);
+    }
+  });
+
+  filters.querySelectorAll("input[data-all]").forEach(cb=>{
+    cb.addEventListener("change",e=>{
+      const g=e.target.dataset.all;
+      const state=e.target.checked;
+      filters.querySelectorAll(`input[name='${g}']`).forEach(x=>x.checked=state);
+      safeApplyFilters(applyFilters);
+    });
+  });
+  filters.addEventListener("change",debounce(()=>safeApplyFilters(applyFilters),300));
+}
+
+/* ---------------- Apply Filters & Render ---------------- */
+function applyFilters(){
+  const overlay=document.getElementById("overlayLoader");
+  overlay.classList.remove("hidden");
+  requestAnimationFrame(()=>{
+    try{
+      const tHead=document.getElementById("tableHead"),
+            tBody=document.getElementById("tableBody"),
+            tFoot=document.getElementById("tableFoot");
+      if(!fullData.length){tBody.innerHTML="";tHead.innerHTML="";overlay.classList.add("hidden");return;}
+
+      const filters=document.getElementById("filtersContainer");
+      const selected={};
+      [...filters.querySelectorAll(".filter-box strong")].forEach(f=>{
+        const t=f.textContent;selected[t]=[...filters.querySelectorAll(`input[name='${t}']:checked`)].map(i=>i.value);
+      });
+
+      const cascade=currentView==="product"
+        ?["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
+        :["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
+
+      let filtered=[...fullData];
+      cascade.forEach((f,idx)=>{
+        const sel=selected[f]||[];
+        if(sel.length>0){filtered=filtered.filter(r=>sel.includes(getVal(r,f)));}
+      });
+
+      const showCols=selected["SHOW COLUMNS"]?.length?selected["SHOW COLUMNS"]:baseTextCols;
+      const monthCols=selected["MONTH / YEAR"]?.length?selected["MONTH / YEAR"]:monthOrder;
+      const totalCols=selected["TOTAL"]||[];
+      const colsToShow=[...showCols,...monthCols];
+      if((selected["COMPARISON"]||[]).length===2)colsToShow.push("COMPARISON");
+
+      const isNumeric=(c)=>monthOrder.includes(c)||c==="COMPARISON";
+      tHead.innerHTML="<tr>"+colsToShow.map(c=>`<th class='${isNumeric(c)?'sortable':''}' data-col='${c}'>${c}${isNumeric(c)?"<span class='sort-icon'>↕️</span>":""}</th>`).join("")+"</tr>";
+      addSorting(colsToShow);
+
+      // Grouping logic
+      const map=new Map();
+      filtered.forEach(r=>{
+        const key=showCols.map(k=>getVal(r,k)).join("|");
+        if(!map.has(key)){
+          const obj={};showCols.forEach(k=>obj[k]=getVal(r,k));
+          monthCols.forEach(m=>obj[m]=Number(getVal(r,m))||0);
+          map.set(key,obj);
+        }else{
+          const obj=map.get(key);
+          monthCols.forEach(m=>obj[m]+=Number(getVal(r,m))||0);
+        }
+      });
+      const grouped=[...map.values()];
+
+      // render grouped + subtotals
+      tBody.innerHTML="";
+      if(totalCols.length){
+        const groups={};
+        grouped.forEach(row=>{
+          const key=totalCols.map(k=>row[k]).join("|");
+          if(!groups[key])groups[key]=[];
+          groups[key].push(row);
+        });
+        Object.entries(groups).forEach(([gKey,rows])=>{
+          rows.forEach(r=>appendRow(r,colsToShow,selected,tBody));
+          // subtotal
+          const subtotal={};
+          monthCols.forEach(m=>subtotal[m]=rows.reduce((s,r)=>s+(Number(r[m])||0),0));
+          const subCells=colsToShow.map((c,idx)=>{
+            if(monthOrder.includes(c)){
+              const val=subtotal[c]||0;
+              let prev=null;
+              for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prev=subtotal[colsToShow[j]];break;}}
+              const color=prev!==null?(val>prev?"color:green":"color:red"):"";
+              return `<td class="numeric" style="${color}">${val}</td>`;
+            }
+            if(c==="COMPARISON"){
+              const compare=selected["COMPARISON"]||[];
+              if(compare.length===2){
+                const[colA,colB]=compare;
+                const diff=(subtotal[colB]||0)-(subtotal[colA]||0);
+                const color=diff>0?"color:green":"color:red";
+                return `<td class="numeric" style="${color}">${diff}</td>`;
+              }
+            }
+            if(totalCols.includes(c))return `<td class="subtotal-label">Subtotal</td>`;
+            return `<td></td>`;
+          }).join("");
+          tBody.insertAdjacentHTML("beforeend",`<tr class="subtotal-row">${subCells}</tr>`);
+        });
+      } else {
+        grouped.forEach(r=>appendRow(r,colsToShow,selected,tBody));
+      }
+
+      // Grand Total
+      const totals={};monthCols.forEach(m=>totals[m]=grouped.reduce((s,r)=>s+(Number(r[m])||0),0));
+      const totalCells=colsToShow.map((c,idx)=>{
+        if(monthOrder.includes(c)){
+          const val=totals[c]||0;
+          let prev=null;
+          for(let j=idx-1;j>=0;j--){if(monthOrder.includes(colsToShow[j])){prev=totals[colsToShow[j]];break;}}
+          const color=prev!==null?(val>prev?"color:green":"color:red"):"";
+          return `<td class="numeric" style="${color}">${val}</td>`;
+        }
+        if(c==="COMPARISON"){
+          const compare=selected["COMPARISON"]||[];
+          if(compare.length===2){
+            const[colA,colB]=compare;
+            const diff=(totals[colB]||0)-(totals[colA]||0);
+            const color=diff>0?"color:green":"color:red";
+            return `<td class="numeric" style="${color}">${diff}</td>`;
+          }
+        }
+        if(showCols.includes(c))return `<td class="subtotal-label"><b>TOTAL</b></td>`;
+        return `<td></td>`;
+      }).join("");
+      tFoot.innerHTML=`<tr class="grandtotal-row">${totalCells}</tr>`;
+      document.getElementById("dataTable").classList.remove("hidden");
+    }finally{overlay.classList.add("hidden");}
+  });
+}
+
+/* ---------------- Sorting ---------------- */
+function addSorting(colsToShow){
+  const tHead=document.getElementById("tableHead");
+  tHead.querySelectorAll(".sortable").forEach(th=>{
+    th.addEventListener("click",()=>{
+      const col=th.dataset.col;
+      const asc=th.dataset.asc==="true"?false:true;
+      th.dataset.asc=asc;
+      const rows=Array.from(document.querySelectorAll("#tableBody tr:not(.subtotal-row)"));
+      rows.sort((a,b)=>{
+        const aVal=parseFloat(a.querySelector(`td:nth-child(${colsToShow.indexOf(col)+1})`)?.innerText||0);
+        const bVal=parseFloat(b.querySelector(`td:nth-child(${colsToShow.indexOf(col)+1})`)?.innerText||0);
+        return asc?aVal-bVal:bVal-aVal;
+      });
+      const tbody=document.getElementById("tableBody");
+      tbody.innerHTML="";
+      rows.forEach(r=>tbody.appendChild(r));
+      tHead.querySelectorAll(".sortable").forEach(h=>h.querySelector(".sort-icon").textContent="↕️");
+      th.querySelector(".sort-icon").textContent=asc?"▲":"▼";
+    });
+  });
+}
+
+/* ---------------- Append Row ---------------- */
+function appendRow(r,colsToShow,selected,tBody){
+  const cells=colsToShow.map((c,idx)=>{
+    if(c==="COMPARISON"){
+      const compareCols=selected["COMPARISON"]||[];
+      if(compareCols.length===2){
+        const[colA,colB]=compareCols;
+        const diff=(Number(r[colB])||0)-(Number(r[colA])||0);
+        const color=diff>0?"color:green":"color:red";
+        return `<td class="numeric" style="${color}">${diff}</td>`;
+      }return `<td></td>`;
+    }
+    if(monthOrder.includes(c)){
+      const num=Number(r[c])||0;
+      let prevVal=null;
+      for(let j=idx-1;j>=0;j--){
+        if(monthOrder.includes(colsToShow[j])){
+          prevVal=Number(r[colsToShow[j]])||0;
+          break;
+        }
+      }
+      const color=prevVal!==null?(num>prevVal?"color:green":"color:red"):"";
+      return `<td class="numeric" style="${color}">${num}</td>`;
+    }
+    return `<td>${r[c]??""}</td>`;
+  });
+  tBody.insertAdjacentHTML("beforeend",`<tr>${cells.join("")}</tr>`);
+}
+
+/* ---------------- Excel Export ---------------- */
+async function exportExcel(){
+  const date=new Date().toISOString().split("T")[0];
+  const filename=`${currentView}_export_${date}.xlsx`;
+  const table=document.getElementById("dataTable");
+  const ws_data=[];table.querySelectorAll("tr").forEach(r=>ws_data.push([...r.querySelectorAll("th,td")].map(td=>td.innerText.trim())));
+  const ws=XLSX.utils.aoa_to_sheet(ws_data);ws["!cols"]=ws_data[0].map(()=>({wch:15}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Dashboard Data");XLSX.writeFile(wb,filename);
+}
+</script>
+</body>
+</html>
