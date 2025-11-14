@@ -77,7 +77,8 @@
   </footer>
 
   <!-- Dashboard logic (deferred, placed at bottom) -->
-  <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+  <!-- Dashboard Script (load last) -->
+  <script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+
 </body>
 </html>
