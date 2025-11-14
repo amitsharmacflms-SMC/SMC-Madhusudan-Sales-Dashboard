@@ -341,3 +341,43 @@ th.sortable.asc .sort-icon {
 th.sortable.desc .sort-icon {
   color: #b91c1c;
 }
+
+/* ===== Dashboard.css merged below ===== */
+
+:root { --navy:#1e3a8a; --light-blue:#e0e7ff; --green:#d1fae5; --red:#fee2e2; }
+body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0}
+th, td{padding:4px 6px;height:22px;font-size:.85rem;transition:background-color .25s}
+.subtotal-row td,.grandtotal-row td{height:26px;font-weight:700}
+#filtersWrapper{transition:all .35s;opacity:1;max-height:600px;overflow:hidden}
+table{border-collapse:collapse;width:100%}
+thead th{position:sticky;top:0;z-index:50;background:linear-gradient(90deg,#eef2ff,#e0e7ff);text-transform:uppercase;text-align:center}
+.table-wrapper{background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(4,8,15,.05);overflow:auto;max-height:75vh}
+.filter-box{border:2px solid var(--navy);border-radius:10px;padding:8px 10px;min-width:180px;background:#fff;box-shadow:0 3px 6px rgba(0,0,0,.05)}
+.filter-box strong{color:var(--navy);font-weight:800;display:block;margin-bottom:6px;text-transform:uppercase;text-align:center;border-bottom:2px solid #e2e8f0;padding-bottom:4px}
+.filter-box label{display:block;font-weight:600;padding:3px 0}
+.overlay::after{content:"Processing...";display:inline-block;padding:8px 14px;border-radius:8px;background:rgba(0,0,0,.6);color:#fff;font-weight:700}
+td.numeric{text-align:center;vertical-align:middle;font-weight:700}
+td.bg-pos{background:var(--green)!important}
+td.bg-neg{background:var(--red)!important}
+.hidden{display:none}
+
+/* compact header and row */
+header .logo{height:40px}
+header h1{font-size:1.05rem;font-weight:800;color:var(--navy);margin-left:8px}
+
+/* skeleton animation */
+.skeleton{height:200px;border-radius:8px;background:linear-gradient(90deg,#f3f4f6,#e2e8f0,#f3f4f6);background-size:200% 100%;animation:pulse 1.6s infinite}
+@keyframes pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* responsive */
+@media (max-width: 768px){
+  .mobile-tip{display:block}
+  .filter-box{width:100%}
+  table th, table td{font-size:0.75rem;padding:3px 4px}
+  .table-wrapper{max-height:65vh}
+}
+
+/* dark mode adjustments (kept simple) */
+.dark-mode thead th{background:#0b1220;color:#cfe8ff}
+.dark-mode td:not(.numeric):not(.bg-pos):not(.bg-neg):not(.subtotal-label){background-color:#000!important;color:#fff!important}
+.dark-mode .subtotal-row td,.dark-mode .grandtotal-row td{background-color:#0f172a!important;color:#e2e8f0!important}
