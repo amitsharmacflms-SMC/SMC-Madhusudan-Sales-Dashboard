@@ -37,11 +37,17 @@
   function runIdle(fn){ if('requestIdleCallback' in window) requestIdleCallback(fn, { timeout:300 }); else setTimeout(fn, 200); }
 
   // ---------- Init ----------
-  document.addEventListener('DOMContentLoaded', ()=>{
+  document.addEventListener("DOMContentLoaded", () => {
     initUI();
-    requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ loadData(currentView); });
+
+    // Allow first paint
+    requestAnimationFrame(() => {
+        // Give browser 50ms breathing time
+        setTimeout(() => {
+            loadData(currentView);
+        }, 50);
+    });
 });
-  });
 
   function initUI(){
     const backBtn = document.getElementById('backBtn'); if(backBtn) backBtn.addEventListener('click', ()=>window.history.back());
