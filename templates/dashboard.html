@@ -29,6 +29,11 @@
 </head>
 
 <body>
+<!-- helps LCP: tiny placeholder so page paints quickly -->
+<div id="instantPaint" style="height:1px;overflow:hidden"></div>
+
+
+
   <header>
     <div class="container header-row" style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;">
       <div style="display:flex;align-items:center">
@@ -37,12 +42,14 @@
       </div>
 
       <div class="toolbar" style="display:flex;gap:8px;align-items:center">
-        <button id="backBtn" class="btn btn-gray">← Back</button>
-        <button id="exportBtn" class="btn btn-blue">Export</button>
+        
         <button id="clearBtn" class="btn btn-gray">Clear All Filters</button>
         <button id="toggleFiltersBtn" class="btn btn-gray">Hide Filters</button>
         <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
         <button id="themeToggle" class="btn btn-gray">Dark Mode</button>
+        <button id="backBtn" class="btn btn-gray">← Back</button>
+        <button id="exportBtn" class="btn btn-blue">Export</button>        
+        
       </div>
     </div>
   </header>
