@@ -6,7 +6,7 @@
   <title>SMC - Madhusudan Sales Dashboard</title>
 
   <!-- Tailwind / app CSS (keep your output.css) -->
-  <link rel="preload" href="{{ url_for(\'static\', filename=\'css/output.css\') }}" as="style">
+  <link rel="preload" href="{{ url_for('static', filename='css/output.css') }}" as="style" importance="high">
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
   <!-- Optimized local CSS for dashboard (critical + helpers) -->
   
