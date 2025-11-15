@@ -5,133 +5,197 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>SMC - Madhusudan Sales Dashboard</title>
 
-  <!-- Preconnects + Preloads for LCP improvement -->
+  <!-- Preconnect (faster CSS/JS load) -->
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+  <!-- Preload + load your CSS early (reduces layout jumps) -->
   <link rel="preload" href="{{ url_for('static', filename='css/output.css') }}" as="style" importance="high" fetchpriority="high">
   <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
 
-  <!-- Critical inline CSS (tiny) -->
+  <!-- Critical inline CSS (keeps first paint stable) -->
   <style>
-    /* Minimal critical CSS to paint first frame and reserve layout */
     :root {
-      --navy: #1e3a8a;
-      --muted: #6b7280;
-      --bg: #ffffff;
-      --pos: #d1fae5;
-      --neg: #fee2e2;
+      --navy:#1e3a8a;
+      --pos:#d1fae5;
+      --neg:#fee2e2;
     }
-    html,body{height:100%}
-    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;background:var(--bg);color:#111}
-    header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;box-sizing:border-box}
-    .logo{display:block;width:40px;height:40px;object-fit:contain}
+
+    html,body{height:100%;margin:0;padding:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;background:#fff}
+
+    /* === HEADER (stable height) === */
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 12px;
+      box-sizing:border-box;
+      min-height:58px; /* fixed height prevents CLS */
+    }
+    .logo{width:40px;height:40px;object-fit:contain}
+    h1{font-size:1.05rem;margin:0 0 0 8px;color:var(--navy);white-space:nowrap}
+
+    /* === Toolbar button stability (no size jump) === */
+    .btn{
+      padding:6px 10px;
+      border-radius:6px;
+      background:#f8fafc;
+      border:1px solid rgba(0,0,0,0.06);
+      cursor:pointer;
+      min-width:115px; /* prevents width jump */ 
+      text-align:center;
+      font-weight:600;
+      font-size:0.85rem;
+    }
+    .btn-blue{background:var(--navy);color:white}
     .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .btn{padding:6px 10px;border-radius:6px;border:1px solid rgba(0,0,0,0.06);background:#f8fafc;font-weight:600;cursor:pointer}
-    .btn-blue{background:#1e3a8a;color:#fff}
-    .container{max-width:1500px;margin:0 auto;padding:0 12px;box-sizing:border-box}
-    /* table skeleton + reserved height to avoid CLS */
-    .table-wrapper{margin-top:10px;border-radius:10px;min-height:300px;box-sizing:border-box;overflow:auto}
-    .skeleton{width:100%;height:320px;border-radius:8px;background:linear-gradient(90deg,#f3f4f6,#e2e8f0,#f3f4f6);background-size:200% 100%;animation:pulse 1.6s infinite}
+
+    /* === Filters wrapper (prevents vertical jumps) === */
+    #filtersWrapper{
+      min-height:90px;       /* reserved height avoids jump */
+      max-height:300px;
+      overflow:hidden;
+      transition:max-height .25s ease, opacity .25s ease;
+    }
+
+    /* === Table area stability === */
+    .table-wrapper{
+      margin-top:10px;
+      background:#fff;
+      border-radius:10px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.05);
+      padding:10px;
+      min-height:360px; /* reserved height prevents CLS */
+      box-sizing:border-box;
+      overflow:auto;
+    }
+
+    /* Skeleton placeholder (no layout jump) */
+    .skeleton{
+      width:100%;
+      height:320px;
+      border-radius:8px;
+      background:linear-gradient(90deg,#f3f4f6,#e2e8f0,#f3f4f6);
+      background-size:200% 100%;
+      animation:pulse 1.6s infinite;
+    }
     @keyframes pulse{0%{background-position:200% 0}100%{background-position:-200% 0}}
-    .hidden{display:none!important}
-    /* small helpers to keep header stable if fonts load late */
-    h1{font-size:1.05rem;margin:0 0 0 8px;color:var(--navy);font-weight:800;line-height:1}
-    footer{padding:12px;text-align:center;background:#f9fafb;border-top:1px solid #e5e7eb}
-    /* reduce row height by default, full styles in output.css */
-    table{border-collapse:collapse;width:100%}
-    thead th{position:sticky;top:0;background:linear-gradient(90deg,#eef2ff,#e0e7ff);text-transform:uppercase;text-align:center;font-size:.78rem;padding:6px}
-    tbody td{padding:6px 8px;font-size:.82rem}
+
+    /* Loader gets reserved height to avoid shifts */
+    #loader{
+      height:24px;
+      line-height:24px;
+      font-size:0.9rem;
+      padding-left:6px;
+      visibility:hidden; /* no layout shift */
+    }
+
+    /* Table text + reserved header space */
+    table{border-collapse:collapse;width:100%;content-visibility:auto}
+    thead th{
+      position:sticky;top:0;z-index:5;
+      background:linear-gradient(90deg,#eef2ff,#e0e7ff);
+      padding:6px;
+      text-align:center;
+      font-weight:700;
+      font-size:0.78rem;
+      height:32px; /* prevent CLS */
+    }
+    tbody td{padding:6px 8px;font-size:0.82rem}
   </style>
 
   <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 </head>
 
 <body>
-  <!-- Fast paint placeholder (1px) to improve LCP timing -->
-  <div id="instantPaint" style="height:1px;overflow:hidden" aria-hidden="true"></div>
+<div id="instantPaint" style="height:1px;overflow:hidden"></div>
 
-  <header>
-    <div class="container" style="display:flex;align-items:center;justify-content:space-between">
-      <div style="display:flex;align-items:center">
-        <!-- width/height reserved to avoid layout shift -->
-        <img src="{{ url_for('static', filename='onlylogo.png') }}" alt="logo" class="logo" width="40" height="40" fetchpriority="high">
-        <h1>SMC Madhusudan Sales Dashboard</h1>
-      </div>
+<header>
+  <div class="container" style="display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center">
+      <img src="{{ url_for('static', filename='onlylogo.png') }}"
+           class="logo"
+           width="40" height="40"
+           fetchpriority="high" alt="logo">
+      <h1>SMC Madhusudan Sales Dashboard</h1>
+    </div>
 
-      <div class="toolbar" role="toolbar" aria-label="dashboard controls">
-        <button id="backBtn" class="btn" title="Go back">← Back</button>
-        <button id="clearBtn" class="btn" title="Clear filters">Clear All Filters</button>
-        <button id="toggleFiltersBtn" class="btn" title="Show / hide filters">Hide Filters</button>
-        <button id="toggleViewBtn" class="btn btn-blue" title="Toggle Product / SKU">Switch to SKU View</button>
-        <button id="themeToggle" class="btn" title="Toggle dark mode">Dark Mode</button>
-        <button id="exportBtn" class="btn btn-blue" title="Export to Excel">Export</button>
+    <div class="toolbar" role="toolbar">
+      <button id="backBtn" class="btn">← Back</button>
+      <button id="clearBtn" class="btn">Clear Filters</button>
+      <button id="toggleFiltersBtn" class="btn">Hide Filters</button>
+      <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU</button>
+      <button id="themeToggle" class="btn">Dark Mode</button>
+      <button id="exportBtn" class="btn btn-blue">Export</button>
+    </div>
+  </div>
+</header>
+
+<main class="container" style="padding-top:6px;">
+  <section>
+
+    <!-- Filters area (no CLS) -->
+    <div id="filtersWrapper">
+      <div id="filtersContainer"
+           style="display:flex;gap:12px;padding:10px;background:white;border-radius:10px;border:1px solid #e5e7eb;overflow-x:auto;">
       </div>
     </div>
-  </header>
 
-  <main class="container" style="padding-top:6px;">
-    <section>
-      <!-- filters wrapper: reserve some height to prevent jumps when filters appear -->
-      <div id="filtersWrapper" style="transition:all .25s ease;overflow:hidden">
-        <div id="filtersContainer" class="filter-bar" style="display:flex;gap:12px;padding:10px;background:#fff;border-radius:10px;overflow-x:auto;border:1px solid rgba(0,0,0,0.04)"></div>
+    <!-- Loader with reserved height -->
+    <div id="loader">Loading data...</div>
+
+    <!-- Overlay loader -->
+    <div id="overlayLoader"
+         class="overlay hidden"
+         style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:3000;">
+    </div>
+
+    <!-- Table area: skeleton until JS shows table -->
+    <div class="table-wrapper">
+      <div id="tableSkeleton" class="skeleton"></div>
+
+      <div id="tableContainer" class="hidden">
+        <table id="dataTable" style="min-width:1100px">
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+          <tfoot id="tableFoot"></tfoot>
+        </table>
       </div>
+    </div>
+  </section>
+</main>
 
-      <!-- loader + overlay: loader visible immediately but small -->
-      <div id="loader" class="loader" style="padding:8px;color:#6b7280;visibility:hidden">Loading data...</div>
-      <div id="overlayLoader" class="overlay hidden" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:3000"></div>
+<footer style="text-align:center;padding:12px;margin-top:16px;background:#f9fafb;border-top:1px solid #e5e7eb">
+  © {{ current_year }} Created & Hosted by <strong>Amit Sharma</strong>
+</footer>
 
-      <!-- Table area: skeleton shown until JS renders actual table -->
-      <div class="table-wrapper" style="background:#fff;border-radius:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);padding:10px">
-        <div id="tableSkeleton" class="skeleton" aria-hidden="true"></div>
+<!-- Heavy libs deferred -->
+<script defer src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 
-        <div id="tableContainer" class="hidden" aria-live="polite">
-          <table id="dataTable" role="table" aria-label="data table" style="min-width:1100px">
-            <thead id="tableHead"></thead>
-            <tbody id="tableBody"></tbody>
-            <tfoot id="tableFoot"></tfoot>
-          </table>
-        </div>
-      </div>
-    </section>
-  </main>
+<!-- Dashboard JS -->
+<script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 
-  <footer>
-    <p>© {{ current_year }} Created & Hosted by <strong>Amit Sharma</strong></p>
-  </footer>
+<!-- Reveal helper to avoid table-based CLS -->
+<script>
+(function(){
+  window.__dashboardReveal = function(){
+    const s = document.getElementById('tableSkeleton');
+    const c = document.getElementById('tableContainer');
+    const l = document.getElementById('loader');
+    if(s) s.classList.add('hidden');
+    if(c) c.classList.remove('hidden');
+    if(l){ l.style.visibility='hidden'; }
+    const p = document.getElementById('instantPaint');
+    if(p) p.remove();
+  };
+  // fallback reveal (prevents stuck skeleton)
+  setTimeout(()=>{ 
+    if(document.getElementById('tableContainer').classList.contains('hidden')){
+      window.__dashboardReveal();
+    }
+  },3000);
+})();
+</script>
 
-  <!-- Defer heavy libs (ExcelJS + FileSaver) so they don't block paint -->
-  <script defer src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-
-  <!-- Dashboard JS (deferred; load once) -->
-  <script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-
-  <!-- Small inline script to handle skeleton -> table reveal quickly (minimal) -->
-  <script>
-    // Quick reveal helper — this avoids a layout jump by using a consistent switch
-    (function(){
-      // Expose a small function that your dashboard.js can call once table rendered:
-      window.__dashboardReveal = function() {
-        const skeleton = document.getElementById('tableSkeleton');
-        const container = document.getElementById('tableContainer');
-        const loader = document.getElementById('loader');
-        if (skeleton) skeleton.classList.add('hidden');
-        if (container) container.classList.remove('hidden');
-        if (loader) { loader.style.visibility = 'hidden'; loader.textContent = ''; }
-        // Ensure table is visible for screen readers
-        if (container) container.setAttribute('aria-hidden', 'false');
-        // remove instantPaint placeholder now
-        const p = document.getElementById('instantPaint');
-        if(p) p.parentNode && p.parentNode.removeChild(p);
-      };
-
-      // Safety: if dashboard.js doesn't call reveal in 3s, reveal anyway to avoid stuck skeleton
-      setTimeout(() => {
-        const container = document.getElementById('tableContainer');
-        if(container && container.classList.contains('hidden')){
-          window.__dashboardReveal();
-        }
-      }, 3000);
-    })();
-  </script>
 </body>
 </html>
