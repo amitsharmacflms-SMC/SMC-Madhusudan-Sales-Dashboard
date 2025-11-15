@@ -868,4 +868,4 @@ function renderGrandTotal(rows, colsToShow, monthCols, selected){
 
     if(monthCols.includes(c)){
       const val = totals[c] || 0;
-      let prevVal = null;
+      let prevVal = null;}
