@@ -251,37 +251,53 @@ table thead th {
 /* ========== FINAL TABLE STYLES ========== */
 
 /* Make row height tighter (50% less) */
+/* ---------- Adjusted compact rows + filter outline ---------- */
+
+/* decrease header/row height and tighten padding */
 th, td {
-  padding: 5px 6px;     /* Reduced from 10px 8px */
-  border: 2px solid #4b5563;
-  font-weight: 700;
-  font-size: .85rem;
-  height: 28px;         /* Compact rows */
+  padding: 2px 6px !important;
+  height: 18px !important;
+  font-size: 0.82rem;
+  transition: background-color .25s ease;
 }
 
-/* Keep text vertically centered */
-td { 
-  background: #fff;
-  vertical-align: middle;
-}
-td.numeric {
-  text-align: center;
-  font-weight: 700;
-}
-
-/* Subtotal + Total alignment and color consistency */
+/* subtotals/totals slightly taller but still compact */
 .subtotal-row td, .grandtotal-row td {
-  text-align: center;
-}
-.subtotal-label {
-  font-weight: 800;
-  text-align: left;
-  padding-left: 8px;
+  height: 20px !important;
+  font-weight: 700;
 }
 
-/* Color classes reused */
-.pos { color: #16a34a; }
-.neg { color: #ef4444; }
+/* thinner table cell borders if you want outline look (optional) */
+.table-wrapper table td, .table-wrapper table th {
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+/* filter box: thin black outline (as requested) */
+.filter-box {
+  border: 1px solid #000 !important;   /* thin black outline */
+  border-radius: 8px;
+  padding: 6px 8px;
+  min-width: 160px;
+  box-shadow: none;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+
+/* keep hover polish but keep border black */
+.filter-box:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+  border-color: #000;
+}
+
+/* small visual tweak to ensure 'All' label remains readable when disabled */
+.filter-box .all-label { display:block; margin-bottom:6px; font-weight:700; }
+
+/* keep numeric cells centered and bold for readability */
+td.numeric { text-align:center !important; vertical-align:middle; font-weight:700; }
+
+/* bg-pos / bg-neg (keep existing colors) */
+td.bg-pos { background-color: #d1fae5 !important; } /* positive */
+td.bg-neg { background-color: #fee2e2 !important; } /* negative */
 
 /* Maintain same style when exporting (browser hint for Excel preview) */
 table, th, td {
