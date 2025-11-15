@@ -1,235 +1,789 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SMC - Madhusudan Sales Dashboard</title>
+/* =============================
+   DASHBOARD.JS — SEGMENT 1/4
+   (Config, Globals, Helpers, initUI)
+============================= */
 
-  <!-- Preconnect + Preload improves LCP -->
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="preload"
-        href="{{ url_for('static', filename='css/output.css') }}"
-        as="style" importance="high" fetchpriority="high">
+// --- GLOBAL STATE ---
+let currentView = "product";
+let fullData = [];
+let originalKeys = [];
+let currentGroupedData = [];
+let currentSelectedFilters = {};
 
-  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+// Textual columns (for grouping + filters)
+const baseTextCols = [
+  "STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"
+];
 
-  <style>
-    /* ===========================================================
-       Critical CSS (tiny) — prevents CLS & paints first frame fast
-       Full styling lives in output.css
-    ============================================================ */
+// Ordered months + AVG columns
+const monthOrder = [
+  "APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
+  "OCT-23","NOV-23","DEC-23","AVG_Q3_2023-24","JAN-24","FEB-24","MAR-24","AVG_Q4_2023-24","AVG_YEAR_2023-24",
+  "APR-24","MAY-24","JUN-24","AVG_Q1_2024-25","JUL-24","AUG-24","SEP-24","AVG_Q2_2024-25",
+  "OCT-24","NOV-24","DEC-24","AVG_Q3_2024-25","JAN-25","FEB-25","MAR-25","AVG_Q4_2024-25","AVG_YEAR_2024-25",
+  "APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26",
+  "OCT-25","AVG_Q3_2025-26","AVG_YEAR_2025-26"
+];
 
-    :root {
-      --navy:#1e3a8a;
-      --pos:#d1fae5;
-      --neg:#fee2e2;
-    }
+// Normalize text
+const norm = (s) => String(s || "").toUpperCase().trim();
+function normalizeKeySimple(k){
+  return String(k || "").toUpperCase().replace(/[-_ ]/g, "");
+}
 
-    body {
-      margin:0;
-      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
-      background:#fff;
-      color:#111;
-    }
+// Safe key getter
+function getVal(row, key){
+  if(!row || !key) return "";
+  if(row.hasOwnProperty(key)) return row[key];
+  const u = key.toUpperCase();
+  const l = key.toLowerCase();
+  if(row.hasOwnProperty(u)) return row[u];
+  if(row.hasOwnProperty(l)) return row[l];
+  const target = normalizeKeySimple(key);
+  const found = Object.keys(row).find(k => normalizeKeySimple(k) === target);
+  return found ? row[found] : "";
+}
 
-    /* Centered header + reserved space = no CLS */
-    header {
-      padding:10px 0;
-      box-sizing:border-box;
-      width:100%;
-    }
+// Overlay controls
+let __overlayTimer = null;
+function showOverlay(delay = 150){
+  clearTimeout(__overlayTimer);
+  __overlayTimer = setTimeout(() => {
+    const el = document.getElementById("overlayLoader");
+    if(el) el.classList.remove("hidden");
+  }, delay);
+}
+function hideOverlay(){
+  clearTimeout(__overlayTimer);
+  const el = document.getElementById("overlayLoader");
+  if(el) el.classList.add("hidden");
+}
 
-    .header-center {
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      flex-direction:column;
-      gap:10px;
-    }
+// Utils
+function debounce(fn, wait = 300){
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
+function runIdle(fn){
+  if(window.requestIdleCallback) requestIdleCallback(fn, {timeout:300});
+  else setTimeout(fn, 200);
+}
 
-    .logo {
-      width:60px;
-      height:60px;
-      object-fit:contain;
-    }
+/* =============================
+   INITIALIZATION
+============================= */
+document.addEventListener("DOMContentLoaded", () => {
+  initUI();
+  loadData(currentView);
+});
 
-    h1 {
-      font-size:1.35rem;
-      color:var(--navy);
-      font-weight:800;
-      margin:0;
-      text-align:center;
-      line-height:1;
-    }
+function initUI(){
+  // Back button
+  const backBtn = document.getElementById("backBtn");
+  if(backBtn) backBtn.onclick = () => window.history.back();
 
-    /* Right-aligned toolbar */
-    .toolbar {
-      display:flex;
-      justify-content:flex-end;
-      width:100%;
-      gap:8px;
-      flex-wrap:wrap;
-      padding:6px 12px 0 12px;
-      box-sizing:border-box;
-    }
+  // Toggle filters
+  const toggleFiltersBtn = document.getElementById("toggleFiltersBtn");
+  if(toggleFiltersBtn) toggleFiltersBtn.onclick = toggleFilters;
 
-    .btn {
-      padding:6px 10px;
-      border-radius:6px;
-      background:#f3f4f6;
-      border:1px solid #cbd5e1;
-      cursor:pointer;
-      font-weight:600;
-    }
+  // Clear filters
+  const clearBtn = document.getElementById("clearBtn");
+  if(clearBtn) clearBtn.onclick = () => runIdle(clearFilters);
 
-    .btn-blue {
-      background:#1e3a8a;
-      color:#fff;
-      border:none;
-    }
+  // Export
+  const exportBtn = document.getElementById("exportBtn");
+  if(exportBtn) exportBtn.onclick = () => { showOverlay(120); runIdle(exportExcel); };
 
-    .container {
-      max-width:1500px;
-      margin:0 auto;
-      padding:0 12px;
-      box-sizing:border-box;
-    }
-
-    /* Loader and skeleton */
-    .skeleton {
-      height:340px;
-      background:linear-gradient(90deg,#f3f4f6,#e2e8f0,#f3f4f6);
-      background-size:200% 100%;
-      animation:pulse 1.6s infinite;
-      border-radius:8px;
-    }
-
-    @keyframes pulse {
-      0%{background-position:200% 0}
-      100%{background-position:-200% 0}
-    }
-
-    .hidden { display:none !important; }
-
-    /* Table: sticky headers + bold gridlines */
-    table {
-      border-collapse:collapse;
-      width:100%;
-    }
-
-    thead th {
-      position:sticky;
-      top:0;
-      background:linear-gradient(90deg,#eef2ff,#e0e7ff);
-      font-size:0.8rem;
-      text-align:center;
-      font-weight:800;
-      padding:6px;
-      border:1px solid #94a3b8;
-      z-index:20;
-    }
-
-    tbody td {
-      padding:6px 8px;
-      font-size:0.82rem;
-      font-weight:700;
-      border:1px solid #cbd5e1;
-      text-align:center;
-    }
-
-    .subtotal-row td, .grandtotal-row td {
-      border-top:2px solid #1e3a8a !important;
-      border-bottom:2px solid #1e3a8a !important;
-      background:#f1f5f9;
-      font-weight:800;
-    }
-
-    .bg-pos { background:var(--pos) !important; }
-    .bg-neg { background:var(--neg) !important; }
-
-    footer {
-      padding:12px;
-      background:#f9fafb;
-      text-align:center;
-      border-top:1px solid #e2e8f0;
-    }
-  </style>
-
-  <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}">
-</head>
-
-<body>
-  <!-- Prevent layout jump -->
-  <div id="instantPaint" style="height:1px;overflow:hidden"></div>
-
-  <header>
-    <div class="container header-center">
-        <img src="{{ url_for('static', filename='onlylogo.png') }}"
-             class="logo" width="60" height="60" fetchpriority="high">
-        <h1>SMC Madhusudan Sales Dashboard</h1>
-    </div>
-
-    <div class="toolbar">
-      <button id="backBtn" class="btn">← Back</button>
-      <button id="clearBtn" class="btn">Clear Filters</button>
-      <button id="toggleFiltersBtn" class="btn">Hide Filters</button>
-      <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
-      <button id="themeToggle" class="btn">Dark Mode</button>
-      <button id="exportBtn" class="btn btn-blue">Export</button>
-    </div>
-  </header>
-
-  <main class="container">
-    <section>
-      <div id="filtersWrapper" style="transition:all .25s ease;overflow:hidden;">
-        <div id="filtersContainer"
-             style="display:flex;gap:12px;padding:10px;background:#fff;border-radius:10px;overflow-x:auto;border:1px solid #cbd5e1;">
-        </div>
-      </div>
-
-      <div id="loader" style="padding:8px;color:#6b7280;visibility:hidden;">Loading data...</div>
-      <div id="overlayLoader" class="hidden"
-           style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:3000;">
-      </div>
-
-      <div class="table-wrapper"
-           style="background:#fff;border-radius:10px;padding:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);">
-        <div id="tableSkeleton" class="skeleton"></div>
-
-        <div id="tableContainer" class="hidden">
-          <table id="dataTable">
-            <thead id="tableHead"></thead>
-            <tbody id="tableBody"></tbody>
-            <tfoot id="tableFoot"></tfoot>
-          </table>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    © {{ current_year }} Created & Hosted by <b>Amit Sharma</b>
-  </footer>
-
-  <!-- Libraries -->
-  <script defer src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-
-  <!-- Dashboard JS -->
-  <script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-
-  <script>
-    /* Reveal table once dashboard.js loads */
-    window.__dashboardReveal = function() {
-      document.getElementById("tableSkeleton")?.classList.add("hidden");
-      document.getElementById("tableContainer")?.classList.remove("hidden");
-
-      const loader = document.getElementById("loader");
-      if(loader) loader.style.visibility = "hidden";
-
-      const inst = document.getElementById("instantPaint");
-      if(inst) inst.remove();
+  // View toggle
+  const viewBtn = document.getElementById("toggleViewBtn");
+  if(viewBtn){
+    viewBtn.onclick = () => {
+      localStorage.removeItem("savedFilters");
+      localStorage.removeItem("default_avg_cols");
+      currentView = currentView === "product" ? "sku" : "product";
+      viewBtn.textContent = currentView === "product" ? "Switch to SKU View" : "Switch to Product View";
+      loadData(currentView);
     };
-  </script>
-</body>
-</html>
+  }
+
+  // Theme toggle
+  const themeBtn = document.getElementById("themeToggle");
+  if(themeBtn){
+    if(localStorage.getItem("theme") === "dark"){
+      document.documentElement.classList.add("dark-mode");
+      themeBtn.textContent = "Light Mode";
+    }
+    themeBtn.onclick = () => {
+      const html = document.documentElement;
+      if(html.classList.contains("dark-mode")){
+        html.classList.remove("dark-mode");
+        localStorage.setItem("theme","light");
+        themeBtn.textContent = "Dark Mode";
+      } else {
+        html.classList.add("dark-mode");
+        localStorage.setItem("theme","dark");
+        themeBtn.textContent = "Light Mode";
+      }
+    };
+  }
+}
+
+/* =============================
+   FILTER PANEL TOGGLE
+============================= */
+let filtersVisible = window.innerWidth > 768;
+function toggleFilters(){
+  const wrapper = document.getElementById("filtersWrapper");
+  const btn = document.getElementById("toggleFiltersBtn");
+  if(!wrapper || !btn) return;
+
+  if(filtersVisible){
+    wrapper.style.maxHeight = "0";
+    btn.textContent = "Show Filters";
+  } else {
+    wrapper.style.maxHeight = "600px";
+    btn.textContent = "Hide Filters";
+  }
+  filtersVisible = !filtersVisible;
+}
+
+function clearFilters(){
+  localStorage.removeItem("savedFilters");
+  localStorage.removeItem("default_avg_cols");
+  loadData(currentView);
+}
+
+// END OF SEGMENT 1 — Request SEGMENT 2 */
+
+/* =============================
+   DASHBOARD.JS — SEGMENT 2/4
+   (Filter Builder, Load Data, Defaults)
+============================= */
+
+function buildFilters(){
+  const filters = document.getElementById("filtersContainer");
+  if(!filters) return;
+  filters.innerHTML = "";
+
+  const headersUpper = originalKeys.map(k => norm(k));
+  const textColsFound = baseTextCols.filter(c => headersUpper.includes(c));
+
+  const order = currentView === "product"
+    ? ["SHOW COLUMNS","MONTH / YEAR","STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","COMPARISON","TOTAL"]
+    : ["SHOW COLUMNS","MONTH / YEAR","STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","COMPARISON","TOTAL"];
+
+  const cycle = ["#fff7ed","#ecfdf5","#e0f2fe","#fdf2f8","#fef3c7","#e0f2fe","#f3e8ff","#fef2f2","#f3f4f6"];
+  let ci = 0;
+
+  function makeBox(title, values, checkAll){
+    const box = document.createElement("div");
+    box.className = "filter-box";
+    box.style.background = cycle[ci++ % cycle.length];
+    box.style.border = "1px solid black";
+
+    const allId = "all_" + title.replace(/ /g, "_");
+
+    let html = "";
+    values.forEach(v => {
+      html += `<label><input type="checkbox" name="${title}" value="${v}" ${checkAll?"checked":""}> ${String(v)}</label>`;
+    });
+
+    box.innerHTML = `
+      <strong>${title}</strong>
+      <label><input type="checkbox" data-all="${title}" id="${allId}" ${checkAll?"checked":""}> All</label>
+      <div class="options" style="max-height:220px;overflow:auto;padding-right:6px;">${html}</div>
+    `;
+
+    filters.appendChild(box);
+  }
+
+  const keysUpper = originalKeys.map(k => k.toUpperCase());
+  const monthColsPresent = monthOrder.filter(m => keysUpper.includes(m.toUpperCase()));
+
+  const comparisonCols = monthColsPresent; // allow AVG cols
+
+  order.forEach(section => {
+    if(section === "SHOW COLUMNS"){
+      makeBox(section, textColsFound, true);
+    }
+    else if(section === "MONTH / YEAR"){
+      makeBox(section, monthColsPresent, false);
+    }
+    else if(section === "COMPARISON"){
+      makeBox(section, comparisonCols, false);
+    }
+    else if(section === "TOTAL"){
+      makeBox(section, textColsFound, false);
+    }
+    else if(textColsFound.includes(section)){
+      const setVals = Array.from(new Set(fullData.map(r => getVal(r, section)))).filter(Boolean).sort();
+      makeBox(section, setVals, true);
+    }
+  });
+
+  filters.querySelectorAll("input[data-all]").forEach(cb => {
+    cb.addEventListener("change", e => {
+      const title = e.target.dataset.all;
+      const checked = e.target.checked;
+      filters.querySelectorAll(`input[name='${title}']`).forEach(i => i.checked = checked);
+      runIdle(applyFilters);
+    });
+  });
+
+  filters.addEventListener("change", debounce(() => runIdle(applyFilters), 300));
+}
+
+/* =============================
+   LOAD DATA
+============================= */
+async function loadData(view){
+  const loader = document.getElementById("loader");
+  if(loader) loader.style.visibility = "visible";
+  showOverlay(100);
+
+  try{
+    const res = await fetch(`/get_data/${view}`);
+    if(!res.ok) throw new Error("Server returned " + res.status);
+
+    const data = await res.json();
+    fullData = data.map(row => {
+      const updated = {};
+      Object.keys(row).forEach(k => {
+        updated[k] = row[k];
+        updated[k.toUpperCase()] = row[k];
+      });
+      return updated;
+    });
+
+    originalKeys = Object.keys(fullData[0] || {});
+
+    const avgCols = originalKeys.filter(k => norm(k).startsWith("AVG_Q"));
+    const orderedAvg = monthOrder.filter(m => avgCols.map(a => normalizeKeySimple(a)).includes(normalizeKeySimple(m)));
+    const lastFiveAvg = orderedAvg.slice(-5);
+
+    buildFilters();
+    setTimeout(() => applySavedOrDefaults(lastFiveAvg), 400);
+
+  } catch(err){
+    console.error("Load error", err);
+    if(loader) loader.textContent = "Error: " + err.message;
+  } finally {
+    hideOverlay();
+    if(loader) setTimeout(() => loader.style.visibility = "hidden", 400);
+  }
+}
+
+/* =============================
+   SAVED OR DEFAULT FILTERS
+============================= */
+function applySavedOrDefaults(last5Avg){
+  const filters = document.getElementById("filtersContainer");
+  const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
+
+  const hasSaved = Object.values(saved).some(a => Array.isArray(a) && a.length);
+
+  function inputs(t){
+    return Array.from(filters.querySelectorAll(`input[name='${t}']`));
+  }
+
+  if(hasSaved){
+    Object.entries(saved).forEach(([title, values]) => {
+      const match = values.map(norm);
+      inputs(title).forEach(cb => cb.checked = match.includes(norm(cb.value)));
+
+      const allCb = document.getElementById("all_" + title.replace(/ /g,"_"));
+      if(allCb){
+        const allOpt = inputs(title);
+        allCb.checked = allOpt.length && allOpt.every(c => c.checked);
+      }
+    });
+  }
+  else{
+    // RESET ALL
+    filters.querySelectorAll("input[type='checkbox']").forEach(cb => cb.checked = false);
+
+    // 1) STATE = ALL
+    inputs("STATE").forEach(cb => cb.checked = true);
+
+    // 2) PRODUCT = ALL IN CASES
+    inputs("PRODUCT").forEach(cb => cb.checked = (norm(cb.value) === "ALL IN CASES"));
+
+    // 3) MONTH = last 5 AVG
+    const set5 = last5Avg.map(norm);
+    inputs("MONTH / YEAR").forEach(cb => cb.checked = set5.includes(norm(cb.value)));
+
+    // 4) TOTAL = STATE
+    inputs("TOTAL").forEach(cb => cb.checked = (norm(cb.value) === "STATE"));
+
+    // 5) COMPARISON = none
+    inputs("COMPARISON").forEach(cb => cb.checked = false);
+
+    const toSave = {};
+    filters.querySelectorAll(".filter-box strong").forEach(h => {
+      const t = h.textContent.trim();
+      toSave[t] = inputs(t).filter(x => x.checked).map(x => x.value);
+    });
+
+    localStorage.setItem("savedFilters", JSON.stringify(toSave));
+    localStorage.setItem("default_avg_cols", JSON.stringify(last5Avg));
+  }
+
+  applyFilters(false);
+}
+
+/* =============================
+   APPLY FILTERS
+============================= */
+function applyFilters(save = true){
+  showOverlay(120);
+  requestAnimationFrame(() => {
+    const filters = document.getElementById("filtersContainer");
+    const selected = {};
+
+    filters.querySelectorAll(".filter-box strong").forEach(h => {
+      const t = h.textContent.trim();
+      selected[t] = Array.from(filters.querySelectorAll(`input[name='${t}']:checked`)).map(i => i.value);
+    });
+
+    if(Array.isArray(selected["TOTAL"])){
+      selected["TOTAL"] = selected["TOTAL"].map(norm);
+    }
+
+    if(save) localStorage.setItem("savedFilters", JSON.stringify(selected));
+    currentSelectedFilters = selected;
+
+    const cascade = currentView === "product"
+      ? ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
+      : ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
+
+    let filtered = fullData.slice();
+    cascade.forEach(f => {
+      const sel = (selected[f] || []).map(norm);
+      if(sel.length) filtered = filtered.filter(r => sel.includes(norm(getVal(r, f))));
+    });
+
+    // smart disable
+    cascade.forEach(f => {
+      const box = Array.from(filters.querySelectorAll(".filter-box"))
+        .find(b => b.querySelector("strong")?.textContent.trim() === f);
+      if(!box) return;
+
+      const validSet = new Set(filtered.map(r => String(getVal(r, f))));
+
+      box.querySelectorAll(`input[name='${f}']`).forEach(cb => {
+        const val = String(cb.value);
+        const label = cb.parentElement;
+        if(validSet.has(val) || cb.checked){
+          cb.disabled = false;
+          if(label) label.style.opacity = "1";
+        } else {
+          cb.disabled = true;
+          if(label) label.style.opacity = "0.4";
+        }
+      });
+    });
+
+    renderTable(filtered, selected);
+    hideOverlay();
+  });
+}
+
+/* END SEGMENT 2 — Request SEGMENT 3 */
+
+
+/* =============================
+   DASHBOARD.JS — SEGMENT 3/4
+   (Render Table, Rows, Subtotals, Grand Totals)
+============================= */
+
+function renderTable(dataToRender, selected){
+  const tHead = document.getElementById("tableHead");
+  const tBody = document.getElementById("tableBody");
+  const tFoot = document.getElementById("tableFoot");
+  const table = document.getElementById("dataTable");
+
+  if(!table) return;
+
+  const showCols = selected["SHOW COLUMNS"]?.length ? selected["SHOW COLUMNS"] : baseTextCols;
+  const monthCols = selected["MONTH / YEAR"]?.length ? selected["MONTH / YEAR"] : [];
+  const totalCols = selected["TOTAL"] || [];
+
+  let colsToShow = [...showCols, ...monthCols];
+
+  const comp = selected["COMPARISON"] || [];
+  const hasComparison = comp.length === 2;
+
+  if(hasComparison && !colsToShow.includes("COMPARISON")){
+    colsToShow.push("COMPARISON");
+  }
+
+  // Render table head
+  tHead.innerHTML = `<tr>${colsToShow.map(c => `<th>${c}</th>`).join("")}</tr>`;
+
+  // Group similar rows
+  const grouped = groupByTextColumns(dataToRender, showCols, monthCols);
+  currentGroupedData = grouped;
+
+  let html = "";
+
+  if(totalCols.length){
+    html = renderGroupedRows(grouped, colsToShow, monthCols, selected);
+  } else {
+    grouped.forEach(r => html += buildRowHtml(r, colsToShow, selected));
+  }
+
+  tBody.innerHTML = html;
+  tFoot.innerHTML = renderGrandTotal(grouped, colsToShow, monthCols, selected);
+
+  table.classList.remove("hidden");
+
+  // Reveal table (remove skeleton)
+  if(window.__dashboardReveal) window.__dashboardReveal();
+}
+
+/* =============================
+   Grouping Logic
+============================= */
+function groupByTextColumns(data, textCols, monthCols){
+  const map = new Map();
+
+  data.forEach(row => {
+    const key = textCols.map(k => getVal(row, k)).join("|");
+
+    if(!map.has(key)){
+      const obj = {};
+      textCols.forEach(k => obj[k] = getVal(row, k));
+      monthCols.forEach(m => obj[m] = Number(getVal(row, m)) || 0);
+      map.set(key, obj);
+    } else {
+      const obj = map.get(key);
+      monthCols.forEach(m => obj[m] += (Number(getVal(row, m)) || 0));
+    }
+  });
+
+  return Array.from(map.values());
+}
+
+/* =============================
+   Single Table Row
+============================= */
+function buildRowHtml(row, colsToShow, selected){
+  let html = "<tr>";
+
+  const comp = selected["COMPARISON"] || [];
+  const hasComparison = comp.length === 2;
+
+  colsToShow.forEach((c, i) => {
+
+    if(c === "COMPARISON"){
+      if(hasComparison){
+        const a = Number(row[comp[0]]) || 0;
+        const b = Number(row[comp[1]]) || 0;
+        const diff = b - a;
+        const cls = diff > 0 ? "bg-pos" : diff < 0 ? "bg-neg" : "";
+        html += `<td class="numeric ${cls}">${diff}</td>`;
+      } else {
+        html += `<td></td>`;
+      }
+      return;
+    }
+
+    if(monthOrder.includes(c.toUpperCase())){
+      const val = Number(row[c]) || 0;
+      let prevVal = null;
+
+      for(let j=i-1; j>=0; j--){
+        if(monthOrder.includes(colsToShow[j].toUpperCase())){
+          prevVal = Number(row[colsToShow[j]]) || 0;
+          break;
+        }
+      }
+
+      const cls = prevVal !== null
+        ? (val > prevVal ? "bg-pos" : val < prevVal ? "bg-neg" : "")
+        : "";
+
+      html += `<td class="numeric ${cls}">${val}</td>`;
+    }
+    else{
+      html += `<td>${row[c] || ""}</td>`;
+    }
+  });
+
+  return html + "</tr>";
+}
+
+/* =============================
+   Render Grouped Rows + Subtotals
+============================= */
+function renderGroupedRows(rows, colsToShow, monthCols, selected){
+  const groups = {};
+
+  rows.forEach(r => {
+    const key = selected["TOTAL"].join("|") === "STATE" ? r.STATE : "ALL";
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  });
+
+  let html = "";
+
+  for(const g in groups){
+    groups[g].forEach(r => html += buildRowHtml(r, colsToShow, selected));
+
+    const subtotal = {};
+    monthCols.forEach(m => subtotal[m] = groups[g].reduce((s, rr) => s + (Number(rr[m])||0), 0));
+
+    html += buildSubtotalRow(subtotal, colsToShow, monthCols, selected);
+  }
+
+  return html;
+}
+
+function buildSubtotalRow(sub, colsToShow, monthCols, selected){
+  let html = "<tr class='subtotal-row'>";
+
+  const comp = selected["COMPARISON"] || [];
+  const hasComparison = comp.length === 2;
+
+  colsToShow.forEach((c, i) => {
+    if(c === "COMPARISON"){
+      if(hasComparison){
+        const a = sub[comp[0]] || 0;
+        const b = sub[comp[1]] || 0;
+        const diff = b - a;
+        const cls = diff > 0 ? "bg-pos" : diff < 0 ? "bg-neg" : "";
+        html += `<td class="numeric ${cls}">${diff}</td>`;
+      } else html += `<td></td>`;
+      return;
+    }
+
+    if(monthCols.includes(c)){
+      const val = sub[c] || 0;
+      let prev = null;
+
+      for(let j=i-1; j>=0; j--){
+        if(monthCols.includes(colsToShow[j])){
+          prev = sub[colsToShow[j]] || 0;
+          break;
+        }
+      }
+
+      const cls = prev !== null ? (val > prev ? "bg-pos" : val < prev ? "bg-neg" : "") : "";
+      html += `<td class="numeric ${cls}">${val}</td>`;
+    }
+    else{
+      html += (i===0 ? `<td class='subtotal-label'>Subtotal</td>` : `<td></td>`);
+    }
+  });
+
+  return html + "</tr>";
+}
+
+/* =============================
+   GRAND TOTAL
+============================= */
+function renderGrandTotal(rows, colsToShow, monthCols, selected){
+  if(!rows.length) return "";
+
+  const totals = {};
+  monthCols.forEach(m => totals[m] = rows.reduce((s, r) => s + (Number(r[m])||0), 0));
+
+  let html = "<tr class='grandtotal-row'>";
+
+  const comp = selected["COMPARISON"] || [];
+  const hasComparison = comp.length === 2;
+
+  colsToShow.forEach((c, i) => {
+    if(c === "COMPARISON"){
+      if(hasComparison){
+        const a = totals[comp[0]] || 0;
+        const b = totals[comp[1]] || 0;
+        const diff = b - a;
+        const cls = diff > 0 ? "bg-pos" : diff < 0 ? "bg-neg" : "";
+        html += `<td class="numeric ${cls}"><b>${diff}</b></td>`;
+      } else html += `<td></td>`;
+      return;
+    }
+
+    if(monthCols.includes(c)){
+      const val = totals[c] || 0;
+      let prev = null;
+
+      for(let j=i-1; j>=0; j--){
+        if(monthCols.includes(colsToShow[j])){
+          prev = totals[colsToShow[j]] || 0;
+          break;
+        }
+      }
+
+      const cls = prev !== null ? (val > prev ? "bg-pos" : val < prev ? "bg-neg" : "") : "";
+      html += `<td class="numeric ${cls}"><b>${val}</b></td>`;
+    }
+    else{
+      html += (i===0 ? `<td class='subtotal-label'><b>TOTAL</b></td>` : `<td></td>`);
+    }
+
+/* =============================
+   DASHBOARD.JS — SEGMENT 4/4
+   (Sorting, Export, Mobile Optimizations, Final Glue)
+============================= */
+
+/* =============================
+   SORTING HANDLER
+============================= */
+function addSorting(colsToShow){
+  const table = document.getElementById("dataTable");
+  if(!table) return;
+
+  const ths = table.querySelectorAll("th");
+
+  ths.forEach((th, idx) => {
+    const col = colsToShow[idx];
+
+    // Only numeric columns + COMPARISON allow sorting
+    const isNumeric = monthOrder.includes(col.toUpperCase()) || col === "COMPARISON";
+    if(!isNumeric) return;
+
+    th.style.cursor = "pointer";
+
+    th.addEventListener("click", () => {
+      const asc = !th.classList.contains("asc");
+
+      // Reset all
+      ths.forEach(h => h.classList.remove("asc", "desc"));
+
+      // Set current
+      th.classList.add(asc ? "asc" : "desc");
+
+      let sorted = [...currentGroupedData];
+
+      sorted.sort((a, b) => {
+        const A = Number(a[col]) || 0;
+        const B = Number(b[col]) || 0;
+        return asc ? A - B : B - A;
+      });
+
+      renderTable(sorted, currentSelectedFilters);
+    });
+  });
+}
+
+/* =============================
+   EXPORT TO EXCEL
+============================= */
+async function exportExcel(){
+  try{
+    const table = document.getElementById("dataTable");
+    if(!table){ alert("No data available"); return; }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Dashboard Data");
+
+    const rows = Array.from(table.querySelectorAll("tr")).map(tr =>
+      Array.from(tr.querySelectorAll("th,td")).map(td => td.innerText.trim())
+    );
+
+    rows.forEach((r, i) => {
+      const row = sheet.addRow(r);
+
+      if(i === 0){
+        // Header
+        row.eachCell(cell => {
+          cell.font = { bold:true, color:{ argb:"1E3A8A" } };
+          cell.fill = {
+            type:"pattern",
+            pattern:"solid",
+            fgColor:{ argb:"E0E7FF" }
+          };
+          cell.alignment = { horizontal:"center", vertical:"middle" };
+          cell.border = {
+            top:{style:"thin"}, left:{style:"thin"},
+            bottom:{style:"thin"}, right:{style:"thin"}
+          };
+        });
+      } else {
+        // Body
+        row.eachCell(cell => {
+          const val = cell.value;
+
+          // SUBTOTAL
+          if(String(val).toUpperCase() === "SUBTOTAL"){
+            cell.font = { bold:true, color:{ argb:"1E3A8A" } };
+            cell.fill = {
+              type:"pattern", pattern:"solid", fgColor:{ argb:"E0F2FE" }
+            };
+            return;
+          }
+
+          // TOTAL
+          if(String(val).toUpperCase() === "TOTAL"){
+            cell.font = { bold:true, color:{ argb:"4C1D95" } };
+            cell.fill = {
+              type:"pattern", pattern:"solid", fgColor:{ argb:"F3E8FF" }
+            };
+            return;
+          }
+
+          const num = parseFloat(val);
+          if(!isNaN(num)){
+            const bg = num > 0 ? "D1FAE5" : num < 0 ? "FEE2E2" : "FFFFFF";
+            cell.fill = {
+              type:"pattern", pattern:"solid", fgColor:{ argb:bg }
+            };
+            cell.alignment = { horizontal:"center", vertical:"middle" };
+          }
+        });
+      }
+    });
+
+    sheet.columns.forEach(c => c.width = 14);
+    sheet.views = [{ state:"frozen", ySplit: 1 }];
+
+    const buf = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buf]), `dashboard_export_${Date.now()}.xlsx`);
+
+  } catch(err){
+    console.error("Export failed", err);
+    alert("Export failed: " + err.message);
+  } finally{
+    hideOverlay();
+  }
+}
+
+/* =============================
+   MOBILE PERFORMANCE OPTIMIZATION
+============================= */
+const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
+if(isMobile){
+  console.log("📱 Mobile optimization active");
+
+  const main = document.querySelector("main");
+  if(main){
+    const msg = document.createElement("div");
+    msg.textContent = "📊 Mobile optimized mode";
+    msg.style.textAlign = "center";
+    msg.style.fontSize = "0.8rem";
+    msg.style.color = "#555";
+    msg.style.padding = "4px";
+    main.prepend(msg);
+  }
+
+  const originalRender = renderTable;
+  renderTable = function(filtered, selected){
+    requestAnimationFrame(() => originalRender(filtered, selected));
+  };
+
+  const filterBox = document.getElementById("filtersContainer");
+  if(filterBox) filterBox.style.scrollBehavior = "smooth";
+}
+
+/* =============================
+   FINAL OVERLAY HIDE AT LOAD
+============================= */
+hideOverlay();
+
+
