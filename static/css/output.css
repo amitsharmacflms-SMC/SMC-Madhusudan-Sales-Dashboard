@@ -76,4 +76,26 @@ header h1{font-size:1.05rem;font-weight:800;color:#1e40af;margin-left:8px}
 /* ---------- IMPROVED STABILITY (CLS FIXES) ---------- */
 .btn,.filter-box,table,th,td{transition:background-color .25s ease,opacity .2s ease}
 
+/* === Bold table + strong gridlines === */
+table tbody td {
+  font-weight:700 !important;
+  border:1px solid #cbd5e1 !important;
+}
+
+table thead th {
+  font-weight:800 !important;
+  border:1px solid #94a3b8 !important;
+}
+
+.subtotal-row td,
+.grandtotal-row td {
+  border-top:2px solid #1e3a8a !important;
+  border-bottom:2px solid #1e3a8a !important;
+  background:#f1f5f9 !important;
+}
+
+
+
+
+
 /* ---------- END OF OPTIMIZED output.css ---------- */
