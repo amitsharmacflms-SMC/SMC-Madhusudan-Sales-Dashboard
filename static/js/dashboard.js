@@ -203,49 +203,112 @@ function groupBy(rows, monthCols) {
   return [...groups.values()];
 }
 
+
+/* =========================================================
+   RENDER TABLE (HEAD + ROWS + SUBTOTAL + GRAND TOTAL)
+========================================================= */
+function renderTable(groupedRows, monthCols) {
+  const tHead = document.getElementById("tableHead");
+  const tBody = document.getElementById("tableBody");
+  const tFoot = document.getElementById("tableFoot");
+
+  tHead.innerHTML = "";
+  tBody.innerHTML = "";
+  tFoot.innerHTML = "";
+
+  if (!groupedRows.length) {
+    tBody.innerHTML = "<tr><td>No data</td></tr>";
+    return;
+  }
+
+  /* --- Build visible columns --- */
+  const textCols = ["STATE","MANAGER_NAME","DISTRICT","PRODUCT"];
+  const cols = [...textCols, ...monthCols];
+
+  /* --- Header --- */
+  tHead.innerHTML = `<tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr>`;
+
+  /* --- Rows --- */
+  groupedRows.forEach(row => {
+    tBody.innerHTML += buildRow(row, cols);
+  });
+
+  /* --- Subtotal (only if >=2 rows) --- */
+  if (groupedRows.length >= 2) {
+    tBody.innerHTML += buildSubtotalRow(groupedRows, cols, monthCols);
+  }
+
+  /* --- Grand Total --- */
+  tFoot.innerHTML = buildGrandTotalRow(groupedRows, cols, monthCols);
+}
+
+/* =========================================================
+   BUILD REGULAR ROW
+========================================================= */
+function buildRow(row, cols) {
+  let html = "<tr>";
+  cols.forEach(c => {
+    if (monthOrder.includes(norm(c))) {
+      html += `<td class="numeric">${Number(row[c]) || 0}</td>`;
+    } else {
+      html += `<td>${row[c] || ""}</td>`;
+    }
+  });
+  return html + "</tr>";
+}
+
+/* =========================================================
+   SUBTOTAL ROW
+========================================================= */
+function buildSubtotalRow(rows, cols, monthCols) {
+  let html = `<tr class="subtotal-row">`;
+
+  cols.forEach(c => {
+    if (monthCols.includes(c)) {
+      const sum = rows.reduce((s, r) => s + (Number(r[c]) || 0), 0);
+      html += `<td class="numeric subtotal-cell">${sum}</td>`;
+    } else {
+      html += `<td class="subtotal-label">Subtotal</td>`;
+    }
+  });
+
+  return html + "</tr>";
+}
+
+/* =========================================================
+   GRAND TOTAL ROW
+========================================================= */
+function buildGrandTotalRow(rows, cols, monthCols) {
+  let html = `<tr class="grandtotal-row">`;
+
+  cols.forEach(c => {
+    if (monthCols.includes(c)) {
+      const sum = rows.reduce((s, r) => s + (Number(r[c]) || 0), 0);
+      html += `<td class="numeric grandtotal-cell"><b>${sum}</b></td>`;
+    } else {
+      html += `<td class="grandtotal-label"><b>GRAND TOTAL</b></td>`;
+    }
+  });
+
+  return html + "</tr>";
+}
+
+
+
+
+
 /* =========================================================
    STOP — PART 1 ENDS HERE
    Reply: “Send dashboard.js Part 2”
 ========================================================= */
 
 
-/* ------------------------------------------------------------
-   SUBTOTAL ROW
------------------------------------------------------------- */
-function subtotalRow(rows, cols) {
-  let html = "<tr class='subtotal-row'>";
 
-  cols.forEach(col => {
-    if (monthOrder.includes(norm(col))) {
-      const total = rows.reduce((s, r) => s + (Number(r[col]) || 0), 0);
-      html += `<td class="numeric subtotal-cell">${total}</td>`;
-    } else {
-      html += `<td class="subtotal-label">Subtotal</td>`;
-    }
-  });
 
-  html += "</tr>";
-  return html;
-}
 
-/* ------------------------------------------------------------
-   GRAND TOTAL ROW
------------------------------------------------------------- */
-function grandTotalRow(rows, cols) {
-  let html = "<tr class='grandtotal-row'>";
 
-  cols.forEach(col => {
-    if (monthOrder.includes(norm(col))) {
-      const total = rows.reduce((s, r) => s + (Number(r[col]) || 0), 0);
-      html += `<td class="numeric grandtotal-cell"><b>${total}</b></td>`;
-    } else {
-      html += `<td class="grandtotal-label"><b>TOTAL</b></td>`;
-    }
-  });
 
-  html += "</tr>";
-  return html;
-}
+
 
 /* ------------------------------------------------------------
    COLOR CODING (AFTER RENDER)
