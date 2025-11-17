@@ -1,101 +1,41 @@
-/* =============================
-   OPTIMIZED output.css (Option B)
-   Safe Optimization (keeps all Tailwind + core styles)
-   Improved LCP/CLS, deduped, compressed where safe
-============================= */
+body{font-family:Inter,system-ui}
 
-/* ---------- GLOBAL RESETS ---------- */
-html,body{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}*,*::before,*::after{box-sizing:inherit}
-body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
-.hidden{display:none!important}
-
-/* ---------- TABLE OPTIMIZATION ---------- */
-table{width:100%;border-collapse:collapse;table-layout:auto}
-th,td{padding:4px 6px;height:22px;font-size:.82rem;border-bottom:1px solid #e5e7eb;text-align:center;white-space:nowrap}
-thead th{position:sticky;top:0;z-index:30;background:#eef2ff;font-weight:700;text-transform:uppercase}
-.dark-mode thead th{background:#0b1220;color:#dbeafe}
-.numeric{text-align:center;font-weight:600}
-
-/* Color coding */
-.bg-pos{background:#d1fae5!important}
-.bg-neg{background:#fee2e2!important}
-
-/* Subtotal + Total rows */
-.subtotal-row td{background:#e0f2fe!important;font-weight:700}
-.subtotal-label{background:#dbeafe!important;color:#1e3a8a!important;font-weight:800}
-.grandtotal-row td{background:#e9d5ff!important;font-weight:700}
-.grandtotal-row .subtotal-label{color:#4c1d95!important}
-
-/* ---------- TABLE WRAPPER ---------- */
-.table-wrapper{overflow:auto;border-radius:10px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.06)}
-.table-wrapper::-webkit-scrollbar{height:8px;width:8px}
-.table-wrapper::-webkit-scrollbar-thumb{background:#2563eb;border-radius:6px}
-
-/* ---------- FILTER BOXES ---------- */
-.filter-box{border:1px solid #000;border-radius:8px;padding:8px 10px;background:#fff;min-width:170px;box-shadow:0 2px 4px rgba(0,0,0,.06);transition:.25s}
-.filter-box:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(0,0,0,.1)}
-.filter-box strong{display:block;text-align:center;font-size:.85rem;font-weight:800;margin-bottom:6px;color:#1e3a8a;border-bottom:1px solid #e2e8f0;padding-bottom:3px}
-.filter-box label{display:block;font-size:.8rem;padding:2px 2px;color:#000}
-.filter-box input[type=checkbox]{margin-right:4px;transform:scale(1.05)}
-
-/* ---------- MOBILE FILTERS ---------- */
-@media(max-width:768px){
-  #filtersContainer{display:flex;flex-direction:column;gap:10px;padding:10px;max-height:60vh;overflow-y:auto;background:#f8fafc;border-radius:10px}
-  .filter-box{width:100%}
-  .toolbar button{font-size:.75rem;padding:6px 8px}
-  th,td{font-size:.72rem;padding:3px 4px}
+.filter-box{
+  border:1px solid #000;
+  border-radius:8px;
+  padding:6px;
+  min-width:160px;
+  background:#fff;
 }
 
-/* ---------- HEADER ---------- */
-header{background:#fff;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:50}
-header .logo{height:40px}
-header h1{font-size:1.05rem;font-weight:800;color:#1e40af;margin-left:8px}
+.filter-box strong{
+  font-weight:800;
+  display:block;
+  margin-bottom:4px;
+}
 
-/* ---------- BUTTONS ---------- */
-.btn{padding:6px 12px;border-radius:6px;font-size:.85rem;font-weight:600;cursor:pointer;border:none}
-.btn-blue{background:#2563eb;color:#fff}
-.btn-gray{background:#f3f4f6;color:#000}
-.btn:hover{opacity:.85}
+th,td{
+  border:1px solid #000 !important;
+  font-weight:600;
+  text-align:center;
+}
 
-/* ---------- DARK MODE ---------- */
-.dark-mode body{background:#0f172a;color:#fff}
-.dark-mode .filter-box{background:#f9fafb;border-color:#1e3a8a}
-.dark-mode .filter-box strong{color:#000;border-color:#e5e7eb}
-.dark-mode td:not(.bg-pos):not(.bg-neg):not(.numeric):not(.subtotal-label){background:#000;color:#fff}
-.dark-mode th{background:#111827!important;color:#f9fafb!important}
-.dark-mode .subtotal-row td{background:#0f172a!important;color:#e2e8f0!important}
-.dark-mode .grandtotal-row td{background:#1e1b4b!important;color:#e2e8f0!important}
+thead th{
+  background:#e4e9ff !important;
+  position:sticky;
+  top:0;
+  z-index:10;
+}
 
-/* ---------- OVERLAY LOADER ---------- */
-.overlay::after{content:"Processing...";padding:10px 16px;border-radius:8px;background:rgba(0,0,0,.65);color:#fff;font-weight:700}
-
-/* ---------- SMOOTH ANIMATIONS ---------- */
-.fade-in{animation:fadeIn .35s ease-in-out}
-@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-
-/* ---------- IMPROVED STABILITY (CLS FIXES) ---------- */
-.btn,.filter-box,table,th,td{transition:background-color .25s ease,opacity .2s ease}
-
-/* === Bold table + strong gridlines === */
-table tbody td {
+.subtotal-row td{
+  background:#f0f7ff !important;
   font-weight:700 !important;
-  border:1px solid #cbd5e1 !important;
 }
 
-table thead th {
-  font-weight:800 !important;
-  border:1px solid #94a3b8 !important;
+.grandtotal-row td{
+  background:#e8d7ff !important;
+  font-weight:900 !important;
 }
 
-.subtotal-row td,
-.grandtotal-row td {
-  border-top:2px solid #1e3a8a !important;
-  border-bottom:2px solid #1e3a8a !important;
-  background:#f1f5f9 !important;
-}
-
-
-
-
-
-/* ---------- END OF OPTIMIZED output.css ---------- */
+.bg-pos{background:#d1fae5 !important;}
+.bg-neg{background:#fee2e2 !important;}

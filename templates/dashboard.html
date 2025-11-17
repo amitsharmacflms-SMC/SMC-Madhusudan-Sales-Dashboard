@@ -3,233 +3,159 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SMC - Madhusudan Sales Dashboard</title>
+  <title>SMC ERP Sales Dashboard</title>
 
-  <!-- Preconnect + Preload improves LCP -->
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="preload"
-        href="{{ url_for('static', filename='css/output.css') }}"
-        as="style" importance="high" fetchpriority="high">
+  <!-- Preload CSS for LCP -->
+  <link rel="preload" href="{{ url_for('static', filename='css/output.css') }}" as="style">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
 
-  <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+  <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}" type="image/png">
 
   <style>
-    /* ===========================================================
-       Critical CSS (tiny) — prevents CLS & paints first frame fast
-       Full styling lives in output.css
-    ============================================================ */
+    body{margin:0;font-family:Inter,system-ui;-webkit-font-smoothing:antialiased;background:#f5f6fa}
 
-    :root {
-      --navy:#1e3a8a;
-      --pos:#d1fae5;
-      --neg:#fee2e2;
-    }
-
-    body {
-      margin:0;
-      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
-      background:#fff;
-      color:#111;
-    }
-
-    /* Centered header + reserved space = no CLS */
-    header {
-      padding:10px 0;
-      box-sizing:border-box;
-      width:100%;
-    }
-
-    .header-center {
+    /* HEADER STYLE EXACTLY LIKE YOUR SCREENSHOT */
+    header{
+      background:linear-gradient(90deg,#2255e8,#3f49f5);
       display:flex;
-      justify-content:center;
+      justify-content:space-between;
       align-items:center;
-      flex-direction:column;
-      gap:10px;
+      padding:10px 20px;
+      color:#fff;
     }
-
-    .logo {
-      width:60px;
-      height:60px;
+    .header-left{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    .header-left img{
+      height:45px;
+      width:45px;
       object-fit:contain;
     }
-
-    h1 {
-      font-size:1.35rem;
-      color:var(--navy);
-      font-weight:800;
-      margin:0;
-      text-align:center;
-      line-height:1;
+    .header-title{
+      font-size:1.4rem;
+      font-weight:700;
     }
 
-    /* Right-aligned toolbar */
-    .toolbar {
+    .toolbar{
       display:flex;
-      justify-content:flex-end;
-      width:100%;
-      gap:8px;
-      flex-wrap:wrap;
-      padding:6px 12px 0 12px;
-      box-sizing:border-box;
+      align-items:center;
+      gap:12px;
+    }
+    .toolbar button{
+      background:#fff;
+      color:#1e3a8a;
+      border:0;
+      padding:6px 14px;
+      border-radius:8px;
+      font-weight:700;
+      cursor:pointer;
+      box-shadow:0 2px 4px rgba(0,0,0,0.15);
+    }
+    .toolbar button:hover{
+      background:#eef3ff;
     }
 
-    .btn {
-      padding:6px 10px;
-      border-radius:6px;
-      background:#f3f4f6;
-      border:1px solid #cbd5e1;
-      cursor:pointer;
+    /* Filter container */
+    #filtersContainer{
+      padding:12px;
+      background:#fff;
+      border-radius:10px;
+      border:1px solid #ccc;
+      display:flex;
+      gap:12px;
+      overflow-x:auto;
+    }
+
+    /* Table */
+    .table-wrapper{
+      margin-top:18px;
+      padding:10px;
+      border-radius:10px;
+      background:#fff;
+      box-shadow:0 6px 16px rgba(0,0,0,0.1);
+      min-height:420px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:0.85rem;
+      text-align:center;
+    }
+
+    th,td{
+      border:1px solid #000 !important;
+      padding:6px 8px;
       font-weight:600;
     }
 
-    .btn-blue {
-      background:#1e3a8a;
-      color:#fff;
-      border:none;
-    }
-
-    .container {
-      max-width:1500px;
-      margin:0 auto;
-      padding:0 12px;
-      box-sizing:border-box;
-    }
-
-    /* Loader and skeleton */
-    .skeleton {
-      height:340px;
-      background:linear-gradient(90deg,#f3f4f6,#e2e8f0,#f3f4f6);
-      background-size:200% 100%;
-      animation:pulse 1.6s infinite;
-      border-radius:8px;
-    }
-
-    @keyframes pulse {
-      0%{background-position:200% 0}
-      100%{background-position:-200% 0}
-    }
-
-    .hidden { display:none !important; }
-
-    /* Table: sticky headers + bold gridlines */
-    table {
-      border-collapse:collapse;
-      width:100%;
-    }
-
-    thead th {
+    thead th{
       position:sticky;
       top:0;
-      background:linear-gradient(90deg,#eef2ff,#e0e7ff);
-      font-size:0.8rem;
-      text-align:center;
-      font-weight:800;
-      padding:6px;
-      border:1px solid #94a3b8;
-      z-index:20;
+      background:#e4e9ff !important;
+      z-index:10;
     }
 
-    tbody td {
-      padding:6px 8px;
-      font-size:0.82rem;
-      font-weight:700;
-      border:1px solid #cbd5e1;
-      text-align:center;
+    /* Subtotals */
+    .subtotal-row td{
+      background:#f0f7ff !important;
+      font-weight:700 !important;
     }
 
-    .subtotal-row td, .grandtotal-row td {
-      border-top:2px solid #1e3a8a !important;
-      border-bottom:2px solid #1e3a8a !important;
-      background:#f1f5f9;
-      font-weight:800;
+    /* Grand total */
+    .grandtotal-row td{
+      background:#e8d7ff !important;
+      font-weight:900 !important;
     }
 
-    .bg-pos { background:var(--pos) !important; }
-    .bg-neg { background:var(--neg) !important; }
+    /* Positive/Negative color coding */
+    .bg-pos{background:#d1fae5 !important;}
+    .bg-neg{background:#fee2e2 !important;}
 
-    footer {
-      padding:12px;
-      background:#f9fafb;
-      text-align:center;
-      border-top:1px solid #e2e8f0;
-    }
   </style>
-
-  <link rel="icon" href="{{ url_for('static', filename='onlylogo.png') }}">
 </head>
 
 <body>
-  <!-- Prevent layout jump -->
-  <div id="instantPaint" style="height:1px;overflow:hidden"></div>
 
-  <header>
-    <div class="container header-center">
-        <img src="{{ url_for('static', filename='onlylogo.png') }}"
-             class="logo" width="60" height="60" fetchpriority="high">
-        <h1>SMC Madhusudan Sales Dashboard</h1>
-    </div>
+<header>
+  <div class="header-left">
+    <img src="{{ url_for('static', filename='onlylogo.png') }}">
+    <div class="header-title">SMC ERP Sales</div>
+  </div>
 
-    <div class="toolbar">
-      <button id="backBtn" class="btn">← Back</button>
-      <button id="clearBtn" class="btn">Clear Filters</button>
-      <button id="toggleFiltersBtn" class="btn">Hide Filters</button>
-      <button id="toggleViewBtn" class="btn btn-blue">Switch to SKU View</button>
-      <button id="themeToggle" class="btn">Dark Mode</button>
-      <button id="exportBtn" class="btn btn-blue">Export</button>
-    </div>
-  </header>
+  <div class="toolbar">
+    <button id="backBtn">← Back</button>
+    <button id="exportBtn">Export</button>
+    <button id="clearBtn">Clear</button>
+    <button id="toggleFiltersBtn">Hide Filters</button>
+    <button id="toggleViewBtn">Switch to SKU View</button>
+  </div>
+</header>
 
-  <main class="container">
-    <section>
-      <div id="filtersWrapper" style="transition:all .25s ease;overflow:hidden;">
-        <div id="filtersContainer"
-             style="display:flex;gap:12px;padding:10px;background:#fff;border-radius:10px;overflow-x:auto;border:1px solid #cbd5e1;">
-        </div>
-      </div>
+<main style="max-width:1500px;margin:auto;padding:20px;">
+  
+  <div id="filtersWrapper">
+    <div id="filtersContainer"></div>
+  </div>
 
-      <div id="loader" style="padding:8px;color:#6b7280;visibility:hidden;">Loading data...</div>
-      <div id="overlayLoader" class="hidden"
-           style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:3000;">
-      </div>
+  <div id="loader" style="padding:8px;color:#666;font-weight:600">Loading...</div>
 
-      <div class="table-wrapper"
-           style="background:#fff;border-radius:10px;padding:10px;box-shadow:0 6px 18px rgba(4,8,15,0.05);">
-        <div id="tableSkeleton" class="skeleton"></div>
+  <div class="table-wrapper">
+    <table id="dataTable" class="hidden">
+      <thead id="tableHead"></thead>
+      <tbody id="tableBody"></tbody>
+      <tfoot id="tableFoot"></tfoot>
+    </table>
+  </div>
 
-        <div id="tableContainer" class="hidden">
-          <table id="dataTable">
-            <thead id="tableHead"></thead>
-            <tbody id="tableBody"></tbody>
-            <tfoot id="tableFoot"></tfoot>
-          </table>
-        </div>
-      </div>
-    </section>
-  </main>
+</main>
 
-  <footer>
-    © {{ current_year }} Created & Hosted by <b>Amit Sharma</b>
-  </footer>
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js" defer></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
 
-  <!-- Libraries -->
-  <script defer src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-
-  <!-- Dashboard JS -->
-  <script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-
-  <script>
-    /* Reveal table once dashboard.js loads */
-    window.__dashboardReveal = function() {
-      document.getElementById("tableSkeleton")?.classList.add("hidden");
-      document.getElementById("tableContainer")?.classList.remove("hidden");
-
-      const loader = document.getElementById("loader");
-      if(loader) loader.style.visibility = "hidden";
-
-      const inst = document.getElementById("instantPaint");
-      if(inst) inst.remove();
-    };
-  </script>
 </body>
 </html>
