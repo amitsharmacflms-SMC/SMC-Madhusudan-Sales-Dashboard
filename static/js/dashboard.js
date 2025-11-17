@@ -141,16 +141,16 @@ function bindUI(){
 /* =============================
    FILTER PANEL TOGGLE
 ============================= */
-let filtersVisible = window.innerWidth > 768;
-function toggleFilters(){
+function toggleFilters() {
   const wrapper = document.getElementById("filtersWrapper");
   const btn = document.getElementById("toggleFiltersBtn");
-  if(!wrapper || !btn) return;
-  if(filtersVisible){
-    wrapper.style.maxHeight = "0";
+  if (!wrapper || !btn) return;
+
+  if (filtersVisible) {
+    wrapper.style.maxHeight = "0px";
     btn.textContent = "Show Filters";
   } else {
-    wrapper.style.maxHeight = "600px";
+    wrapper.style.maxHeight = "500px";   // Fixed value for stable animation
     btn.textContent = "Hide Filters";
   }
   filtersVisible = !filtersVisible;
@@ -445,8 +445,15 @@ function renderTable(dataToRender, selected){
       // subtotal
       const subtotal = {};
       monthCols.forEach(m => subtotal[m] = groups[gk].reduce((s, rr)=> s + (Number(rr[m])||0), 0));
-      rowsHtml += buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel);
+      // Only show subtotal if group has 2 or more rows
+if (groups[gk].length >= 2) {
+    const subtotal = {};
+    monthCols.forEach(m => {
+        subtotal[m] = groups[gk].reduce((s, rr) => s + (Number(rr[m]) || 0), 0);
     });
+    rowsHtml += buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel);
+}
+
 
   } else {
     grouped.forEach(r => rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel));
@@ -638,6 +645,36 @@ async function exportExcel(){
     hideOverlay();
   }
 }
+
+function clearFilters() {
+  localStorage.removeItem("savedFilters");
+  localStorage.removeItem("default_avg_cols");
+
+  // RESET UI FILTER CHECKBOXES
+  const filters = document.getElementById("filtersContainer");
+  if (filters) {
+    filters.querySelectorAll("input[type='checkbox']").forEach(cb => {
+      cb.checked = false;
+      cb.disabled = false;
+      cb.parentElement.style.opacity = "1";
+    });
+  }
+
+  // RELOAD DATA
+  loadData(currentView);
+
+  // Reset filter button text
+  const btn = document.getElementById("toggleFiltersBtn");
+  if (btn) btn.textContent = "Hide Filters";
+
+  // Expand filters
+  const wrapper = document.getElementById("filtersWrapper");
+  if (wrapper) wrapper.style.maxHeight = "600px";
+  filtersVisible = true;
+}
+
+
+
 
 /* =============================
    MOBILE OPTIMIZATIONS & FINAL TOUCH

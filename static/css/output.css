@@ -80,6 +80,16 @@ header {
 /* ============================================================
    FILTER BAR
 ============================================================ */
+
+.filter-box {
+  width: 180px !important;
+  min-width: 180px !important;
+}
+
+
+
+
+
 .filter-bar {
   display: flex;
   gap: 12px;
@@ -171,7 +181,7 @@ tbody tr:hover {
    COLOR CODING
 ============================================================ */
 .numeric {
-  text-align: right;
+  text-align: center !important;
 }
 
 .bg-pos {
