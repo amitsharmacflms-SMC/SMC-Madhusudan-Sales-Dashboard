@@ -31,7 +31,6 @@ const monthOrder = [
    UTIL: safe helpers
 ============================= */
 const norm = s => String(s||"").toUpperCase().trim();
-const normalizeKeySimple = k => String(k||"").toUpperCase().replace(/[-_\s]/g, "");
 
 function escapeHtml(s){
   return String(s == null ? "" : s)
@@ -47,16 +46,12 @@ function attrSafe(s){
   return String(s == null ? "" : s).replace(/'/g, "&#39;");
 }
 
-// robust getter (tries exact, upper, lower, normalized)
+// Fast getter: loadData ensures uppercase keys exist, so we can check directly.
 function getVal(row, key){
   if(!row || !key) return "";
-  if(Object.prototype.hasOwnProperty.call(row, key)) return row[key];
-  const u = key.toUpperCase(), l = key.toLowerCase();
-  if(Object.prototype.hasOwnProperty.call(row, u)) return row[u];
-  if(Object.prototype.hasOwnProperty.call(row, l)) return row[l];
-  const target = normalizeKeySimple(key);
-  const found = Object.keys(row).find(k => normalizeKeySimple(k) === target);
-  return found ? row[found] : "";
+  if(row[key] !== undefined) return row[key];
+  const u = key.toUpperCase();
+  return row[u] !== undefined ? row[u] : "";
 }
 
 /* =============================
@@ -94,7 +89,7 @@ function runIdle(fn){
   if(typeof requestIdleCallback === "function"){
     requestIdleCallback(fn, { timeout: 400 });
   } else {
-    setTimeout(fn, 200);
+    setTimeout(fn, 50);
   }
 }
 function debounce(fn, wait = 250){
@@ -107,7 +102,7 @@ function debounce(fn, wait = 250){
 
 /* =============================
    KEYBOARD GUARD (improves INP)
-   - keyboardInteractionOngoing prevents heavy work during user keyboard activity
+   - FIX: Exclude checkboxes from blocking execution
 ============================= */
 (function attachKeyboardGuard(){
   let lastKeyAt = 0;
@@ -123,10 +118,17 @@ function debounce(fn, wait = 250){
   }, { capture: true });
 
   document.addEventListener("focusin", (e) => {
+    // FIX: Only block main thread for Text inputs/Textareas. 
+    // Clicking a checkbox gives it focus, but shouldn't block the filter logic.
     if(e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) {
-      keyboardInteractionOngoing = true;
+      const type = e.target.type;
+      // If it is a checkbox or radio, do NOT set the guard flag
+      if(type !== "checkbox" && type !== "radio" && type !== "button" && type !== "submit"){
+        keyboardInteractionOngoing = true;
+      }
     }
   }, true);
+
   document.addEventListener("focusout", (e) => {
     keyboardInteractionOngoing = false;
   }, true);
@@ -204,8 +206,7 @@ function toggleFilters(){
 }
 
 /* =============================
-   BUILD FILTER UI (robust + compact)
-   Uses exact titles for input[name='TITLE'] selectors (no cssEscape).
+   BUILD FILTER UI
 ============================= */
 function buildFilters(){
   const filters = document.getElementById("filtersContainer");
@@ -300,7 +301,7 @@ function buildFilters(){
     }
   });
 
-  // attach 'All' toggles (use exact title)
+  // attach 'All' toggles
   filters.querySelectorAll("input[data-all]").forEach(cb => {
     cb.addEventListener("change", e => {
       const title = e.target.dataset.all;
@@ -313,22 +314,21 @@ function buildFilters(){
     });
   });
 
-  // prevent heavy operations firing during rapid key presses (keyboard guard)
+  // prevent heavy operations firing during rapid key presses
   filters.addEventListener("keydown", e => {
-    // stop heavy bubbling; keep default to allow native focus navigation
     e.stopPropagation();
   }, { capture: true });
 
   // on any change: debounce + schedule on idle
   filters.addEventListener("change", debounce(() => {
-    if(keyboardInteractionOngoing){
-      setTimeout(()=> {
-        if(!keyboardInteractionOngoing) runIdle(() => applyFilters());
-      }, 220);
-    } else {
+    // Direct check: if false, run immediately. If true, wait.
+    if(!keyboardInteractionOngoing){
       runIdle(() => applyFilters());
+    } else {
+      // Retry once after delay
+      setTimeout(() => runIdle(() => applyFilters()), 300);
     }
-  }, 220));
+  }, 150));
 }
 
 /* =============================
@@ -345,10 +345,13 @@ async function loadData(view){
     const data = await res.json();
     if(!Array.isArray(data)) throw new Error("Data is not an array");
 
-    // produce uppercase mirror keys so getVal works easily
+    // produce uppercase mirror keys so getVal works fast
     fullData = data.map(r => {
       const o = {};
-      Object.keys(r).forEach(k => { o[k] = r[k]; o[k.toUpperCase()] = r[k]; });
+      Object.keys(r).forEach(k => { 
+        o[k] = r[k]; 
+        o[k.toUpperCase()] = r[k]; 
+      });
       return o;
     });
 
@@ -356,7 +359,7 @@ async function loadData(view){
 
     // compute default avg cols
     const avgCols = originalKeys.filter(k => norm(k).startsWith("AVG_Q"));
-    const orderedAvg = monthOrder.filter(m => avgCols.map(a => normalizeKeySimple(a)).includes(normalizeKeySimple(m)));
+    const orderedAvg = monthOrder.filter(m => avgCols.some(a => norm(a) === norm(m)));
     const last5Avg = orderedAvg.slice(-5);
 
     buildFilters();
@@ -383,7 +386,6 @@ function applySavedOrDefaults(last5Avg){
   const hasSaved = Object.values(saved).some(v => Array.isArray(v) && v.length);
 
   function getInputs(name){
-    // name is the exact title
     return Array.from(filters.querySelectorAll("input")).filter(i => i.name === name);
   }
 
@@ -419,10 +421,9 @@ function applySavedOrDefaults(last5Avg){
 
 /* =============================
    APPLY FILTERS + SMART CASCADE
-   This will schedule heavy render on idle to keep interactions snappy.
 ============================= */
 function applyFilters(save = true){
-  // If keyboard is being used, postpone immediate heavy work
+  // If keyboard is strictly text-typing, postpone.
   if(keyboardInteractionOngoing){
     setTimeout(() => {
       if(!keyboardInteractionOngoing) runIdle(() => applyFilters(save));
@@ -453,29 +454,47 @@ function applyFilters(save = true){
         ? ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
         : ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
 
+      // Perform filtering
+      // Use slice() to clone, then standard filter
       let filtered = fullData.slice();
+      
+      // Optimization: Only filter if there are actually constraints
       cascade.forEach(f => {
-        const sel = (selected[f] || []).map(s => norm(s));
-        if(sel.length) filtered = filtered.filter(r => sel.includes(norm(getVal(r, f))));
+        const rawSel = selected[f];
+        if(rawSel && rawSel.length > 0) {
+          const selSet = new Set(rawSel.map(s => norm(s)));
+          filtered = filtered.filter(r => selSet.has(norm(getVal(r, f))));
+        }
       });
 
-      // smart disable: keep visible but disabled if not valid in cascade
+      // Smart Disable (Visual feedback)
+      // We calculate valid values for the *next* filtering step
+      // But to keep it fast, we just check existence in the current 'filtered' set
       cascade.forEach(f => {
         const box = Array.from(filters.querySelectorAll(".filter-box")).find(b => b.querySelector("strong")?.textContent.trim() === f);
         if(!box) return;
-        const valid = new Set(filtered.map(r => String(getVal(r, f))));
+        
+        // Create a set of valid values for this column in the current filtered dataset
+        const valid = new Set();
+        const len = filtered.length;
+        for(let i=0; i<len; i++){
+          valid.add(String(getVal(filtered[i], f)));
+        }
+        
         const inputs = Array.from(box.querySelectorAll("input")).filter(i => i.name === f);
         inputs.forEach(cb => {
           const label = cb.parentElement;
           if(valid.has(cb.value) || cb.checked){
-            cb.disabled = false; if(label) label.style.opacity = "1";
+            cb.disabled = false; 
+            if(label) label.style.opacity = "1";
           } else {
-            cb.disabled = true; if(label) label.style.opacity = "0.45";
+            cb.disabled = true; 
+            if(label) label.style.opacity = "0.45";
           }
         });
       });
 
-      // schedule heavy render on idle to keep the main thread free while user interacts
+      // schedule heavy render
       runIdle(() => renderTable(filtered, selected));
     } finally {
       hideOverlay();
@@ -500,6 +519,7 @@ function renderTable(dataToRender, selected){
 
   // compose ordered columns
   let colsToShow = [...showCols, ...monthCols];
+  // dedup
   colsToShow = colsToShow.filter((v,i,a)=> a.indexOf(v) === i);
 
   // add COMPARISON if selected
@@ -515,7 +535,10 @@ function renderTable(dataToRender, selected){
   const grouped = (function group(){
     const map = new Map();
     dataToRender.forEach(r => {
-      const key = showCols.map(k => String(getVal(r,k))).join("|");
+      // create key
+      let key = "";
+      for(const k of showCols) key += String(getVal(r,k)) + "|";
+      
       if(!map.has(key)){
         const obj = {};
         showCols.forEach(k => obj[k] = getVal(r,k));
@@ -567,6 +590,7 @@ function renderTable(dataToRender, selected){
     if(dataToRender.length){
       const totals = {};
       monthCols.forEach(m => totals[m] = dataToRender.reduce((s,r)=> s + (Number(getVal(r, m))||0), 0));
+      
       const totalCells = colsToShow.map((c, idx) => {
         if(c === "COMPARISON" && hasComparison){
           const a = totals[compareSel[0]] || 0;
@@ -609,10 +633,9 @@ function renderRowsChunked(rowsArr, container, chunkSize = 150){
     const frag = document.createDocumentFragment();
     const end = Math.min(i + chunkSize, rowsArr.length);
     for(; i < end; i++){
-      // create a temporary wrapper to parse string to node
       const temp = document.createElement('tbody');
       temp.innerHTML = rowsArr[i];
-      const rowNode = temp.firstElementChild; // <tr>
+      const rowNode = temp.firstElementChild; 
       if(rowNode) frag.appendChild(rowNode);
     }
     container.appendChild(frag);
@@ -644,12 +667,17 @@ function buildRowHtml(row, colsToShow, monthCols, compareSel){
       return;
     }
 
-    if(monthCols.map(m=>m.toUpperCase()).includes(String(c).toUpperCase())){
+    // Check if column is numeric (Month) - case insensitive check
+    const isMonth = monthCols.some(m => m.toUpperCase() === String(c).toUpperCase());
+
+    if(isMonth){
       const val = Number(row[c]) || 0;
       let prevVal = null;
+      // find previous month column in the visible list
       for(let j = idx - 1; j >= 0; j--){
-        if(monthCols.map(m=>m.toUpperCase()).includes(String(colsToShow[j]).toUpperCase())){
-          prevVal = Number(row[colsToShow[j]]) || 0;
+        const prevCol = colsToShow[j];
+        if(monthCols.some(m => m.toUpperCase() === String(prevCol).toUpperCase())){
+          prevVal = Number(row[prevCol]) || 0;
           break;
         }
       }
@@ -658,7 +686,7 @@ function buildRowHtml(row, colsToShow, monthCols, compareSel){
       return;
     }
 
-    const txt = row[c] ?? row[String(c).toUpperCase()] ?? "";
+    const txt = getVal(row, c);
     html += `<td style="padding:6px 8px">${escapeHtml(txt)}</td>`;
   });
   html += "</tr>";
@@ -699,7 +727,7 @@ function buildSubtotalRow(sub, colsToShow, monthCols, compareSel){
 }
 
 /* =============================
-   SORTING (lightweight)
+   SORTING
 ============================= */
 function addSorting(colsToShow){
   const table = document.getElementById("dataTable");
@@ -711,7 +739,7 @@ function addSorting(colsToShow){
     if(!isNumeric) return;
     th.style.cursor = "pointer";
     th.addEventListener("click", () => {
-      if(keyboardInteractionOngoing) return; // don't run sort while keyboard in use
+      if(keyboardInteractionOngoing) return; 
       const asc = !th.classList.contains("asc");
       ths.forEach(h => h.classList.remove("asc","desc"));
       th.classList.add(asc ? "asc":"desc");
@@ -725,7 +753,7 @@ function addSorting(colsToShow){
 }
 
 /* =============================
-   EXPORT (ExcelJS + FileSaver expected on page)
+   EXPORT (ExcelJS)
 ============================= */
 async function exportExcel(){
   try {
@@ -794,14 +822,6 @@ function clearFilters(){
 }
 
 /* =============================
-   FINISH / DEBUG
+   FINISH
 ============================= */
-if(window.matchMedia && window.matchMedia("(max-width:768px)").matches){
-  console.log("mobile optimizations active");
-}
 hideOverlay();
-
-window._dashboard_internal = {
-  reload: ()=> loadData(currentView),
-  getState: ()=> ({ view: currentView, filters: currentSelectedFilters })
-};
