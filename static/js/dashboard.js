@@ -1,8 +1,11 @@
-/* dashboard.js — final production version (Option A: combined grouping) */
+/* dashboard.js — optimized for INP/LCP/UX
+   - chunked row rendering using requestIdleCallback
+   - filters debounce + requestIdleCallback
+   - avoid large innerHTML writes
+   - safeguards for older browsers (fallbacks)
+   - keeps subtotal/grand-total grouping (Option A)
+*/
 
-/* =============================
-   CONFIG / GLOBALS
-============================= */
 let filtersVisible = true;
 let currentView = "product";
 let fullData = [];
@@ -20,9 +23,7 @@ const monthOrder = [
   "APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","OCT-25","AVG_Q3_2025-26","AVG_YEAR_2025-26"
 ];
 
-/* =============================
-   HELPERS
-============================= */
+/* helpers */
 const norm = s => String(s||"").toUpperCase().trim();
 const normalizeKeySimple = k => String(k||"").toUpperCase().replace(/[-_\s]/g, "");
 
@@ -37,14 +38,15 @@ function getVal(row, key){
   return found ? row[found] : "";
 }
 
-/* safe HTML escape for inserted text (small helper) */
 function escapeHtml(s){
-  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  return String(s==null?"":s)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
 }
 
-/* =============================
-   OVERLAY / SKELETON
-============================= */
+/* overlay */
 let __overlayTimer = null;
 function showOverlay(delay = 150){
   clearTimeout(__overlayTimer);
@@ -59,18 +61,7 @@ function hideOverlay(){
   if(el) el.classList.add("hidden");
 }
 
-function revealTableContainer(){
-  const skeleton = document.getElementById("tableSkeleton");
-  const container = document.getElementById("tableContainer");
-  const loader = document.getElementById("loader");
-  if(skeleton) skeleton.classList.add("hidden");
-  if(container) container.classList.remove("hidden");
-  if(loader){ loader.style.visibility = "hidden"; loader.textContent = ""; }
-  const p = document.getElementById("instantPaint");
-  if(p && p.parentNode) p.parentNode.removeChild(p);
-}
-
-/* debounce + idle */
+/* debounce + idle helpers */
 function debounce(fn, wait=300){
   let t;
   return (...a) => {
@@ -79,18 +70,20 @@ function debounce(fn, wait=300){
   };
 }
 function runIdle(fn){
-  if("requestIdleCallback" in window) requestIdleCallback(fn, {timeout:300});
-  else setTimeout(fn, 200);
+  if(typeof requestIdleCallback === "function"){
+    requestIdleCallback(fn, { timeout: 300 });
+  } else {
+    setTimeout(fn, 200);
+  }
 }
 
-/* =============================
-   INIT UI
-============================= */
+/* DOM ready */
 document.addEventListener("DOMContentLoaded", () => {
   bindUI();
   loadData(currentView);
 });
 
+/* UI bindings */
 function bindUI(){
   const backBtn = document.getElementById("backBtn");
   if(backBtn) backBtn.addEventListener("click", ()=>window.history.back());
@@ -134,15 +127,12 @@ function bindUI(){
   if(exportBtn) exportBtn.addEventListener("click", ()=>{ showOverlay(120); runIdle(exportExcel); });
 }
 
-/* =============================
-   FILTER PANEL TOGGLE
-============================= */
+/* toggle filters */
 function toggleFilters() {
   const wrapper = document.getElementById("filtersWrapper");
   const btn = document.getElementById("toggleFiltersBtn");
   if (!wrapper || !btn) return;
 
-  // ensure wrapper has overflow hidden / transition in CSS (see README below)
   if (filtersVisible) {
     wrapper.style.maxHeight = "0px";
     btn.textContent = "Show Filters";
@@ -153,9 +143,7 @@ function toggleFilters() {
   filtersVisible = !filtersVisible;
 }
 
-/* =============================
-   BUILD FILTER UI
-============================= */
+/* build filters */
 function buildFilters(){
   const filters = document.getElementById("filtersContainer");
   if(!filters) return;
@@ -177,9 +165,9 @@ function buildFilters(){
     box.style.background = colors[ci++ % colors.length];
     box.style.border = "1px solid #000";
     box.style.borderRadius = "8px";
-    box.style.padding = "8px";
-    box.style.minWidth = "160px";
-    box.style.maxWidth = "320px";
+    box.style.padding = "6px";
+    box.style.minWidth = "120px";
+    box.style.maxWidth = "140px";
 
     const safeVals = values.map(v => String(v));
     const optionsHtml = safeVals.map(v => `<label style="display:block;margin:3px 0;"><input type="checkbox" name="${escapeAttr(title)}" value="${escapeHtml(v)}" ${checkAll?"checked":""}> ${escapeHtml(v)}</label>`).join("");
@@ -210,33 +198,38 @@ function buildFilters(){
     }
   });
 
-  // data-all listeners
+  // data-all listeners (use delegated safe selector)
   filters.querySelectorAll("input[data-all]").forEach(cb => {
     cb.addEventListener("change", e => {
       const title = e.target.dataset.all;
       const checked = e.target.checked;
       try {
         filters.querySelectorAll(`input[name="${CSS.escape(title)}"]`).forEach(i => i.checked = checked);
-      } catch(e) {
-        // fallback
+      } catch(err){
         filters.querySelectorAll("input").forEach(i => { if(i.name === title) i.checked = checked; });
       }
-      runIdle(applyFilters);
+      // schedule applyFilters on idle
+      runIdle(() => applyFilters());
     });
   });
 
-  // on any change, apply (debounced)
-  filters.addEventListener("change", debounce(() => runIdle(applyFilters), 250));
+  // keyboard-safe: avoid firing heavy ops during typing/focus interactions
+  filters.addEventListener("keydown", e => {
+    // avoid heavy processing on arrow/tab etc.
+    e.stopImmediatePropagation();
+  }, { capture: true });
+
+  // on any change, apply (debounced + idle)
+  filters.addEventListener("change", debounce(() => {
+    if(typeof requestIdleCallback === "function"){
+      requestIdleCallback(() => applyFilters(), { timeout: 400 });
+    } else {
+      setTimeout(() => applyFilters(), 250);
+    }
+  }, 300));
 }
 
-/* small helper to safely set attribute name */
-function escapeAttr(s){
-  return String(s||"");
-}
-
-/* =============================
-   LOAD DATA
-============================= */
+/* load data */
 async function loadData(view){
   const loader = document.getElementById("loader");
   if(loader){ loader.style.visibility = "visible"; loader.textContent = "Loading data..."; }
@@ -257,7 +250,7 @@ async function loadData(view){
 
     originalKeys = Object.keys(fullData[0] || {});
 
-    // determine avg columns and defaults
+    // defaults
     const avgCols = originalKeys.filter(k => norm(k).startsWith("AVG_Q"));
     const orderedAvg = monthOrder.filter(m => avgCols.map(a => normalizeKeySimple(a)).includes(normalizeKeySimple(m)));
     const last5Avg = orderedAvg.slice(-5);
@@ -274,9 +267,7 @@ async function loadData(view){
   }
 }
 
-/* =============================
-   SAVED FILTERS / DEFAULTS
-============================= */
+/* saved/default filters */
 function applySavedOrDefaults(last5Avg){
   const filters = document.getElementById("filtersContainer");
   if(!filters) return;
@@ -285,11 +276,8 @@ function applySavedOrDefaults(last5Avg){
   const hasSaved = Object.values(saved).some(v => Array.isArray(v) && v.length);
 
   function getInputs(name){
-    try {
-      return Array.from(filters.querySelectorAll(`input[name="${CSS.escape(String(name))}"]`));
-    } catch(e){
-      return Array.from(filters.querySelectorAll("input")).filter(i => i.name === name);
-    }
+    try { return Array.from(filters.querySelectorAll(`input[name="${CSS.escape(String(name))}"]`)); }
+    catch(e) { return Array.from(filters.querySelectorAll("input")).filter(i => i.name === name); }
   }
 
   if(hasSaved){
@@ -320,9 +308,7 @@ function applySavedOrDefaults(last5Avg){
   applyFilters(false);
 }
 
-/* =============================
-   APPLY FILTERS + SMART CASCADE
-============================= */
+/* apply filters + cascade */
 function applyFilters(save=true){
   showOverlay(80);
   requestAnimationFrame(()=>{
@@ -376,16 +362,15 @@ function applyFilters(save=true){
         });
       });
 
-      renderTable(filtered, selected);
+      // schedule heavy render on idle to keep interactions snappy
+      runIdle(() => renderTable(filtered, selected));
     } finally {
       hideOverlay();
     }
   });
 }
 
-/* =============================
-   RENDERING (grouping, subtotal, grand total)
-============================= */
+/* RENDERING */
 function renderTable(dataToRender, selected){
   const tHead = document.getElementById("tableHead");
   const tBody = document.getElementById("tableBody");
@@ -402,7 +387,7 @@ function renderTable(dataToRender, selected){
   let colsToShow = [...showCols, ...monthCols];
   colsToShow = colsToShow.filter((v,i,a)=> a.indexOf(v) === i);
 
-  // add COMPARISON logic
+  // add COMPARISON if selected
   const compareSel = selected["COMPARISON"] || [];
   const hasComparison = compareSel.length === 2;
   if(hasComparison && !colsToShow.includes("COMPARISON")) colsToShow.push("COMPARISON");
@@ -430,90 +415,109 @@ function renderTable(dataToRender, selected){
   })();
   currentGroupedData = grouped;
 
-  // rows HTML
-  let rowsHtml = "";
+  // Build rows array (strings) instead of a single huge HTML string.
+  const rowsArr = [];
 
   if (Array.isArray(totalCols) && totalCols.length) {
     // GROUP BY selected TOTAL COLUMNS (combined key)
     const groups = {};
     grouped.forEach(r => {
-      // build a composite key from the selected TOTAL columns (use getVal on aggregated row)
       const keyParts = totalCols.map(tc => String(getVal(r, tc)));
       const key = keyParts.join("|");
       if(!groups[key]) groups[key] = [];
       groups[key].push(r);
     });
 
-    // iterate groups in their insertion order
     Object.keys(groups).forEach(gk => {
       const groupRows = groups[gk];
-
-      groupRows.forEach(r => {
-        rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
-      });
-
-      // subtotal only when group has >= 2 rows
+      groupRows.forEach(r => rowsArr.push(buildRowHtml(r, colsToShow, monthCols, compareSel)));
       if(groupRows.length >= 2){
         const subtotal = {};
         monthCols.forEach(m => {
           subtotal[m] = groupRows.reduce((s, rr) => s + (Number(rr[m]) || 0), 0);
         });
-        rowsHtml += buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel);
+        rowsArr.push(buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel));
       }
     });
 
   } else {
-    // no TOTAL selected → just flat rows
-    grouped.forEach(r => {
-      rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
-    });
+    grouped.forEach(r => rowsArr.push(buildRowHtml(r, colsToShow, monthCols, compareSel)));
   }
 
-  tBody.innerHTML = rowsHtml;
+  // Clear old body quickly
+  tBody.innerHTML = "";
 
-  // GRAND TOTAL computed from the raw filtered data (dataToRender), not grouped
-  if(dataToRender.length){
-    const totals = {};
-    monthCols.forEach(m => {
-      totals[m] = dataToRender.reduce((s, r) => s + (Number(getVal(r, m)) || 0), 0);
-    });
+  // Chunked append to avoid long main-thread blocking
+  renderRowsChunked(rowsArr, tBody, 200);
 
-    const totalCells = colsToShow.map((c, idx) => {
-      if(c === "COMPARISON" && hasComparison){
-        const a = totals[compareSel[0]] || 0;
-        const b = totals[compareSel[1]] || 0;
-        const diff = b - a; const cls = diff > 0 ? "bg-pos" : (diff < 0 ? "bg-neg" : "");
-        return `<td class="numeric ${cls}" style="font-weight:800;padding:8px 10px;border-top:2px solid #222">${diff}</td>`;
-      }
-      if(monthCols.includes(c)){
-        const val = totals[c] || 0;
-        // find previous visible month to color-code
-        let prev = null;
-        for(let j = idx-1; j>=0; j--){
-          if(monthCols.includes(colsToShow[j])){
-            prev = totals[colsToShow[j]];
-            break;
-          }
+  // grand total (from filtered raw data)
+  runIdle(() => {
+    if(dataToRender.length){
+      const totals = {};
+      monthCols.forEach(m => totals[m] = dataToRender.reduce((s,r)=> s + (Number(getVal(r, m))||0), 0));
+      const totalCells = colsToShow.map((c, idx) => {
+        if(c === "COMPARISON" && hasComparison){
+          const a = totals[compareSel[0]] || 0;
+          const b = totals[compareSel[1]] || 0;
+          const diff = b - a; const cls = diff > 0 ? "bg-pos" : (diff < 0 ? "bg-neg" : "");
+          return `<td class="numeric ${cls}" style="font-weight:800;padding:8px 10px;border-top:2px solid #222">${diff}</td>`;
         }
-        const cls = prev !== null ? (val > prev ? "bg-pos" : (val < prev ? "bg-neg" : "")) : "";
-        return `<td class="numeric ${cls}" style="font-weight:800;padding:8px 10px;border-top:2px solid #222">${val}</td>`;
-      }
-      if(idx === 0) return `<td style="font-weight:800;padding:8px 10px;border-top:2px solid #222">GRAND TOTAL</td>`;
-      return `<td style="padding:8px 10px;border-top:2px solid #222"></td>`;
-    }).join("");
+        if(monthCols.includes(c)){
+          const val = totals[c] || 0;
+          let prev = null;
+          for(let j = idx-1; j>=0; j--){
+            if(monthCols.includes(colsToShow[j])){
+              prev = totals[colsToShow[j]];
+              break;
+            }
+          }
+          const cls = prev !== null ? (val > prev ? "bg-pos" : (val < prev ? "bg-neg" : "")) : "";
+          return `<td class="numeric ${cls}" style="font-weight:800;padding:8px 10px;border-top:2px solid #222">${val}</td>`;
+        }
+        if(idx === 0) return `<td style="font-weight:800;padding:8px 10px;border-top:2px solid #222">GRAND TOTAL</td>`;
+        return `<td style="padding:8px 10px;border-top:2px solid #222"></td>`;
+      }).join("");
+      tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
+    } else {
+      tFoot.innerHTML = "";
+    }
+  });
 
-    tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
-  } else {
-    tFoot.innerHTML = "";
-  }
-
-  // show table, enable sorting and reveal container
+  // finish: show table, add sorting, reveal container
   table.classList.remove("hidden");
   addSorting(colsToShow);
   revealTableContainer();
 }
 
-/* build single row */
+/* chunked renderer: rowsArr is array of HTML string rows (<tr>..</tr>) */
+function renderRowsChunked(rowsArr, container, chunkSize = 150){
+  if(!Array.isArray(rowsArr) || !container) return;
+  let i = 0;
+  function appendChunk(){
+    const frag = document.createDocumentFragment();
+    const end = Math.min(i + chunkSize, rowsArr.length);
+    for(; i < end; i++){
+      // create element from string
+      const tr = document.createElement('tbody'); // temp wrapper
+      tr.innerHTML = rowsArr[i];
+      // append its child (expected single <tr>)
+      const child = tr.firstElementChild;
+      if(child) frag.appendChild(child);
+    }
+    container.appendChild(frag);
+    if(i < rowsArr.length){
+      // schedule next chunk on idle
+      if(typeof requestIdleCallback === "function"){
+        requestIdleCallback(appendChunk, { timeout: 300 });
+      } else {
+        setTimeout(appendChunk, 16);
+      }
+    }
+  }
+  appendChunk();
+}
+
+/* build single row string */
 function buildRowHtml(row, colsToShow, monthCols, compareSel){
   const hasComparison = (compareSel || []).length === 2;
   let html = "<tr>";
@@ -550,7 +554,6 @@ function buildRowHtml(row, colsToShow, monthCols, compareSel){
   return html;
 }
 
-/* build subtotal row */
 function buildSubtotalRow(sub, colsToShow, monthCols, compareSel){
   const hasComparison = (compareSel || []).length === 2;
   let html = "<tr class='subtotal-row' style='font-weight:700;background:#fafafa'>";
@@ -583,9 +586,7 @@ function buildSubtotalRow(sub, colsToShow, monthCols, compareSel){
   return html;
 }
 
-/* =============================
-   SORTING
-============================= */
+/* sorting */
 function addSorting(colsToShow){
   const table = document.getElementById("dataTable");
   if(!table) return;
@@ -595,6 +596,7 @@ function addSorting(colsToShow){
     const isNumeric = monthOrder.map(m=>m.toUpperCase()).includes(String(col).toUpperCase()) || col === "COMPARISON";
     if(!isNumeric) return;
     th.style.cursor = "pointer";
+    // click handler is lightweight: just toggle class and re-render sorted view on idle
     th.addEventListener("click", ()=>{
       const asc = !th.classList.contains("asc");
       ths.forEach(h => h.classList.remove("asc","desc"));
@@ -603,15 +605,13 @@ function addSorting(colsToShow){
         const A = Number(a[col]) || 0; const B = Number(b[col]) || 0;
         return asc ? A - B : B - A;
       });
-      // render sorted aggregated rows (re-groups inside renderTable will handle as needed)
-      renderTable(sorted, currentSelectedFilters);
+      // render sorted aggregated rows (scheduled on idle)
+      runIdle(()=> renderTable(sorted, currentSelectedFilters));
     });
   });
 }
 
-/* =============================
-   EXPORT (ExcelJS)
-============================= */
+/* export */
 async function exportExcel(){
   try{
     const table = document.getElementById("dataTable");
@@ -652,9 +652,7 @@ async function exportExcel(){
   }
 }
 
-/* =============================
-   CLEAR FILTERS
-============================= */
+/* clear filters */
 function clearFilters() {
   localStorage.removeItem("savedFilters");
   localStorage.removeItem("default_avg_cols");
@@ -678,17 +676,23 @@ function clearFilters() {
   filtersVisible = true;
 }
 
-/* =============================
-   MOBILE OPTIMIZATIONS & FINAL TOUCH
-============================= */
+/* reveal table skeleton -> container */
+function revealTableContainer(){
+  const skeleton = document.getElementById("tableSkeleton");
+  const container = document.getElementById("tableContainer");
+  const loader = document.getElementById("loader");
+  if(skeleton) skeleton.classList.add("hidden");
+  if(container) container.classList.remove("hidden");
+  if(loader){ loader.style.visibility = "hidden"; loader.textContent = ""; }
+  const p = document.getElementById("instantPaint");
+  if(p && p.parentNode) p.parentNode.removeChild(p);
+}
+
+/* misc */
 if(window.matchMedia && window.matchMedia("(max-width:768px)").matches){
   console.log("mobile optimizations active");
 }
-
-/* ensure overlay hidden at load */
 hideOverlay();
-
-/* expose internal API for debugging */
 window._dashboard_internal = {
   reload: ()=> loadData(currentView),
   getState: ()=> ({ view: currentView, filters: currentSelectedFilters })
