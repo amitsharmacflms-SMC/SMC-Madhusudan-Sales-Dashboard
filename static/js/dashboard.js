@@ -1,7 +1,4 @@
-/* dashboard.js — final (Option A: combined multi-column grouping)
-   Replace static/js/dashboard.js with this file.
-   Works with your uploaded dashboard.html and output.css.
-*/
+/* dashboard.js — final production version (Option A: combined grouping) */
 
 /* =============================
    CONFIG / GLOBALS
@@ -13,6 +10,7 @@ let originalKeys = [];
 let currentGroupedData = [];
 let currentSelectedFilters = {};
 
+/* default text columns */
 const baseTextCols = ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
 const monthOrder = [
   "APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
@@ -22,11 +20,12 @@ const monthOrder = [
   "APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","OCT-25","AVG_Q3_2025-26","AVG_YEAR_2025-26"
 ];
 
-// helpers
+/* =============================
+   HELPERS
+============================= */
 const norm = s => String(s||"").toUpperCase().trim();
 const normalizeKeySimple = k => String(k||"").toUpperCase().replace(/[-_\s]/g, "");
 
-// robust getter (tries exact, upper, lower, normalized)
 function getVal(row, key){
   if(!row || !key) return "";
   if(Object.prototype.hasOwnProperty.call(row, key)) return row[key];
@@ -38,8 +37,13 @@ function getVal(row, key){
   return found ? row[found] : "";
 }
 
+/* safe HTML escape for inserted text (small helper) */
+function escapeHtml(s){
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
 /* =============================
-   OVERLAY + SKELETON HELPERS
+   OVERLAY / SKELETON
 ============================= */
 let __overlayTimer = null;
 function showOverlay(delay = 150){
@@ -66,9 +70,7 @@ function revealTableContainer(){
   if(p && p.parentNode) p.parentNode.removeChild(p);
 }
 
-/* =============================
-   UTIL: debounce + idle
-============================= */
+/* debounce + idle */
 function debounce(fn, wait=300){
   let t;
   return (...a) => {
@@ -140,7 +142,7 @@ function toggleFilters() {
   const btn = document.getElementById("toggleFiltersBtn");
   if (!wrapper || !btn) return;
 
-  // ensure wrapper has overflow hidden and transition in CSS (see note)
+  // ensure wrapper has overflow hidden / transition in CSS (see README below)
   if (filtersVisible) {
     wrapper.style.maxHeight = "0px";
     btn.textContent = "Show Filters";
@@ -152,7 +154,7 @@ function toggleFilters() {
 }
 
 /* =============================
-   BUILD FILTER UI (robust)
+   BUILD FILTER UI
 ============================= */
 function buildFilters(){
   const filters = document.getElementById("filtersContainer");
@@ -189,11 +191,8 @@ function buildFilters(){
     filters.appendChild(box);
   }
 
-  // month cols present, preserve monthOrder ordering
   const keysUpper = originalKeys.map(k => k.toUpperCase());
   const actualMonthCols = monthOrder.filter(m => keysUpper.includes(m.toUpperCase()));
-
-  // comparison includes avg columns as well (user requested)
   const comparisonCols = actualMonthCols.slice();
 
   order.forEach(o => {
@@ -217,10 +216,10 @@ function buildFilters(){
       const title = e.target.dataset.all;
       const checked = e.target.checked;
       try {
-        filters.querySelectorAll(`input[name="${title}"]`).forEach(i => i.checked = checked);
+        filters.querySelectorAll(`input[name="${CSS.escape(title)}"]`).forEach(i => i.checked = checked);
       } catch(e) {
         // fallback
-        Array.from(filters.querySelectorAll("input")).filter(i => i.name === title).forEach(i => i.checked = checked);
+        filters.querySelectorAll("input").forEach(i => { if(i.name === title) i.checked = checked; });
       }
       runIdle(applyFilters);
     });
@@ -230,10 +229,7 @@ function buildFilters(){
   filters.addEventListener("change", debounce(() => runIdle(applyFilters), 250));
 }
 
-/* small helper to safely escape attribute values for insertion into HTML strings */
-function escapeHtml(s){
-  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-}
+/* small helper to safely set attribute name */
 function escapeAttr(s){
   return String(s||"");
 }
@@ -261,14 +257,12 @@ async function loadData(view){
 
     originalKeys = Object.keys(fullData[0] || {});
 
-    // find avg columns present
+    // determine avg columns and defaults
     const avgCols = originalKeys.filter(k => norm(k).startsWith("AVG_Q"));
     const orderedAvg = monthOrder.filter(m => avgCols.map(a => normalizeKeySimple(a)).includes(normalizeKeySimple(m)));
     const last5Avg = orderedAvg.slice(-5);
 
     buildFilters();
-
-    // Apply saved or default after filters rendered
     setTimeout(()=> applySavedOrDefaults(last5Avg), 300);
 
   } catch(err){
@@ -281,7 +275,7 @@ async function loadData(view){
 }
 
 /* =============================
-   SAVED FILTERS OR DEFAULTS
+   SAVED FILTERS / DEFAULTS
 ============================= */
 function applySavedOrDefaults(last5Avg){
   const filters = document.getElementById("filtersContainer");
@@ -293,8 +287,8 @@ function applySavedOrDefaults(last5Avg){
   function getInputs(name){
     try {
       return Array.from(filters.querySelectorAll(`input[name="${CSS.escape(String(name))}"]`));
-    } catch(e) {
-      return Array.from(filters.querySelectorAll("input")).filter(i => i.name === String(name));
+    } catch(e){
+      return Array.from(filters.querySelectorAll("input")).filter(i => i.name === name);
     }
   }
 
@@ -303,26 +297,17 @@ function applySavedOrDefaults(last5Avg){
       getInputs(title).forEach(cb => { cb.checked = vals.map(v=>norm(v)).includes(norm(cb.value)); });
     });
   } else {
-    // reset all
     filters.querySelectorAll("input[type='checkbox']").forEach(cb => cb.checked = false);
 
-    // 1) STATE = ALL
     getInputs("STATE").forEach(cb => cb.checked = true);
-
-    // 2) PRODUCT = only ALL IN CASES
     getInputs("PRODUCT").forEach(cb => cb.checked = (norm(cb.value) === "ALL IN CASES"));
 
-    // 3) MONTH / YEAR = last 5 AVG_Q columns
     const last5set = last5Avg.map(x => norm(x));
     getInputs("MONTH / YEAR").forEach(cb => { if(last5set.includes(norm(cb.value))) cb.checked = true; });
 
-    // 4) TOTAL = STATE
     getInputs("TOTAL").forEach(cb => { cb.checked = (norm(cb.value) === "STATE"); });
-
-    // 5) COMPARISON = none
     getInputs("COMPARISON").forEach(cb => cb.checked = false);
 
-    // save defaults
     const saveObj = {};
     filters.querySelectorAll(".filter-box strong").forEach(h => {
       const t = h.textContent.trim();
@@ -336,7 +321,7 @@ function applySavedOrDefaults(last5Avg){
 }
 
 /* =============================
-   APPLY FILTERS + SMART CASCADE (uses combined TOTAL grouping)
+   APPLY FILTERS + SMART CASCADE
 ============================= */
 function applyFilters(save=true){
   showOverlay(80);
@@ -399,10 +384,7 @@ function applyFilters(save=true){
 }
 
 /* =============================
-   RENDERING (table, rows, groupings)
-   - Subtotal: grouped by combined TOTAL columns (Option A)
-   - Subtotal shown only when groupRows.length >= 2
-   - Grand total computed from dataToRender (original rows) to reflect filtered data
+   RENDERING (grouping, subtotal, grand total)
 ============================= */
 function renderTable(dataToRender, selected){
   const tHead = document.getElementById("tableHead");
@@ -420,6 +402,7 @@ function renderTable(dataToRender, selected){
   let colsToShow = [...showCols, ...monthCols];
   colsToShow = colsToShow.filter((v,i,a)=> a.indexOf(v) === i);
 
+  // add COMPARISON logic
   const compareSel = selected["COMPARISON"] || [];
   const hasComparison = compareSel.length === 2;
   if(hasComparison && !colsToShow.includes("COMPARISON")) colsToShow.push("COMPARISON");
@@ -428,7 +411,7 @@ function renderTable(dataToRender, selected){
   const headerHtml = `<tr>${colsToShow.map(c => `<th style="white-space:nowrap;padding:8px 10px;font-weight:800;border-bottom:1px solid #ddd">${escapeHtml(c)}</th>`).join("")}</tr>`;
   tHead.innerHTML = headerHtml;
 
-  // group & aggregate (aggregate per displayed grouping keys)
+  // grouping & aggregation by showCols
   const grouped = (function group(){
     const map = new Map();
     dataToRender.forEach(r => {
@@ -447,27 +430,21 @@ function renderTable(dataToRender, selected){
   })();
   currentGroupedData = grouped;
 
-  // build rows HTML
+  // rows HTML
   let rowsHtml = "";
 
   if (Array.isArray(totalCols) && totalCols.length) {
-    // Build groups using the selected TOTAL columns (combined key)
+    // GROUP BY selected TOTAL COLUMNS (combined key)
     const groups = {};
     grouped.forEach(r => {
-      // For grouping we must use the same properties present on 'grouped' (which are based on showCols)
-      // Use getVal on original r but ensure fallback to grouped object's fields if needed
-      const keyParts = totalCols.map(tc => {
-        // prefer grouped property
-        if(Object.prototype.hasOwnProperty.call(r, tc)) return String(r[tc] ?? "");
-        // fallback to uppercase normalized
-        return String(getVal(r, tc) || "");
-      });
+      // build a composite key from the selected TOTAL columns (use getVal on aggregated row)
+      const keyParts = totalCols.map(tc => String(getVal(r, tc)));
       const key = keyParts.join("|");
       if(!groups[key]) groups[key] = [];
       groups[key].push(r);
     });
 
-    // iterate groups, render rows and subtotal if needed
+    // iterate groups in their insertion order
     Object.keys(groups).forEach(gk => {
       const groupRows = groups[gk];
 
@@ -475,7 +452,8 @@ function renderTable(dataToRender, selected){
         rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
       });
 
-      if (groupRows.length >= 2) {
+      // subtotal only when group has >= 2 rows
+      if(groupRows.length >= 2){
         const subtotal = {};
         monthCols.forEach(m => {
           subtotal[m] = groupRows.reduce((s, rr) => s + (Number(rr[m]) || 0), 0);
@@ -485,7 +463,7 @@ function renderTable(dataToRender, selected){
     });
 
   } else {
-    // no TOTAL grouping selected
+    // no TOTAL selected → just flat rows
     grouped.forEach(r => {
       rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
     });
@@ -493,11 +471,11 @@ function renderTable(dataToRender, selected){
 
   tBody.innerHTML = rowsHtml;
 
-  // grand total: compute across filtered original row set (dataToRender)
+  // GRAND TOTAL computed from the raw filtered data (dataToRender), not grouped
   if(dataToRender.length){
     const totals = {};
     monthCols.forEach(m => {
-      totals[m] = dataToRender.reduce((s, row) => s + (Number(getVal(row, m)) || 0), 0);
+      totals[m] = dataToRender.reduce((s, r) => s + (Number(getVal(r, m)) || 0), 0);
     });
 
     const totalCells = colsToShow.map((c, idx) => {
@@ -509,6 +487,7 @@ function renderTable(dataToRender, selected){
       }
       if(monthCols.includes(c)){
         const val = totals[c] || 0;
+        // find previous visible month to color-code
         let prev = null;
         for(let j = idx-1; j>=0; j--){
           if(monthCols.includes(colsToShow[j])){
@@ -522,12 +501,13 @@ function renderTable(dataToRender, selected){
       if(idx === 0) return `<td style="font-weight:800;padding:8px 10px;border-top:2px solid #222">GRAND TOTAL</td>`;
       return `<td style="padding:8px 10px;border-top:2px solid #222"></td>`;
     }).join("");
+
     tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
   } else {
     tFoot.innerHTML = "";
   }
 
-  // show table, add sorting & reveal
+  // show table, enable sorting and reveal container
   table.classList.remove("hidden");
   addSorting(colsToShow);
   revealTableContainer();
@@ -544,7 +524,7 @@ function buildRowHtml(row, colsToShow, monthCols, compareSel){
         const b = Number(row[compareSel[1]]) || 0;
         const diff = b - a;
         const cls = diff > 0 ? "bg-pos" : (diff < 0 ? "bg-neg" : "");
-        html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700;text-align:center">${diff}</td>`;
+        html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700">${diff}</td>`;
       } else html += `<td style="padding:6px 8px"></td>`;
       return;
     }
@@ -559,7 +539,7 @@ function buildRowHtml(row, colsToShow, monthCols, compareSel){
         }
       }
       const cls = (prevVal !== null) ? (val > prevVal ? "bg-pos" : (val < prevVal ? "bg-neg" : "")) : "";
-      html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700;text-align:center">${val}</td>`;
+      html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700">${val}</td>`;
       return;
     }
 
@@ -580,7 +560,7 @@ function buildSubtotalRow(sub, colsToShow, monthCols, compareSel){
         const a = sub[compareSel[0]] || 0;
         const b = sub[compareSel[1]] || 0;
         const diff = b - a; const cls = diff > 0 ? "bg-pos" : (diff < 0 ? "bg-neg" : "");
-        html += `<td class="numeric ${cls}" style="padding:6px 8px;text-align:center">${diff}</td>`;
+        html += `<td class="numeric ${cls}" style="padding:6px 8px">${diff}</td>`;
       } else html += `<td style="padding:6px 8px"></td>`;
       return;
     }
@@ -594,7 +574,7 @@ function buildSubtotalRow(sub, colsToShow, monthCols, compareSel){
         }
       }
       const cls = prev !== null ? (val > prev ? "bg-pos" : (val < prev ? "bg-neg" : "")) : "";
-      html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700;text-align:center">${val}</td>`;
+      html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700">${val}</td>`;
       return;
     }
     html += (idx === 0) ? `<td class='subtotal-label' style="padding:6px 8px">Subtotal</td>` : `<td style="padding:6px 8px"></td>`;
@@ -623,6 +603,7 @@ function addSorting(colsToShow){
         const A = Number(a[col]) || 0; const B = Number(b[col]) || 0;
         return asc ? A - B : B - A;
       });
+      // render sorted aggregated rows (re-groups inside renderTable will handle as needed)
       renderTable(sorted, currentSelectedFilters);
     });
   });
@@ -698,15 +679,16 @@ function clearFilters() {
 }
 
 /* =============================
-   MOBILE & FINAL TOUCH
+   MOBILE OPTIMIZATIONS & FINAL TOUCH
 ============================= */
 if(window.matchMedia && window.matchMedia("(max-width:768px)").matches){
   console.log("mobile optimizations active");
 }
 
-// ensure overlay hidden at load
+/* ensure overlay hidden at load */
 hideOverlay();
 
+/* expose internal API for debugging */
 window._dashboard_internal = {
   reload: ()=> loadData(currentView),
   getState: ()=> ({ view: currentView, filters: currentSelectedFilters })
