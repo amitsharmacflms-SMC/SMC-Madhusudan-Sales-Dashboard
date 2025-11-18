@@ -57,10 +57,13 @@ header {
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
-.toolbar button:hover { background: #eef3ff; }
+
+.toolbar button:hover {
+  background: #eef3ff;
+}
 
 /* ============================================================
-   FILTERS WRAPPER
+   FILTERS WRAPPER (Show / Hide Animation)
 ============================================================ */
 #filtersWrapper {
   overflow: hidden;
@@ -70,8 +73,8 @@ header {
 
 .filter-bar {
   display: flex;
-  gap: 12px;
-  padding: 10px;
+  gap: 8px !important;
+  padding: 6px !important;
   background: #ffffff;
   border-radius: 10px;
   overflow-x: auto;
@@ -81,24 +84,26 @@ header {
 .filter-box {
   background: #ffffff;
   border-radius: 6px;
-  padding: 6px;
-  width: 180px;
-  min-width: 180px;
-  font-size: 0.85rem;
+  padding: 4px !important;
+  width: 130px !important;
+  min-width: 130px !important;
+  max-width: 130px !important;
+  font-size: 0.80rem;
   border: 1px solid #000;
 }
 
 .filter-box strong {
   display: block;
   margin-bottom: 4px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
+  text-align: center;
 }
 
 .filter-box label {
   display: block;
-  padding: 2px 0;
-  font-size: 0.75rem;
+  padding: 1px 0 !important;
+  font-size: 0.70rem !important;
 }
 
 .filter-box input[type="checkbox"] {
@@ -113,10 +118,11 @@ header {
   background: #ffffff;
   border-radius: 10px;
   padding: 10px;
-  overflow: auto;
+  overflow: auto !important;
   position: relative;
   box-shadow: 0 6px 18px rgba(0,0,0,0.1);
   min-height: 420px;
+  max-height: 75vh; /* IMPORTANT for sticky header */
 }
 
 /* ============================================================
@@ -124,17 +130,15 @@ header {
 ============================================================ */
 table {
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  border-collapse: collapse !important; /* REQUIRED for sticky header */
   font-size: 0.85rem;
   text-align: center;
 }
 
 /* TABLE HEADER */
 #dataTable thead th {
-  position: sticky;
-  top: 0;
-  z-index: 20;
+  position: sticky !important;
+  top: 0 !important;
   background: #e4e9ff !important;
   color: #111;
   border: 2px solid #000;
@@ -142,6 +146,7 @@ table {
   font-size: 0.75rem;
   text-transform: uppercase;
   font-weight: 800;
+  z-index: 50 !important;
 }
 
 /* TABLE CELLS */
@@ -163,10 +168,17 @@ tbody tr:hover {
 /* ============================================================
    COLOR CODING (Positive / Negative)
 ============================================================ */
-.numeric { text-align: center !important; }
+.numeric {
+  text-align: center !important;
+}
 
-.bg-pos { background-color: #d1fae5 !important; }
-.bg-neg { background-color: #fee2e2 !important; }
+.bg-pos {
+  background-color: #d1fae5 !important;
+}
+
+.bg-neg {
+  background-color: #fee2e2 !important;
+}
 
 /* ============================================================
    SUBTOTAL ROW
@@ -211,7 +223,9 @@ tbody tr:hover {
   100% { background-position: -200% 0; }
 }
 
-.hidden { display: none !important; }
+.hidden {
+  display: none !important;
+}
 
 /* ============================================================
    MOBILE RESPONSIVENESS
