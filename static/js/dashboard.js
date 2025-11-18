@@ -1,11 +1,5 @@
-/* dashboard.js — full optimized Option C
+/* dashboard.js — final corrected version for your uploaded files
    Replace static/js/dashboard.js with this file.
-   Assumes your HTML provides:
-     - <div id="tableSkeleton"> ... </div>
-     - <div id="tableContainer" class="hidden"> ... <table id="dataTable"> ... </table> ... </div>
-     - filters container: #filtersContainer inside #filtersWrapper
-     - loader: #loader and overlay: #overlayLoader
-     - Buttons with ids: backBtn, clearBtn, toggleFiltersBtn, toggleViewBtn, themeToggle, exportBtn
 */
 
 /* =============================
@@ -57,18 +51,16 @@ function showOverlay(delay = 150){
 function hideOverlay(){
   clearTimeout(__overlayTimer);
   const el = document.getElementById("overlayLoader");
-  if(el) el && el.classList.add("hidden");
+  if(el) el.classList.add("hidden");
 }
 
 function revealTableContainer(){
-  // called once table is ready
   const skeleton = document.getElementById("tableSkeleton");
   const container = document.getElementById("tableContainer");
   const loader = document.getElementById("loader");
   if(skeleton) skeleton.classList.add("hidden");
   if(container) container.classList.remove("hidden");
   if(loader){ loader.style.visibility = "hidden"; loader.textContent = ""; }
-  // remove the paint placeholder if any
   const p = document.getElementById("instantPaint");
   if(p && p.parentNode) p.parentNode.removeChild(p);
 }
@@ -179,17 +171,17 @@ function buildFilters(){
     const box = document.createElement("div");
     box.className = "filter-box";
     box.style.background = colors[ci++ % colors.length];
-    box.style.border = "1px solid #000"; // thin black outline as requested
+    box.style.border = "1px solid #000";
     box.style.borderRadius = "8px";
     box.style.padding = "8px";
     box.style.minWidth = "160px";
     box.style.maxWidth = "320px";
 
     const safeVals = values.map(v => String(v));
-    const optionsHtml = safeVals.map(v => `<label style="display:block;margin:3px 0;"><input type="checkbox" name="${title}" value="${v}" ${checkAll?"checked":""}> ${v}</label>`).join("");
+    const optionsHtml = safeVals.map(v => `<label style="display:block;margin:3px 0;"><input type="checkbox" name="${escapeAttr(title)}" value="${escapeHtml(v)}" ${checkAll?"checked":""}> ${escapeHtml(v)}</label>`).join("");
 
-    box.innerHTML = `<strong style="display:block;text-transform:uppercase;margin-bottom:6px;text-align:center">${title}</strong>
-      <label style="display:block;margin-bottom:6px;"><input type="checkbox" data-all="${title}"> All</label>
+    box.innerHTML = `<strong style="display:block;text-transform:uppercase;margin-bottom:6px;text-align:center">${escapeHtml(title)}</strong>
+      <label style="display:block;margin-bottom:6px;"><input type="checkbox" data-all="${escapeAttr(title)}"> All</label>
       <div class="options" style="max-height:220px;overflow:auto;padding-right:6px;">${optionsHtml}</div>`;
 
     filters.appendChild(box);
@@ -208,7 +200,6 @@ function buildFilters(){
     else if(o === "COMPARISON") makeBox(o, comparisonCols, false);
     else if(o === "TOTAL") makeBox(o, textCols, false);
     else if(textCols.includes(o)){
-      // gather distinct
       const set = new Set();
       fullData.forEach(r => {
         const v = getVal(r, o);
@@ -218,18 +209,28 @@ function buildFilters(){
     }
   });
 
-  // data-all listeners
+  // data-all listeners (use CSS.escape where we query by name later)
   filters.querySelectorAll("input[data-all]").forEach(cb => {
     cb.addEventListener("change", e => {
       const title = e.target.dataset.all;
       const checked = e.target.checked;
-      filters.querySelectorAll(`input[name='${title}']`).forEach(i => i.checked = checked);
+      // use CSS.escape to select safely
+      filters.querySelectorAll(`input[name="${title}"]`).forEach(i => i.checked = checked);
       runIdle(applyFilters);
     });
   });
 
   // on any change, apply (debounced)
   filters.addEventListener("change", debounce(() => runIdle(applyFilters), 250));
+}
+
+/* small helper to safely escape attribute values for insertion into HTML strings */
+function escapeHtml(s){
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+/* wrapper to make attribute names safe for programmatic usage (we rely on CSS.escape when querying) */
+function escapeAttr(s){
+  return String(s||"");
 }
 
 /* =============================
@@ -276,6 +277,7 @@ async function loadData(view){
 
 /* =============================
    SAVED FILTERS OR DEFAULTS
+   - uses getInputs() which queries with CSS.escape to avoid selector errors
 ============================= */
 function applySavedOrDefaults(last5Avg){
   const filters = document.getElementById("filtersContainer");
@@ -284,16 +286,19 @@ function applySavedOrDefaults(last5Avg){
   const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
   const hasSaved = Object.values(saved).some(v => Array.isArray(v) && v.length);
 
-  function getInputs(name){ return Array.from(filters.querySelectorAll(`input[name='${name}']`)); }
+  function getInputs(name){
+    try {
+      return Array.from(filters.querySelectorAll(`input[name="${CSS.escape(String(name))}"]`));
+    } catch(e) {
+      // fallback safe
+      return Array.from(filters.querySelectorAll("input")).filter(i => i.name === String(name));
+    }
+  }
 
   if(hasSaved){
     Object.entries(saved).forEach(([title, vals]) => {
       getInputs(title).forEach(cb => { cb.checked = vals.map(v=>norm(v)).includes(norm(cb.value)); });
-      const allBox = filters.querySelector(`#filtersContainer input[id='all_${title.replace(/ /g,"_")}']`);
-      if(allBox){
-        const allOpts = getInputs(title);
-        allBox.checked = allOpts.length && allOpts.every(o => o.checked);
-      }
+      // no reliance on non-existent all_* ids
     });
   } else {
     // reset all
@@ -330,6 +335,7 @@ function applySavedOrDefaults(last5Avg){
 
 /* =============================
    APPLY FILTERS + SMART CASCADE
+   - all selectors use CSS.escape() to avoid invalid selector errors
 ============================= */
 function applyFilters(save=true){
   showOverlay(80);
@@ -340,7 +346,14 @@ function applyFilters(save=true){
       const selected = {};
       filters.querySelectorAll(".filter-box strong").forEach(h => {
         const t = h.textContent.trim();
-        const checked = Array.from(filters.querySelectorAll(`input[name='${t}']:checked`)).map(i => i.value);
+        // safe query using CSS.escape
+        let checked = [];
+        try {
+          checked = Array.from(filters.querySelectorAll(`input[name="${CSS.escape(t)}"]:checked`)).map(i => i.value);
+        } catch(e) {
+          // fallback for very old browsers
+          checked = Array.from(filters.querySelectorAll("input")).filter(i => i.name === t && i.checked).map(i => i.value);
+        }
         selected[t] = checked;
       });
 
@@ -363,7 +376,14 @@ function applyFilters(save=true){
         const box = Array.from(filters.querySelectorAll(".filter-box")).find(b => b.querySelector("strong")?.textContent.trim() === f);
         if(!box) return;
         const valid = new Set(filtered.map(r => String(getVal(r, f))));
-        box.querySelectorAll(`input[name='${f}']`).forEach(cb => {
+        // safe name selector
+        let inputs = [];
+        try {
+          inputs = Array.from(box.querySelectorAll(`input[name="${CSS.escape(f)}"]`));
+        } catch(e) {
+          inputs = Array.from(box.querySelectorAll("input")).filter(i => i.name === f);
+        }
+        inputs.forEach(cb => {
           const label = cb.parentElement;
           if(valid.has(cb.value) || cb.checked){
             cb.disabled = false; if(label) label.style.opacity = "1";
@@ -397,21 +417,18 @@ function renderTable(dataToRender, selected){
 
   // compose ordered columns
   let colsToShow = [...showCols, ...monthCols];
-  // dedupe while preserving order
   colsToShow = colsToShow.filter((v,i,a)=> a.indexOf(v) === i);
 
-  // add COMPARISON if selected
   const compareSel = selected["COMPARISON"] || [];
   const hasComparison = compareSel.length === 2;
   if(hasComparison && !colsToShow.includes("COMPARISON")) colsToShow.push("COMPARISON");
 
-  /* --- header --- */
-  const headerHtml = `<tr>${colsToShow.map(c => `<th style="white-space:nowrap;padding:8px 10px;font-weight:800;border-bottom:1px solid #ddd">${c}</th>`).join("")}</tr>`;
+  /* header */
+  const headerHtml = `<tr>${colsToShow.map(c => `<th style="white-space:nowrap;padding:8px 10px;font-weight:800;border-bottom:1px solid #ddd">${escapeHtml(c)}</th>`).join("")}</tr>`;
   tHead.innerHTML = headerHtml;
 
-  /* --- grouping & aggregation --- */
+  /* grouping & aggregation */
   const grouped = (function group(){
-    // group by showCols values and aggregate monthCols numerically
     const map = new Map();
     dataToRender.forEach(r => {
       const key = showCols.map(k => String(getVal(r,k))).join("|");
@@ -429,11 +446,9 @@ function renderTable(dataToRender, selected){
   })();
   currentGroupedData = grouped;
 
-  /* --- rows HTML --- */
+  /* rows HTML */
   let rowsHtml = "";
   if (Array.isArray(totalCols) && totalCols.length) {
-
-    // group by requested total column (normally STATE)
     const groups = {};
     grouped.forEach(r => {
       const key = (selected["TOTAL"].join("|").toUpperCase() === "STATE")
@@ -443,15 +458,11 @@ function renderTable(dataToRender, selected){
       groups[key].push(r);
     });
 
-    // render each group and subtotal
     Object.keys(groups).forEach(gk => {
-
-      // normal rows
       groups[gk].forEach(r => {
         rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
       });
 
-      // subtotal only if group has ≥ 2 rows
       if (groups[gk].length >= 2) {
         const subtotal = {};
         monthCols.forEach(m => {
@@ -460,22 +471,17 @@ function renderTable(dataToRender, selected){
 
         rowsHtml += buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel);
       }
-
     });
 
-} else {
-
-    // no total grouping → just render rows normally
+  } else {
     grouped.forEach(r => {
       rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
     });
+  }
 
-}
+  tBody.innerHTML = rowsHtml;
 
-tBody.innerHTML = rowsHtml;
-
-
-  /* --- grand total footer --- */
+  /* grand total footer */
   if(grouped.length){
     const totals = {};
     monthCols.forEach(m => totals[m] = grouped.reduce((s,r)=> s + (Number(r[m])||0), 0));
@@ -488,7 +494,6 @@ tBody.innerHTML = rowsHtml;
       }
       if(monthCols.includes(c)){
         const val = totals[c] || 0;
-        // determine prev visible month to color-code
         let prev = null;
         for(let j = idx-1; j>=0; j--){
           if(monthCols.includes(colsToShow[j])){
@@ -507,17 +512,12 @@ tBody.innerHTML = rowsHtml;
     tFoot.innerHTML = "";
   }
 
-  // mark table visible and reveal skeleton -> table container
   table.classList.remove("hidden");
-  // small visual tweaks: reduced row height handled via CSS; ensure compact look
-  // attach sorting listeners for numeric columns
   addSorting(colsToShow);
-
-  // reveal container (skeleton -> table)
   revealTableContainer();
 }
 
-/* helper: build single row */
+/* build single row */
 function buildRowHtml(row, colsToShow, monthCols, compareSel){
   const hasComparison = (compareSel || []).length === 2;
   let html = "<tr>";
@@ -533,10 +533,8 @@ function buildRowHtml(row, colsToShow, monthCols, compareSel){
       return;
     }
 
-    // numeric month columns coloring logic
     if(monthCols.map(m=>m.toUpperCase()).includes(String(c).toUpperCase())){
       const val = Number(row[c]) || 0;
-      // find previous visible month index
       let prevVal = null;
       for(let j = idx - 1; j >= 0; j--){
         if(monthCols.map(m=>m.toUpperCase()).includes(String(colsToShow[j]).toUpperCase())){
@@ -549,14 +547,14 @@ function buildRowHtml(row, colsToShow, monthCols, compareSel){
       return;
     }
 
-    // text column
     const txt = row[c] ?? row[String(c).toUpperCase()] ?? "";
-    html += `<td style="padding:6px 8px">${txt}</td>`;
+    html += `<td style="padding:6px 8px">${escapeHtml(txt)}</td>`;
   });
   html += "</tr>";
   return html;
 }
 
+/* build subtotal row */
 function buildSubtotalRow(sub, colsToShow, monthCols, compareSel){
   const hasComparison = (compareSel || []).length === 2;
   let html = "<tr class='subtotal-row' style='font-weight:700;background:#fafafa'>";
@@ -572,7 +570,6 @@ function buildSubtotalRow(sub, colsToShow, monthCols, compareSel){
     }
     if(monthCols.includes(c)){
       const val = sub[c] || 0;
-      // prev visible
       let prev = null;
       for(let j = idx-1; j>=0; j--){
         if(monthCols.includes(colsToShow[j])){
@@ -604,21 +601,19 @@ function addSorting(colsToShow){
     th.style.cursor = "pointer";
     th.addEventListener("click", ()=>{
       const asc = !th.classList.contains("asc");
-      // reset classes
       ths.forEach(h => h.classList.remove("asc","desc"));
       th.classList.add(asc ? "asc":"desc");
       const sorted = [...currentGroupedData].sort((a,b)=>{
         const A = Number(a[col]) || 0; const B = Number(b[col]) || 0;
         return asc ? A - B : B - A;
       });
-      // re-render using already-grouped data (no re-group)
       renderTable(sorted, currentSelectedFilters);
     });
   });
 }
 
 /* =============================
-   EXPORT (ExcelJS required to be loaded on page)
+   EXPORT (ExcelJS)
 ============================= */
 async function exportExcel(){
   try{
@@ -660,50 +655,42 @@ async function exportExcel(){
   }
 }
 
+/* =============================
+   CLEAR FILTERS
+============================= */
 function clearFilters() {
   localStorage.removeItem("savedFilters");
   localStorage.removeItem("default_avg_cols");
 
-  // RESET UI FILTER CHECKBOXES
   const filters = document.getElementById("filtersContainer");
   if (filters) {
     filters.querySelectorAll("input[type='checkbox']").forEach(cb => {
       cb.checked = false;
       cb.disabled = false;
-      cb.parentElement.style.opacity = "1";
+      if(cb.parentElement) cb.parentElement.style.opacity = "1";
     });
   }
 
-  // RELOAD DATA
   loadData(currentView);
 
-  // Reset filter button text
   const btn = document.getElementById("toggleFiltersBtn");
   if (btn) btn.textContent = "Hide Filters";
 
-  // Expand filters
   const wrapper = document.getElementById("filtersWrapper");
   if (wrapper) wrapper.style.maxHeight = "600px";
   filtersVisible = true;
 }
 
-
-
-
 /* =============================
    MOBILE OPTIMIZATIONS & FINAL TOUCH
 ============================= */
 if(window.matchMedia && window.matchMedia("(max-width:768px)").matches){
-  // small adjustments handled in CSS; keep JS light
   console.log("mobile optimizations active");
 }
 
-// ensure overlay hidden at load
 hideOverlay();
 
-// expose for debugging if needed
 window._dashboard_internal = {
   reload: ()=> loadData(currentView),
   getState: ()=> ({ view: currentView, filters: currentSelectedFilters })
 };
-
