@@ -33,17 +33,18 @@ const monthOrder = [
 const norm = s => String(s||"").toUpperCase().trim();
 const normalizeKeySimple = k => String(k||"").toUpperCase().replace(/[-_\s]/g, "");
 
-// safe CSS.escape with fallback
-function cssEscape(s){
-  try { return CSS.escape(String(s)); } catch(e) { return String(s).replace(/["'\\]/g, "\\$&"); }
-}
-
 function escapeHtml(s){
   return String(s == null ? "" : s)
     .replace(/&/g,"&amp;")
     .replace(/</g,"&lt;")
     .replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;");
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+}
+
+// attribute-safe for putting into name='' in generated HTML
+function attrSafe(s){
+  return String(s == null ? "" : s).replace(/'/g, "&#39;");
 }
 
 // robust getter (tries exact, upper, lower, normalized)
@@ -116,17 +117,13 @@ function debounce(fn, wait = 250){
   }, { capture: true });
 
   document.addEventListener("keyup", () => {
-    // set a small delay before turning off the flag to allow quick key sequences
-    const ts = Date.now();
     setTimeout(() => {
       if (Date.now() - lastKeyAt >= 200) keyboardInteractionOngoing = false;
     }, 250);
   }, { capture: true });
 
-  // also monitor focusin/focusout for inputs (some accessibility interactions)
   document.addEventListener("focusin", (e) => {
     if(e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) {
-      // don't immediately block (we still want text typing to be allowed)
       keyboardInteractionOngoing = true;
     }
   }, true);
@@ -208,6 +205,7 @@ function toggleFilters(){
 
 /* =============================
    BUILD FILTER UI (robust + compact)
+   Uses exact titles for input[name='TITLE'] selectors (no cssEscape).
 ============================= */
 function buildFilters(){
   const filters = document.getElementById("filtersContainer");
@@ -234,14 +232,51 @@ function buildFilters(){
     box.style.minWidth = "120px";
     box.style.maxWidth = "140px";
 
-    // build safe options
-    const safeVals = (values || []).map(v => String(v));
-    const optionsHtml = safeVals.map(v => `<label style="display:block;margin:3px 0;"><input type="checkbox" name="${escapeAttr(title)}" value="${escapeHtml(v)}" ${checkAll ? "checked" : ""}> ${escapeHtml(v)}</label>`).join("");
+    // header
+    const strong = document.createElement("strong");
+    strong.style.display = "block";
+    strong.style.textTransform = "uppercase";
+    strong.style.marginBottom = "6px";
+    strong.style.textAlign = "center";
+    strong.textContent = title;
+    box.appendChild(strong);
 
-    box.innerHTML = `<strong style="display:block;text-transform:uppercase;margin-bottom:6px;text-align:center">${escapeHtml(title)}</strong>
-      <label style="display:block;margin-bottom:6px;"><input type="checkbox" data-all="${escapeAttr(title)}"> All</label>
-      <div class="options" style="max-height:220px;overflow:auto;padding-right:6px">${optionsHtml}</div>`;
+    // All checkbox
+    const allLabel = document.createElement("label");
+    allLabel.style.display = "block";
+    allLabel.style.marginBottom = "6px";
+    const allCb = document.createElement("input");
+    allCb.type = "checkbox";
+    allCb.dataset.all = title;
+    allLabel.appendChild(allCb);
+    allLabel.appendChild(document.createTextNode(" All"));
+    box.appendChild(allLabel);
 
+    // options container
+    const options = document.createElement("div");
+    options.className = "options";
+    options.style.maxHeight = "220px";
+    options.style.overflow = "auto";
+    options.style.paddingRight = "6px";
+
+    // build each checkbox option
+    (values || []).forEach(v => {
+      const lab = document.createElement("label");
+      lab.style.display = "block";
+      lab.style.margin = "3px 0";
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.name = title; // exact title used here
+      cb.value = v;
+      if(checkAll) cb.checked = true;
+
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(" " + v));
+      options.appendChild(lab);
+    });
+
+    box.appendChild(options);
     filters.appendChild(box);
   }
 
@@ -265,17 +300,15 @@ function buildFilters(){
     }
   });
 
-  // attach 'All' toggles
+  // attach 'All' toggles (use exact title)
   filters.querySelectorAll("input[data-all]").forEach(cb => {
     cb.addEventListener("change", e => {
       const title = e.target.dataset.all;
       const checked = e.target.checked;
-      try {
-        filters.querySelectorAll(`input[name="${cssEscape(title)}"]`).forEach(i => i.checked = checked);
-      } catch(err){
-        filters.querySelectorAll("input").forEach(i => { if(i.name === title) i.checked = checked; });
-      }
-      // schedule apply on idle
+      // set checkboxes by matching name === title
+      Array.from(filters.querySelectorAll("input")).forEach(i => {
+        if(i.name === title) i.checked = checked;
+      });
       runIdle(() => applyFilters());
     });
   });
@@ -289,7 +322,6 @@ function buildFilters(){
   // on any change: debounce + schedule on idle
   filters.addEventListener("change", debounce(() => {
     if(keyboardInteractionOngoing){
-      // if keyboard currently used, postpone; apply when idle after short delay
       setTimeout(()=> {
         if(!keyboardInteractionOngoing) runIdle(() => applyFilters());
       }, 220);
@@ -298,9 +330,6 @@ function buildFilters(){
     }
   }, 220));
 }
-
-/* handy escapeAttr used above */
-function escapeAttr(s){ return (String(s||"")).replace(/"/g, "&quot;"); }
 
 /* =============================
    LOAD DATA FROM SERVER
@@ -354,8 +383,8 @@ function applySavedOrDefaults(last5Avg){
   const hasSaved = Object.values(saved).some(v => Array.isArray(v) && v.length);
 
   function getInputs(name){
-    try { return Array.from(filters.querySelectorAll(`input[name="${cssEscape(name)}"]`)); }
-    catch(e) { return Array.from(filters.querySelectorAll("input")).filter(i => i.name === name); }
+    // name is the exact title
+    return Array.from(filters.querySelectorAll("input")).filter(i => i.name === name);
   }
 
   if(hasSaved){
@@ -395,7 +424,6 @@ function applySavedOrDefaults(last5Avg){
 function applyFilters(save = true){
   // If keyboard is being used, postpone immediate heavy work
   if(keyboardInteractionOngoing){
-    // schedule after a short delay — willIdle will pick it up when user stops
     setTimeout(() => {
       if(!keyboardInteractionOngoing) runIdle(() => applyFilters(save));
     }, 220);
@@ -411,12 +439,9 @@ function applyFilters(save = true){
       const selected = {};
       filters.querySelectorAll(".filter-box strong").forEach(h => {
         const t = h.textContent.trim();
-        let checked = [];
-        try {
-          checked = Array.from(filters.querySelectorAll(`input[name="${cssEscape(t)}"]:checked`)).map(i => i.value);
-        } catch(e) {
-          checked = Array.from(filters.querySelectorAll("input")).filter(i => i.name === t && i.checked).map(i => i.value);
-        }
+        // gather checked inputs by matching name === t
+        const checkedInputs = Array.from(filters.querySelectorAll("input")).filter(i => i.name === t && i.checked);
+        const checked = checkedInputs.map(i => i.value);
         selected[t] = checked;
       });
 
@@ -439,12 +464,7 @@ function applyFilters(save = true){
         const box = Array.from(filters.querySelectorAll(".filter-box")).find(b => b.querySelector("strong")?.textContent.trim() === f);
         if(!box) return;
         const valid = new Set(filtered.map(r => String(getVal(r, f))));
-        let inputs = [];
-        try {
-          inputs = Array.from(box.querySelectorAll(`input[name="${cssEscape(f)}"]`));
-        } catch(e) {
-          inputs = Array.from(box.querySelectorAll("input")).filter(i => i.name === f);
-        }
+        const inputs = Array.from(box.querySelectorAll("input")).filter(i => i.name === f);
         inputs.forEach(cb => {
           const label = cb.parentElement;
           if(valid.has(cb.value) || cb.checked){
