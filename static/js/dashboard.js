@@ -1,19 +1,23 @@
-/* dashboard.js — optimized for INP/LCP/UX
-   - chunked row rendering using requestIdleCallback
-   - filters debounce + requestIdleCallback
-   - avoid large innerHTML writes
-   - safeguards for older browsers (fallbacks)
-   - keeps subtotal/grand-total grouping (Option A)
+/* dashboard.js — Option A: Chunked rendering + INP-safe + production-ready
+   Replace static/js/dashboard.js with this file.
+   Assumptions (IDs present in HTML):
+     - #tableSkeleton, #tableContainer, #dataTable (with thead#tableHead tbody#tableBody tfoot#tableFoot)
+     - #filtersWrapper, #filtersContainer
+     - #overlayLoader, #loader
+     - buttons: backBtn, clearBtn, toggleFiltersBtn, toggleViewBtn, themeToggle, exportBtn
 */
 
+/* =============================
+   CONFIG / GLOBALS
+============================= */
 let filtersVisible = true;
 let currentView = "product";
 let fullData = [];
 let originalKeys = [];
 let currentGroupedData = [];
 let currentSelectedFilters = {};
+let keyboardInteractionOngoing = false; // guard to prevent keyboard-triggered heavy ops
 
-/* default text columns */
 const baseTextCols = ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
 const monthOrder = [
   "APR-23","MAY-23","JUN-23","AVG_Q1_2023-24","JUL-23","AUG-23","SEP-23","AVG_Q2_2023-24",
@@ -23,10 +27,26 @@ const monthOrder = [
   "APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","OCT-25","AVG_Q3_2025-26","AVG_YEAR_2025-26"
 ];
 
-/* helpers */
+/* =============================
+   UTIL: safe helpers
+============================= */
 const norm = s => String(s||"").toUpperCase().trim();
 const normalizeKeySimple = k => String(k||"").toUpperCase().replace(/[-_\s]/g, "");
 
+// safe CSS.escape with fallback
+function cssEscape(s){
+  try { return CSS.escape(String(s)); } catch(e) { return String(s).replace(/["'\\]/g, "\\$&"); }
+}
+
+function escapeHtml(s){
+  return String(s == null ? "" : s)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
+
+// robust getter (tries exact, upper, lower, normalized)
 function getVal(row, key){
   if(!row || !key) return "";
   if(Object.prototype.hasOwnProperty.call(row, key)) return row[key];
@@ -38,15 +58,9 @@ function getVal(row, key){
   return found ? row[found] : "";
 }
 
-function escapeHtml(s){
-  return String(s==null?"":s)
-    .replace(/&/g,"&amp;")
-    .replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;");
-}
-
-/* overlay */
+/* =============================
+   OVERLAY + SKELETON HELPERS
+============================= */
 let __overlayTimer = null;
 function showOverlay(delay = 150){
   clearTimeout(__overlayTimer);
@@ -61,35 +75,83 @@ function hideOverlay(){
   if(el) el.classList.add("hidden");
 }
 
-/* debounce + idle helpers */
-function debounce(fn, wait=300){
-  let t;
-  return (...a) => {
-    clearTimeout(t);
-    t = setTimeout(()=>fn(...a), wait);
-  };
+function revealTableContainer(){
+  const skeleton = document.getElementById("tableSkeleton");
+  const container = document.getElementById("tableContainer");
+  const loader = document.getElementById("loader");
+  if(skeleton) skeleton.classList.add("hidden");
+  if(container) container.classList.remove("hidden");
+  if(loader){ loader.style.visibility = "hidden"; loader.textContent = ""; }
+  const p = document.getElementById("instantPaint");
+  if(p && p.parentNode) p.parentNode.removeChild(p);
 }
+
+/* =============================
+   IDLE + DEBOUNCE
+============================= */
 function runIdle(fn){
   if(typeof requestIdleCallback === "function"){
-    requestIdleCallback(fn, { timeout: 300 });
+    requestIdleCallback(fn, { timeout: 400 });
   } else {
     setTimeout(fn, 200);
   }
 }
+function debounce(fn, wait = 250){
+  let t;
+  return function(...a){
+    clearTimeout(t);
+    t = setTimeout(()=> fn.apply(this, a), wait);
+  };
+}
 
-/* DOM ready */
+/* =============================
+   KEYBOARD GUARD (improves INP)
+   - keyboardInteractionOngoing prevents heavy work during user keyboard activity
+============================= */
+(function attachKeyboardGuard(){
+  let lastKeyAt = 0;
+  document.addEventListener("keydown", () => {
+    keyboardInteractionOngoing = true;
+    lastKeyAt = Date.now();
+  }, { capture: true });
+
+  document.addEventListener("keyup", () => {
+    // set a small delay before turning off the flag to allow quick key sequences
+    const ts = Date.now();
+    setTimeout(() => {
+      if (Date.now() - lastKeyAt >= 200) keyboardInteractionOngoing = false;
+    }, 250);
+  }, { capture: true });
+
+  // also monitor focusin/focusout for inputs (some accessibility interactions)
+  document.addEventListener("focusin", (e) => {
+    if(e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) {
+      // don't immediately block (we still want text typing to be allowed)
+      keyboardInteractionOngoing = true;
+    }
+  }, true);
+  document.addEventListener("focusout", (e) => {
+    keyboardInteractionOngoing = false;
+  }, true);
+})();
+
+/* =============================
+   INIT
+============================= */
 document.addEventListener("DOMContentLoaded", () => {
   bindUI();
   loadData(currentView);
 });
 
-/* UI bindings */
+/* =============================
+   BIND UI (buttons)
+============================= */
 function bindUI(){
   const backBtn = document.getElementById("backBtn");
-  if(backBtn) backBtn.addEventListener("click", ()=>window.history.back());
+  if(backBtn) backBtn.addEventListener("click", ()=> window.history.back());
 
   const clearBtn = document.getElementById("clearBtn");
-  if(clearBtn) clearBtn.addEventListener("click", ()=>runIdle(clearFilters));
+  if(clearBtn) clearBtn.addEventListener("click", () => runIdle(clearFilters));
 
   const toggleFiltersBtn = document.getElementById("toggleFiltersBtn");
   if(toggleFiltersBtn) toggleFiltersBtn.addEventListener("click", toggleFilters);
@@ -124,16 +186,17 @@ function bindUI(){
   }
 
   const exportBtn = document.getElementById("exportBtn");
-  if(exportBtn) exportBtn.addEventListener("click", ()=>{ showOverlay(120); runIdle(exportExcel); });
+  if(exportBtn) exportBtn.addEventListener("click", ()=> { showOverlay(120); runIdle(exportExcel); });
 }
 
-/* toggle filters */
-function toggleFilters() {
+/* =============================
+   FILTER PANEL TOGGLE
+============================= */
+function toggleFilters(){
   const wrapper = document.getElementById("filtersWrapper");
   const btn = document.getElementById("toggleFiltersBtn");
-  if (!wrapper || !btn) return;
-
-  if (filtersVisible) {
+  if(!wrapper || !btn) return;
+  if(filtersVisible){
     wrapper.style.maxHeight = "0px";
     btn.textContent = "Show Filters";
   } else {
@@ -143,7 +206,9 @@ function toggleFilters() {
   filtersVisible = !filtersVisible;
 }
 
-/* build filters */
+/* =============================
+   BUILD FILTER UI (robust + compact)
+============================= */
 function buildFilters(){
   const filters = document.getElementById("filtersContainer");
   if(!filters) return;
@@ -159,7 +224,7 @@ function buildFilters(){
   const colors = ["#fff7ed","#ecfdf5","#e0f2fe","#fdf2f8","#fef3c7","#e0f2fe","#f3e8ff","#fef2f2","#f3f4f6"];
   let ci = 0;
 
-  function makeBox(title, values, checkAll=false){
+  function makeBox(title, values = [], checkAll = false){
     const box = document.createElement("div");
     box.className = "filter-box";
     box.style.background = colors[ci++ % colors.length];
@@ -169,17 +234,19 @@ function buildFilters(){
     box.style.minWidth = "120px";
     box.style.maxWidth = "140px";
 
-    const safeVals = values.map(v => String(v));
-    const optionsHtml = safeVals.map(v => `<label style="display:block;margin:3px 0;"><input type="checkbox" name="${escapeAttr(title)}" value="${escapeHtml(v)}" ${checkAll?"checked":""}> ${escapeHtml(v)}</label>`).join("");
+    // build safe options
+    const safeVals = (values || []).map(v => String(v));
+    const optionsHtml = safeVals.map(v => `<label style="display:block;margin:3px 0;"><input type="checkbox" name="${escapeAttr(title)}" value="${escapeHtml(v)}" ${checkAll ? "checked" : ""}> ${escapeHtml(v)}</label>`).join("");
 
     box.innerHTML = `<strong style="display:block;text-transform:uppercase;margin-bottom:6px;text-align:center">${escapeHtml(title)}</strong>
       <label style="display:block;margin-bottom:6px;"><input type="checkbox" data-all="${escapeAttr(title)}"> All</label>
-      <div class="options" style="max-height:220px;overflow:auto;padding-right:6px;">${optionsHtml}</div>`;
+      <div class="options" style="max-height:220px;overflow:auto;padding-right:6px">${optionsHtml}</div>`;
 
     filters.appendChild(box);
   }
 
-  const keysUpper = originalKeys.map(k => k.toUpperCase());
+  // find actual month columns (preserve order)
+  const keysUpper = originalKeys.map(k => (k||"").toUpperCase());
   const actualMonthCols = monthOrder.filter(m => keysUpper.includes(m.toUpperCase()));
   const comparisonCols = actualMonthCols.slice();
 
@@ -198,38 +265,46 @@ function buildFilters(){
     }
   });
 
-  // data-all listeners (use delegated safe selector)
+  // attach 'All' toggles
   filters.querySelectorAll("input[data-all]").forEach(cb => {
     cb.addEventListener("change", e => {
       const title = e.target.dataset.all;
       const checked = e.target.checked;
       try {
-        filters.querySelectorAll(`input[name="${CSS.escape(title)}"]`).forEach(i => i.checked = checked);
+        filters.querySelectorAll(`input[name="${cssEscape(title)}"]`).forEach(i => i.checked = checked);
       } catch(err){
         filters.querySelectorAll("input").forEach(i => { if(i.name === title) i.checked = checked; });
       }
-      // schedule applyFilters on idle
+      // schedule apply on idle
       runIdle(() => applyFilters());
     });
   });
 
-  // keyboard-safe: avoid firing heavy ops during typing/focus interactions
+  // prevent heavy operations firing during rapid key presses (keyboard guard)
   filters.addEventListener("keydown", e => {
-    // avoid heavy processing on arrow/tab etc.
-    e.stopImmediatePropagation();
+    // stop heavy bubbling; keep default to allow native focus navigation
+    e.stopPropagation();
   }, { capture: true });
 
-  // on any change, apply (debounced + idle)
+  // on any change: debounce + schedule on idle
   filters.addEventListener("change", debounce(() => {
-    if(typeof requestIdleCallback === "function"){
-      requestIdleCallback(() => applyFilters(), { timeout: 400 });
+    if(keyboardInteractionOngoing){
+      // if keyboard currently used, postpone; apply when idle after short delay
+      setTimeout(()=> {
+        if(!keyboardInteractionOngoing) runIdle(() => applyFilters());
+      }, 220);
     } else {
-      setTimeout(() => applyFilters(), 250);
+      runIdle(() => applyFilters());
     }
-  }, 300));
+  }, 220));
 }
 
-/* load data */
+/* handy escapeAttr used above */
+function escapeAttr(s){ return (String(s||"")).replace(/"/g, "&quot;"); }
+
+/* =============================
+   LOAD DATA FROM SERVER
+============================= */
 async function loadData(view){
   const loader = document.getElementById("loader");
   if(loader){ loader.style.visibility = "visible"; loader.textContent = "Loading data..."; }
@@ -241,7 +316,7 @@ async function loadData(view){
     const data = await res.json();
     if(!Array.isArray(data)) throw new Error("Data is not an array");
 
-    // normalize: mirror uppercase keys
+    // produce uppercase mirror keys so getVal works easily
     fullData = data.map(r => {
       const o = {};
       Object.keys(r).forEach(k => { o[k] = r[k]; o[k.toUpperCase()] = r[k]; });
@@ -250,13 +325,14 @@ async function loadData(view){
 
     originalKeys = Object.keys(fullData[0] || {});
 
-    // defaults
+    // compute default avg cols
     const avgCols = originalKeys.filter(k => norm(k).startsWith("AVG_Q"));
     const orderedAvg = monthOrder.filter(m => avgCols.map(a => normalizeKeySimple(a)).includes(normalizeKeySimple(m)));
     const last5Avg = orderedAvg.slice(-5);
 
     buildFilters();
-    setTimeout(()=> applySavedOrDefaults(last5Avg), 300);
+    // apply saved/defaults after filters exist
+    setTimeout(()=> applySavedOrDefaults(last5Avg), 250);
 
   } catch(err){
     console.error("loadData error", err);
@@ -267,7 +343,9 @@ async function loadData(view){
   }
 }
 
-/* saved/default filters */
+/* =============================
+   SAVED FILTERS OR DEFAULTS
+============================= */
 function applySavedOrDefaults(last5Avg){
   const filters = document.getElementById("filtersContainer");
   if(!filters) return;
@@ -276,7 +354,7 @@ function applySavedOrDefaults(last5Avg){
   const hasSaved = Object.values(saved).some(v => Array.isArray(v) && v.length);
 
   function getInputs(name){
-    try { return Array.from(filters.querySelectorAll(`input[name="${CSS.escape(String(name))}"]`)); }
+    try { return Array.from(filters.querySelectorAll(`input[name="${cssEscape(name)}"]`)); }
     catch(e) { return Array.from(filters.querySelectorAll("input")).filter(i => i.name === name); }
   }
 
@@ -296,6 +374,7 @@ function applySavedOrDefaults(last5Avg){
     getInputs("TOTAL").forEach(cb => { cb.checked = (norm(cb.value) === "STATE"); });
     getInputs("COMPARISON").forEach(cb => cb.checked = false);
 
+    // save defaults
     const saveObj = {};
     filters.querySelectorAll(".filter-box strong").forEach(h => {
       const t = h.textContent.trim();
@@ -305,13 +384,27 @@ function applySavedOrDefaults(last5Avg){
     localStorage.setItem("default_avg_cols", JSON.stringify(last5Avg));
   }
 
+  // apply filters but don't save because these are defaults
   applyFilters(false);
 }
 
-/* apply filters + cascade */
-function applyFilters(save=true){
+/* =============================
+   APPLY FILTERS + SMART CASCADE
+   This will schedule heavy render on idle to keep interactions snappy.
+============================= */
+function applyFilters(save = true){
+  // If keyboard is being used, postpone immediate heavy work
+  if(keyboardInteractionOngoing){
+    // schedule after a short delay — willIdle will pick it up when user stops
+    setTimeout(() => {
+      if(!keyboardInteractionOngoing) runIdle(() => applyFilters(save));
+    }, 220);
+    return;
+  }
+
   showOverlay(80);
-  requestAnimationFrame(()=>{
+
+  requestAnimationFrame(()=> {
     try {
       const filters = document.getElementById("filtersContainer");
       if(!filters) return;
@@ -320,7 +413,7 @@ function applyFilters(save=true){
         const t = h.textContent.trim();
         let checked = [];
         try {
-          checked = Array.from(filters.querySelectorAll(`input[name="${CSS.escape(t)}"]:checked`)).map(i => i.value);
+          checked = Array.from(filters.querySelectorAll(`input[name="${cssEscape(t)}"]:checked`)).map(i => i.value);
         } catch(e) {
           checked = Array.from(filters.querySelectorAll("input")).filter(i => i.name === t && i.checked).map(i => i.value);
         }
@@ -341,14 +434,14 @@ function applyFilters(save=true){
         if(sel.length) filtered = filtered.filter(r => sel.includes(norm(getVal(r, f))));
       });
 
-      // smart disable (keep visible but disabled)
+      // smart disable: keep visible but disabled if not valid in cascade
       cascade.forEach(f => {
         const box = Array.from(filters.querySelectorAll(".filter-box")).find(b => b.querySelector("strong")?.textContent.trim() === f);
         if(!box) return;
         const valid = new Set(filtered.map(r => String(getVal(r, f))));
         let inputs = [];
         try {
-          inputs = Array.from(box.querySelectorAll(`input[name="${CSS.escape(f)}"]`));
+          inputs = Array.from(box.querySelectorAll(`input[name="${cssEscape(f)}"]`));
         } catch(e) {
           inputs = Array.from(box.querySelectorAll("input")).filter(i => i.name === f);
         }
@@ -362,7 +455,7 @@ function applyFilters(save=true){
         });
       });
 
-      // schedule heavy render on idle to keep interactions snappy
+      // schedule heavy render on idle to keep the main thread free while user interacts
       runIdle(() => renderTable(filtered, selected));
     } finally {
       hideOverlay();
@@ -370,7 +463,9 @@ function applyFilters(save=true){
   });
 }
 
-/* RENDERING */
+/* =============================
+   RENDERING (chunked)
+============================= */
 function renderTable(dataToRender, selected){
   const tHead = document.getElementById("tableHead");
   const tBody = document.getElementById("tableBody");
@@ -396,7 +491,7 @@ function renderTable(dataToRender, selected){
   const headerHtml = `<tr>${colsToShow.map(c => `<th style="white-space:nowrap;padding:8px 10px;font-weight:800;border-bottom:1px solid #ddd">${escapeHtml(c)}</th>`).join("")}</tr>`;
   tHead.innerHTML = headerHtml;
 
-  // grouping & aggregation by showCols
+  // grouping & aggregation
   const grouped = (function group(){
     const map = new Map();
     dataToRender.forEach(r => {
@@ -415,11 +510,11 @@ function renderTable(dataToRender, selected){
   })();
   currentGroupedData = grouped;
 
-  // Build rows array (strings) instead of a single huge HTML string.
+  // build rows into array of strings
   const rowsArr = [];
 
   if (Array.isArray(totalCols) && totalCols.length) {
-    // GROUP BY selected TOTAL COLUMNS (combined key)
+    // group by requested total column(s)
     const groups = {};
     grouped.forEach(r => {
       const keyParts = totalCols.map(tc => String(getVal(r, tc)));
@@ -439,18 +534,15 @@ function renderTable(dataToRender, selected){
         rowsArr.push(buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel));
       }
     });
-
   } else {
     grouped.forEach(r => rowsArr.push(buildRowHtml(r, colsToShow, monthCols, compareSel)));
   }
 
-  // Clear old body quickly
+  // clear current table body, then append rows in chunks
   tBody.innerHTML = "";
-
-  // Chunked append to avoid long main-thread blocking
   renderRowsChunked(rowsArr, tBody, 200);
 
-  // grand total (from filtered raw data)
+  // compute grand total (from original filtered dataset)
   runIdle(() => {
     if(dataToRender.length){
       const totals = {};
@@ -483,13 +575,13 @@ function renderTable(dataToRender, selected){
     }
   });
 
-  // finish: show table, add sorting, reveal container
+  // finalize
   table.classList.remove("hidden");
   addSorting(colsToShow);
   revealTableContainer();
 }
 
-/* chunked renderer: rowsArr is array of HTML string rows (<tr>..</tr>) */
+/* Append rows array into container in small chunks to avoid long frames */
 function renderRowsChunked(rowsArr, container, chunkSize = 150){
   if(!Array.isArray(rowsArr) || !container) return;
   let i = 0;
@@ -497,16 +589,15 @@ function renderRowsChunked(rowsArr, container, chunkSize = 150){
     const frag = document.createDocumentFragment();
     const end = Math.min(i + chunkSize, rowsArr.length);
     for(; i < end; i++){
-      // create element from string
-      const tr = document.createElement('tbody'); // temp wrapper
-      tr.innerHTML = rowsArr[i];
-      // append its child (expected single <tr>)
-      const child = tr.firstElementChild;
-      if(child) frag.appendChild(child);
+      // create a temporary wrapper to parse string to node
+      const temp = document.createElement('tbody');
+      temp.innerHTML = rowsArr[i];
+      const rowNode = temp.firstElementChild; // <tr>
+      if(rowNode) frag.appendChild(rowNode);
     }
     container.appendChild(frag);
+
     if(i < rowsArr.length){
-      // schedule next chunk on idle
       if(typeof requestIdleCallback === "function"){
         requestIdleCallback(appendChunk, { timeout: 300 });
       } else {
@@ -517,7 +608,7 @@ function renderRowsChunked(rowsArr, container, chunkSize = 150){
   appendChunk();
 }
 
-/* build single row string */
+/* Build a row as HTML string */
 function buildRowHtml(row, colsToShow, monthCols, compareSel){
   const hasComparison = (compareSel || []).length === 2;
   let html = "<tr>";
@@ -554,6 +645,7 @@ function buildRowHtml(row, colsToShow, monthCols, compareSel){
   return html;
 }
 
+/* Subtotal row as HTML string */
 function buildSubtotalRow(sub, colsToShow, monthCols, compareSel){
   const hasComparison = (compareSel || []).length === 2;
   let html = "<tr class='subtotal-row' style='font-weight:700;background:#fafafa'>";
@@ -586,7 +678,9 @@ function buildSubtotalRow(sub, colsToShow, monthCols, compareSel){
   return html;
 }
 
-/* sorting */
+/* =============================
+   SORTING (lightweight)
+============================= */
 function addSorting(colsToShow){
   const table = document.getElementById("dataTable");
   if(!table) return;
@@ -596,8 +690,8 @@ function addSorting(colsToShow){
     const isNumeric = monthOrder.map(m=>m.toUpperCase()).includes(String(col).toUpperCase()) || col === "COMPARISON";
     if(!isNumeric) return;
     th.style.cursor = "pointer";
-    // click handler is lightweight: just toggle class and re-render sorted view on idle
-    th.addEventListener("click", ()=>{
+    th.addEventListener("click", () => {
+      if(keyboardInteractionOngoing) return; // don't run sort while keyboard in use
       const asc = !th.classList.contains("asc");
       ths.forEach(h => h.classList.remove("asc","desc"));
       th.classList.add(asc ? "asc":"desc");
@@ -605,20 +699,22 @@ function addSorting(colsToShow){
         const A = Number(a[col]) || 0; const B = Number(b[col]) || 0;
         return asc ? A - B : B - A;
       });
-      // render sorted aggregated rows (scheduled on idle)
       runIdle(()=> renderTable(sorted, currentSelectedFilters));
     });
   });
 }
 
-/* export */
+/* =============================
+   EXPORT (ExcelJS + FileSaver expected on page)
+============================= */
 async function exportExcel(){
-  try{
+  try {
     const table = document.getElementById("dataTable");
     if(!table) { alert("No table to export"); return; }
 
     const workbook = new ExcelJS.Workbook();
     const ws = workbook.addWorksheet("Dashboard");
+    // gather visible rows and header
     const rows = Array.from(table.querySelectorAll("tr")).map(tr => Array.from(tr.querySelectorAll("th,td")).map(td => td.innerText.trim()));
     rows.forEach((r, i) => {
       const row = ws.addRow(r);
@@ -646,19 +742,21 @@ async function exportExcel(){
     saveAs(blob, `dashboard_export_${new Date().toISOString().slice(0,10)}.xlsx`);
   } catch(err){
     console.error("export error", err);
-    alert("Export failed: " + (err.message || err));
+    alert("Export failed: " + (err && err.message ? err.message : err));
   } finally {
     hideOverlay();
   }
 }
 
-/* clear filters */
-function clearFilters() {
+/* =============================
+   CLEAR FILTERS
+============================= */
+function clearFilters(){
   localStorage.removeItem("savedFilters");
   localStorage.removeItem("default_avg_cols");
 
   const filters = document.getElementById("filtersContainer");
-  if (filters) {
+  if(filters){
     filters.querySelectorAll("input[type='checkbox']").forEach(cb => {
       cb.checked = false;
       cb.disabled = false;
@@ -669,30 +767,20 @@ function clearFilters() {
   loadData(currentView);
 
   const btn = document.getElementById("toggleFiltersBtn");
-  if (btn) btn.textContent = "Hide Filters";
-
+  if(btn) btn.textContent = "Hide Filters";
   const wrapper = document.getElementById("filtersWrapper");
-  if (wrapper) wrapper.style.maxHeight = "600px";
+  if(wrapper) wrapper.style.maxHeight = "600px";
   filtersVisible = true;
 }
 
-/* reveal table skeleton -> container */
-function revealTableContainer(){
-  const skeleton = document.getElementById("tableSkeleton");
-  const container = document.getElementById("tableContainer");
-  const loader = document.getElementById("loader");
-  if(skeleton) skeleton.classList.add("hidden");
-  if(container) container.classList.remove("hidden");
-  if(loader){ loader.style.visibility = "hidden"; loader.textContent = ""; }
-  const p = document.getElementById("instantPaint");
-  if(p && p.parentNode) p.parentNode.removeChild(p);
-}
-
-/* misc */
+/* =============================
+   FINISH / DEBUG
+============================= */
 if(window.matchMedia && window.matchMedia("(max-width:768px)").matches){
   console.log("mobile optimizations active");
 }
 hideOverlay();
+
 window._dashboard_internal = {
   reload: ()=> loadData(currentView),
   getState: ()=> ({ view: currentView, filters: currentSelectedFilters })
