@@ -11,6 +11,7 @@
 /* =============================
    CONFIG / GLOBALS
 ============================= */
+let filtersVisible = true;
 let currentView = "product";
 let fullData = [];
 let originalKeys = [];
@@ -430,36 +431,49 @@ function renderTable(dataToRender, selected){
 
   /* --- rows HTML --- */
   let rowsHtml = "";
-  if(Array.isArray(totalCols) && totalCols.length){
-    // group by requested total column (we only implement STATE grouping default)
+  if (Array.isArray(totalCols) && totalCols.length) {
+
+    // group by requested total column (normally STATE)
     const groups = {};
     grouped.forEach(r => {
-      // build group key robustly
-      const key = (selected["TOTAL"].join("|").toUpperCase() === "STATE") ? String(r.STATE || "") : "ALL";
-      if(!groups[key]) groups[key] = [];
+      const key = (selected["TOTAL"].join("|").toUpperCase() === "STATE")
+                    ? String(r.STATE || "")
+                    : "ALL";
+      if (!groups[key]) groups[key] = [];
       groups[key].push(r);
     });
 
+    // render each group and subtotal
     Object.keys(groups).forEach(gk => {
-      groups[gk].forEach(r => rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel));
-      // subtotal
-      const subtotal = {};
-      monthCols.forEach(m => subtotal[m] = groups[gk].reduce((s, rr)=> s + (Number(rr[m])||0), 0));
-      // Only show subtotal if group has 2 or more rows
-if (groups[gk].length >= 2) {
-    const subtotal = {};
-    monthCols.forEach(m => {
-        subtotal[m] = groups[gk].reduce((s, rr) => s + (Number(rr[m]) || 0), 0);
+
+      // normal rows
+      groups[gk].forEach(r => {
+        rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
+      });
+
+      // subtotal only if group has ≥ 2 rows
+      if (groups[gk].length >= 2) {
+        const subtotal = {};
+        monthCols.forEach(m => {
+          subtotal[m] = groups[gk].reduce((s, rr) => s + (Number(rr[m]) || 0), 0);
+        });
+
+        rowsHtml += buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel);
+      }
+
     });
-    rowsHtml += buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel);
+
+} else {
+
+    // no total grouping → just render rows normally
+    grouped.forEach(r => {
+      rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
+    });
+
 }
 
+tBody.innerHTML = rowsHtml;
 
-  } else {
-    grouped.forEach(r => rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel));
-  }
-
-  tBody.innerHTML = rowsHtml;
 
   /* --- grand total footer --- */
   if(grouped.length){
