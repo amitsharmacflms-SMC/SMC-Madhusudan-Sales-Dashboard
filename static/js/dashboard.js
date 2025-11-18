@@ -413,7 +413,17 @@ function renderTable(dataToRender, selected){
   const showCols = (selected["SHOW COLUMNS"] && selected["SHOW COLUMNS"].length) ? selected["SHOW COLUMNS"] : baseTextCols;
   const monthColsAvailable = monthOrder.filter(m => originalKeys.map(k=>k.toUpperCase()).includes(m.toUpperCase()));
   const monthCols = (selected["MONTH / YEAR"] && selected["MONTH / YEAR"].length) ? selected["MONTH / YEAR"] : monthColsAvailable;
-  const totalCols = selected["TOTAL"] || [];
+  const totalCols = selected["TOTAL"];
+
+const groups = {};
+grouped.forEach(r => {
+  // Build grouping key dynamically from selected TOTAL columns
+  const key = totalCols.map(t => String(getVal(r, t))).join("|");
+
+  if (!groups[key]) groups[key] = [];
+  groups[key].push(r);
+});
+
 
   // compose ordered columns
   let colsToShow = [...showCols, ...monthCols];
@@ -459,19 +469,22 @@ function renderTable(dataToRender, selected){
     });
 
     Object.keys(groups).forEach(gk => {
-      groups[gk].forEach(r => {
-        rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
-      });
+  const groupRows = groups[gk];
 
-      if (groups[gk].length >= 2) {
-        const subtotal = {};
-        monthCols.forEach(m => {
-          subtotal[m] = groups[gk].reduce((s, rr) => s + (Number(rr[m]) || 0), 0);
-        });
+  groupRows.forEach(r => {
+    rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
+  });
 
-        rowsHtml += buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel);
-      }
+  if (groupRows.length >= 2) {
+    const subtotal = {};
+    monthCols.forEach(m => {
+      subtotal[m] = groupRows.reduce((s, rr) => s + (Number(rr[m]) || 0), 0);
     });
+
+    rowsHtml += buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel);
+  }
+});
+
 
   } else {
     grouped.forEach(r => {
@@ -484,7 +497,9 @@ function renderTable(dataToRender, selected){
   /* grand total footer */
   if(grouped.length){
     const totals = {};
-    monthCols.forEach(m => totals[m] = grouped.reduce((s,r)=> s + (Number(r[m])||0), 0));
+    monthCols.forEach(m => {
+  totals[m] = dataToRender.reduce((s,r)=> s + (Number(getVal(r, m)) || 0), 0);
+});
     const totalCells = colsToShow.map((c, idx) => {
       if(c === "COMPARISON" && hasComparison){
         const a = totals[compareSel[0]] || 0;
