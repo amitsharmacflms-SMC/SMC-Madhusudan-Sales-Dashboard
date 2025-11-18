@@ -1,5 +1,6 @@
-/* dashboard.js — final corrected version for your uploaded files
+/* dashboard.js — final (Option A: combined multi-column grouping)
    Replace static/js/dashboard.js with this file.
+   Works with your uploaded dashboard.html and output.css.
 */
 
 /* =============================
@@ -21,11 +22,11 @@ const monthOrder = [
   "APR-25","MAY-25","JUN-25","AVG_Q1_2025-26","JUL-25","AUG-25","SEP-25","AVG_Q2_2025-26","OCT-25","AVG_Q3_2025-26","AVG_YEAR_2025-26"
 ];
 
-// normalize helpers
+// helpers
 const norm = s => String(s||"").toUpperCase().trim();
 const normalizeKeySimple = k => String(k||"").toUpperCase().replace(/[-_\s]/g, "");
 
-// robust getter (tries exact, upper, lower, and normalized keys)
+// robust getter (tries exact, upper, lower, normalized)
 function getVal(row, key){
   if(!row || !key) return "";
   if(Object.prototype.hasOwnProperty.call(row, key)) return row[key];
@@ -139,11 +140,12 @@ function toggleFilters() {
   const btn = document.getElementById("toggleFiltersBtn");
   if (!wrapper || !btn) return;
 
+  // ensure wrapper has overflow hidden and transition in CSS (see note)
   if (filtersVisible) {
     wrapper.style.maxHeight = "0px";
     btn.textContent = "Show Filters";
   } else {
-    wrapper.style.maxHeight = "500px";   // Fixed value for stable animation
+    wrapper.style.maxHeight = "600px";
     btn.textContent = "Hide Filters";
   }
   filtersVisible = !filtersVisible;
@@ -209,13 +211,17 @@ function buildFilters(){
     }
   });
 
-  // data-all listeners (use CSS.escape where we query by name later)
+  // data-all listeners
   filters.querySelectorAll("input[data-all]").forEach(cb => {
     cb.addEventListener("change", e => {
       const title = e.target.dataset.all;
       const checked = e.target.checked;
-      // use CSS.escape to select safely
-      filters.querySelectorAll(`input[name="${title}"]`).forEach(i => i.checked = checked);
+      try {
+        filters.querySelectorAll(`input[name="${title}"]`).forEach(i => i.checked = checked);
+      } catch(e) {
+        // fallback
+        Array.from(filters.querySelectorAll("input")).filter(i => i.name === title).forEach(i => i.checked = checked);
+      }
       runIdle(applyFilters);
     });
   });
@@ -228,7 +234,6 @@ function buildFilters(){
 function escapeHtml(s){
   return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
-/* wrapper to make attribute names safe for programmatic usage (we rely on CSS.escape when querying) */
 function escapeAttr(s){
   return String(s||"");
 }
@@ -277,7 +282,6 @@ async function loadData(view){
 
 /* =============================
    SAVED FILTERS OR DEFAULTS
-   - uses getInputs() which queries with CSS.escape to avoid selector errors
 ============================= */
 function applySavedOrDefaults(last5Avg){
   const filters = document.getElementById("filtersContainer");
@@ -290,7 +294,6 @@ function applySavedOrDefaults(last5Avg){
     try {
       return Array.from(filters.querySelectorAll(`input[name="${CSS.escape(String(name))}"]`));
     } catch(e) {
-      // fallback safe
       return Array.from(filters.querySelectorAll("input")).filter(i => i.name === String(name));
     }
   }
@@ -298,7 +301,6 @@ function applySavedOrDefaults(last5Avg){
   if(hasSaved){
     Object.entries(saved).forEach(([title, vals]) => {
       getInputs(title).forEach(cb => { cb.checked = vals.map(v=>norm(v)).includes(norm(cb.value)); });
-      // no reliance on non-existent all_* ids
     });
   } else {
     // reset all
@@ -334,8 +336,7 @@ function applySavedOrDefaults(last5Avg){
 }
 
 /* =============================
-   APPLY FILTERS + SMART CASCADE
-   - all selectors use CSS.escape() to avoid invalid selector errors
+   APPLY FILTERS + SMART CASCADE (uses combined TOTAL grouping)
 ============================= */
 function applyFilters(save=true){
   showOverlay(80);
@@ -346,12 +347,10 @@ function applyFilters(save=true){
       const selected = {};
       filters.querySelectorAll(".filter-box strong").forEach(h => {
         const t = h.textContent.trim();
-        // safe query using CSS.escape
         let checked = [];
         try {
           checked = Array.from(filters.querySelectorAll(`input[name="${CSS.escape(t)}"]:checked`)).map(i => i.value);
         } catch(e) {
-          // fallback for very old browsers
           checked = Array.from(filters.querySelectorAll("input")).filter(i => i.name === t && i.checked).map(i => i.value);
         }
         selected[t] = checked;
@@ -376,7 +375,6 @@ function applyFilters(save=true){
         const box = Array.from(filters.querySelectorAll(".filter-box")).find(b => b.querySelector("strong")?.textContent.trim() === f);
         if(!box) return;
         const valid = new Set(filtered.map(r => String(getVal(r, f))));
-        // safe name selector
         let inputs = [];
         try {
           inputs = Array.from(box.querySelectorAll(`input[name="${CSS.escape(f)}"]`));
@@ -402,6 +400,9 @@ function applyFilters(save=true){
 
 /* =============================
    RENDERING (table, rows, groupings)
+   - Subtotal: grouped by combined TOTAL columns (Option A)
+   - Subtotal shown only when groupRows.length >= 2
+   - Grand total computed from dataToRender (original rows) to reflect filtered data
 ============================= */
 function renderTable(dataToRender, selected){
   const tHead = document.getElementById("tableHead");
@@ -413,17 +414,7 @@ function renderTable(dataToRender, selected){
   const showCols = (selected["SHOW COLUMNS"] && selected["SHOW COLUMNS"].length) ? selected["SHOW COLUMNS"] : baseTextCols;
   const monthColsAvailable = monthOrder.filter(m => originalKeys.map(k=>k.toUpperCase()).includes(m.toUpperCase()));
   const monthCols = (selected["MONTH / YEAR"] && selected["MONTH / YEAR"].length) ? selected["MONTH / YEAR"] : monthColsAvailable;
-  const totalCols = selected["TOTAL"];
-
-const groups = {};
-grouped.forEach(r => {
-  // Build grouping key dynamically from selected TOTAL columns
-  const key = totalCols.map(t => String(getVal(r, t))).join("|");
-
-  if (!groups[key]) groups[key] = [];
-  groups[key].push(r);
-});
-
+  const totalCols = selected["TOTAL"] || [];
 
   // compose ordered columns
   let colsToShow = [...showCols, ...monthCols];
@@ -433,11 +424,11 @@ grouped.forEach(r => {
   const hasComparison = compareSel.length === 2;
   if(hasComparison && !colsToShow.includes("COMPARISON")) colsToShow.push("COMPARISON");
 
-  /* header */
+  // header
   const headerHtml = `<tr>${colsToShow.map(c => `<th style="white-space:nowrap;padding:8px 10px;font-weight:800;border-bottom:1px solid #ddd">${escapeHtml(c)}</th>`).join("")}</tr>`;
   tHead.innerHTML = headerHtml;
 
-  /* grouping & aggregation */
+  // group & aggregate (aggregate per displayed grouping keys)
   const grouped = (function group(){
     const map = new Map();
     dataToRender.forEach(r => {
@@ -456,37 +447,45 @@ grouped.forEach(r => {
   })();
   currentGroupedData = grouped;
 
-  /* rows HTML */
+  // build rows HTML
   let rowsHtml = "";
+
   if (Array.isArray(totalCols) && totalCols.length) {
+    // Build groups using the selected TOTAL columns (combined key)
     const groups = {};
     grouped.forEach(r => {
-      const key = (selected["TOTAL"].join("|").toUpperCase() === "STATE")
-                    ? String(r.STATE || "")
-                    : "ALL";
-      if (!groups[key]) groups[key] = [];
+      // For grouping we must use the same properties present on 'grouped' (which are based on showCols)
+      // Use getVal on original r but ensure fallback to grouped object's fields if needed
+      const keyParts = totalCols.map(tc => {
+        // prefer grouped property
+        if(Object.prototype.hasOwnProperty.call(r, tc)) return String(r[tc] ?? "");
+        // fallback to uppercase normalized
+        return String(getVal(r, tc) || "");
+      });
+      const key = keyParts.join("|");
+      if(!groups[key]) groups[key] = [];
       groups[key].push(r);
     });
 
+    // iterate groups, render rows and subtotal if needed
     Object.keys(groups).forEach(gk => {
-  const groupRows = groups[gk];
+      const groupRows = groups[gk];
 
-  groupRows.forEach(r => {
-    rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
-  });
+      groupRows.forEach(r => {
+        rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
+      });
 
-  if (groupRows.length >= 2) {
-    const subtotal = {};
-    monthCols.forEach(m => {
-      subtotal[m] = groupRows.reduce((s, rr) => s + (Number(rr[m]) || 0), 0);
+      if (groupRows.length >= 2) {
+        const subtotal = {};
+        monthCols.forEach(m => {
+          subtotal[m] = groupRows.reduce((s, rr) => s + (Number(rr[m]) || 0), 0);
+        });
+        rowsHtml += buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel);
+      }
     });
 
-    rowsHtml += buildSubtotalRow(subtotal, colsToShow, monthCols, compareSel);
-  }
-});
-
-
   } else {
+    // no TOTAL grouping selected
     grouped.forEach(r => {
       rowsHtml += buildRowHtml(r, colsToShow, monthCols, compareSel);
     });
@@ -494,12 +493,13 @@ grouped.forEach(r => {
 
   tBody.innerHTML = rowsHtml;
 
-  /* grand total footer */
-  if(grouped.length){
+  // grand total: compute across filtered original row set (dataToRender)
+  if(dataToRender.length){
     const totals = {};
     monthCols.forEach(m => {
-  totals[m] = dataToRender.reduce((s,r)=> s + (Number(getVal(r, m)) || 0), 0);
-});
+      totals[m] = dataToRender.reduce((s, row) => s + (Number(getVal(row, m)) || 0), 0);
+    });
+
     const totalCells = colsToShow.map((c, idx) => {
       if(c === "COMPARISON" && hasComparison){
         const a = totals[compareSel[0]] || 0;
@@ -519,7 +519,7 @@ grouped.forEach(r => {
         const cls = prev !== null ? (val > prev ? "bg-pos" : (val < prev ? "bg-neg" : "")) : "";
         return `<td class="numeric ${cls}" style="font-weight:800;padding:8px 10px;border-top:2px solid #222">${val}</td>`;
       }
-      if(idx === 0) return `<td style="font-weight:800;padding:8px 10px;border-top:2px solid #222">TOTAL</td>`;
+      if(idx === 0) return `<td style="font-weight:800;padding:8px 10px;border-top:2px solid #222">GRAND TOTAL</td>`;
       return `<td style="padding:8px 10px;border-top:2px solid #222"></td>`;
     }).join("");
     tFoot.innerHTML = `<tr class="grandtotal-row">${totalCells}</tr>`;
@@ -527,6 +527,7 @@ grouped.forEach(r => {
     tFoot.innerHTML = "";
   }
 
+  // show table, add sorting & reveal
   table.classList.remove("hidden");
   addSorting(colsToShow);
   revealTableContainer();
@@ -543,7 +544,7 @@ function buildRowHtml(row, colsToShow, monthCols, compareSel){
         const b = Number(row[compareSel[1]]) || 0;
         const diff = b - a;
         const cls = diff > 0 ? "bg-pos" : (diff < 0 ? "bg-neg" : "");
-        html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700">${diff}</td>`;
+        html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700;text-align:center">${diff}</td>`;
       } else html += `<td style="padding:6px 8px"></td>`;
       return;
     }
@@ -558,7 +559,7 @@ function buildRowHtml(row, colsToShow, monthCols, compareSel){
         }
       }
       const cls = (prevVal !== null) ? (val > prevVal ? "bg-pos" : (val < prevVal ? "bg-neg" : "")) : "";
-      html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700">${val}</td>`;
+      html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700;text-align:center">${val}</td>`;
       return;
     }
 
@@ -579,7 +580,7 @@ function buildSubtotalRow(sub, colsToShow, monthCols, compareSel){
         const a = sub[compareSel[0]] || 0;
         const b = sub[compareSel[1]] || 0;
         const diff = b - a; const cls = diff > 0 ? "bg-pos" : (diff < 0 ? "bg-neg" : "");
-        html += `<td class="numeric ${cls}" style="padding:6px 8px">${diff}</td>`;
+        html += `<td class="numeric ${cls}" style="padding:6px 8px;text-align:center">${diff}</td>`;
       } else html += `<td style="padding:6px 8px"></td>`;
       return;
     }
@@ -593,7 +594,7 @@ function buildSubtotalRow(sub, colsToShow, monthCols, compareSel){
         }
       }
       const cls = prev !== null ? (val > prev ? "bg-pos" : (val < prev ? "bg-neg" : "")) : "";
-      html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700">${val}</td>`;
+      html += `<td class="numeric ${cls}" style="padding:6px 8px;font-weight:700;text-align:center">${val}</td>`;
       return;
     }
     html += (idx === 0) ? `<td class='subtotal-label' style="padding:6px 8px">Subtotal</td>` : `<td style="padding:6px 8px"></td>`;
@@ -697,12 +698,13 @@ function clearFilters() {
 }
 
 /* =============================
-   MOBILE OPTIMIZATIONS & FINAL TOUCH
+   MOBILE & FINAL TOUCH
 ============================= */
 if(window.matchMedia && window.matchMedia("(max-width:768px)").matches){
   console.log("mobile optimizations active");
 }
 
+// ensure overlay hidden at load
 hideOverlay();
 
 window._dashboard_internal = {

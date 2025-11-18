@@ -86,7 +86,8 @@ header {
   min-width: 180px !important;
 }
 
-
+#filtersWrapper { overflow: hidden; transition: max-height .32s ease; max-height: 600px; }
+.table-wrapper { overflow: auto; position: relative; }
 
 
 
@@ -130,6 +131,20 @@ header {
 /* ============================================================
    TABLE WRAPPER
 ============================================================ */
+
+.table-wrapper {
+  overflow: auto;
+  position: relative;
+}
+
+#dataTable thead th { position: sticky; top: 0; z-index: 20; background: #e4e9ff; }
+td.numeric { text-align: center; }
+
+
+
+
+
+
 .table-wrapper {
   margin-top: 10px;
   background: #ffffff;
