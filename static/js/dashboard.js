@@ -1,4 +1,4 @@
-/* dashboard.js — Option B: LCP Optimized + INP Safe
+/* dashboard.js — Option B (Fixed): LCP Optimized + INP Safe + Syntax Corrected
    - Starts data fetch immediately (Preload)
    - Renders first 50 rows synchronously (LCP fix)
    - Chunks the rest (INP fix)
@@ -201,8 +201,6 @@ function bindUI(){
 
   const exportBtn = document.getElementById("exportBtn");
   if(exportBtn) exportBtn.addEventListener("click", ()=> { showOverlay(120); runIdle(exportExcel); });
-  
-  // Theme toggle omitted for brevity, assume same as before
 }
 
 function toggleFilters(){
@@ -421,8 +419,6 @@ function applyFilters(save = true){
         });
       });
 
-      // IMPORTANT: Do NOT use runIdle here for the table render call directly.
-      // We will handle the "Top 50" sync render inside renderTable.
       renderTable(filtered, selected);
 
     } finally {
@@ -467,7 +463,8 @@ function renderTable(dataToRender, selected){
         map.set(key, obj);
       } else {
         const obj = map.get(key);
-        monthCols.forEach(m => obj[m] = obj[m] + (Number(getVal(r,m)) || 0);
+        // FIXED: Added missing closing parenthesis below
+        monthCols.forEach(m => obj[m] = obj[m] + (Number(getVal(r,m)) || 0));
       }
     });
     return Array.from(map.values());
@@ -568,7 +565,7 @@ function renderRowsChunked(rowsArr, container, chunkSize = 150){
   appendChunk(); // Start first background chunk
 }
 
-/* Build row HTML helper (Same as before) */
+/* Build row HTML helper */
 function buildRowHtml(row, colsToShow, monthCols, compareSel){
   const hasComparison = (compareSel || []).length === 2;
   let html = "<tr>";
