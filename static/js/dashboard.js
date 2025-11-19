@@ -1,15 +1,15 @@
-/* dashboard.js — Option B (Fixed): LCP Optimized + INP Safe + Syntax Corrected
-   - Starts data fetch immediately (Preload)
-   - Renders first 50 rows synchronously (LCP fix)
-   - Chunks the rest (INP fix)
+/* dashboard.js — Option B (Final Fix): LCP Optimized + Visual Layout Repair
+   - Starts fetch immediately
+   - Renders first 50 rows synchronously
+   - Background chunks the rest
+   - FIX: Forces Table Header to top and fixes Z-Index overlap
 */
 
 /* =============================
-   1. PRE-FETCHING (LCP OPTIMIZATION)
-   Start fetching immediately, do not wait for DOMContentLoaded
+   1. PRE-FETCHING
 ============================= */
 let fullDataPromise = null;
-const initialView = "product"; // Default view
+const initialView = "product"; 
 
 function startFetch(view) {
   return fetch(`/get_data/${view}`)
@@ -19,7 +19,6 @@ function startFetch(view) {
     })
     .then(data => {
       if (!Array.isArray(data)) return [];
-      // Mirror keys for fast lookup immediately
       return data.map(r => {
         const o = {};
         Object.keys(r).forEach(k => { o[k] = r[k]; o[k.toUpperCase()] = r[k]; });
@@ -31,8 +30,6 @@ function startFetch(view) {
       return [];
     });
 }
-
-// Ignite the fetch immediately
 fullDataPromise = startFetch(initialView);
 
 /* =============================
@@ -70,7 +67,7 @@ function getVal(row, key){
 }
 
 /* =============================
-   OVERLAY + SKELETON HELPERS
+   OVERLAY
 ============================= */
 let __overlayTimer = null;
 function showOverlay(delay = 150){
@@ -85,8 +82,6 @@ function hideOverlay(){
   const el = document.getElementById("overlayLoader");
   if(el) el.classList.add("hidden");
 }
-
-// Revealed as soon as the first batch is rendered
 function revealTableContainer(){
   const skeleton = document.getElementById("tableSkeleton");
   const container = document.getElementById("tableContainer");
@@ -119,26 +114,10 @@ function debounce(fn, wait = 250){
 ============================= */
 (function attachKeyboardGuard(){
   let lastKeyAt = 0;
-  document.addEventListener("keydown", () => {
-    keyboardInteractionOngoing = true;
-    lastKeyAt = Date.now();
-  }, { capture: true });
-  document.addEventListener("keyup", () => {
-    setTimeout(() => {
-      if (Date.now() - lastKeyAt >= 200) keyboardInteractionOngoing = false;
-    }, 250);
-  }, { capture: true });
-  document.addEventListener("focusin", (e) => {
-    if(e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) {
-      const type = e.target.type;
-      if(type !== "checkbox" && type !== "radio" && type !== "button" && type !== "submit"){
-        keyboardInteractionOngoing = true;
-      }
-    }
-  }, true);
-  document.addEventListener("focusout", (e) => {
-    keyboardInteractionOngoing = false;
-  }, true);
+  document.addEventListener("keydown", () => { keyboardInteractionOngoing = true; lastKeyAt = Date.now(); }, { capture: true });
+  document.addEventListener("keyup", () => { setTimeout(() => { if (Date.now() - lastKeyAt >= 200) keyboardInteractionOngoing = false; }, 250); }, { capture: true });
+  document.addEventListener("focusin", (e) => { if(e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) keyboardInteractionOngoing = true; }, true);
+  document.addEventListener("focusout", () => { keyboardInteractionOngoing = false; }, true);
 })();
 
 /* =============================
@@ -146,26 +125,20 @@ function debounce(fn, wait = 250){
 ============================= */
 document.addEventListener("DOMContentLoaded", () => {
   bindUI();
-  // Instead of calling loadData() which fetches again, we wait for the promise started at top of file
   initializeData(); 
 });
 
 async function initializeData() {
   showOverlay(80);
   try {
-    fullData = await fullDataPromise; // Await the pre-fetched data
+    fullData = await fullDataPromise;
     originalKeys = Object.keys(fullData[0] || {});
-
-    // Compute defaults
     const avgCols = originalKeys.filter(k => norm(k).startsWith("AVG_Q"));
     const orderedAvg = monthOrder.filter(m => avgCols.some(a => norm(a) === norm(m)));
     const last5Avg = orderedAvg.slice(-5);
 
     buildFilters();
-    
-    // Immediate initial render for LCP
     setTimeout(() => applySavedOrDefaults(last5Avg), 0);
-    
   } catch(e) {
     console.error("Init error", e);
     const loader = document.getElementById("loader");
@@ -181,24 +154,19 @@ async function initializeData() {
 function bindUI(){
   const backBtn = document.getElementById("backBtn");
   if(backBtn) backBtn.addEventListener("click", ()=> window.history.back());
-
   const clearBtn = document.getElementById("clearBtn");
   if(clearBtn) clearBtn.addEventListener("click", () => runIdle(clearFilters));
-
   const toggleFiltersBtn = document.getElementById("toggleFiltersBtn");
   if(toggleFiltersBtn) toggleFiltersBtn.addEventListener("click", toggleFilters);
-
   const toggleViewBtn = document.getElementById("toggleViewBtn");
   if(toggleViewBtn) toggleViewBtn.addEventListener("click", ()=>{
     localStorage.removeItem("savedFilters");
     localStorage.removeItem("default_avg_cols");
     currentView = currentView === "product" ? "sku" : "product";
     toggleViewBtn.textContent = currentView === "product" ? "Switch to SKU View" : "Switch to Product View";
-    // For view switch, we must fetch new data
     fullDataPromise = startFetch(currentView);
     initializeData();
   });
-
   const exportBtn = document.getElementById("exportBtn");
   if(exportBtn) exportBtn.addEventListener("click", ()=> { showOverlay(120); runIdle(exportExcel); });
 }
@@ -207,13 +175,8 @@ function toggleFilters(){
   const wrapper = document.getElementById("filtersWrapper");
   const btn = document.getElementById("toggleFiltersBtn");
   if(!wrapper || !btn) return;
-  if(filtersVisible){
-    wrapper.style.maxHeight = "0px";
-    btn.textContent = "Show Filters";
-  } else {
-    wrapper.style.maxHeight = "600px";
-    btn.textContent = "Hide Filters";
-  }
+  if(filtersVisible){ wrapper.style.maxHeight = "0px"; btn.textContent = "Show Filters"; }
+  else { wrapper.style.maxHeight = "600px"; btn.textContent = "Hide Filters"; }
   filtersVisible = !filtersVisible;
 }
 
@@ -227,11 +190,9 @@ function buildFilters(){
 
   const headers = originalKeys.map(k => norm(k));
   const textCols = baseTextCols.filter(c => headers.includes(c));
-
   const order = currentView === "product"
     ? ["SHOW COLUMNS","MONTH / YEAR","STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME","COMPARISON","TOTAL"]
     : ["SHOW COLUMNS","MONTH / YEAR","STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME","COMPARISON","TOTAL"];
-
   const colors = ["#fff7ed","#ecfdf5","#e0f2fe","#fdf2f8","#fef3c7","#e0f2fe","#f3e8ff","#fef2f2","#f3f4f6"];
   let ci = 0;
 
@@ -282,7 +243,6 @@ function buildFilters(){
       lab.appendChild(document.createTextNode(" " + v));
       options.appendChild(lab);
     });
-
     box.appendChild(options);
     filters.appendChild(box);
   }
@@ -316,18 +276,14 @@ function buildFilters(){
   });
 
   filters.addEventListener("keydown", e => { e.stopPropagation(); }, { capture: true });
-
   filters.addEventListener("change", debounce(() => {
-    if(!keyboardInteractionOngoing){
-      runIdle(() => applyFilters());
-    } else {
-      setTimeout(() => runIdle(() => applyFilters()), 300);
-    }
+    if(!keyboardInteractionOngoing){ runIdle(() => applyFilters()); } 
+    else { setTimeout(() => runIdle(() => applyFilters()), 300); }
   }, 150));
 }
 
 /* =============================
-   SAVED FILTERS / DEFAULTS
+   APPLY FILTERS / DEFAULTS
 ============================= */
 function applySavedOrDefaults(last5Avg){
   const filters = document.getElementById("filtersContainer");
@@ -335,7 +291,6 @@ function applySavedOrDefaults(last5Avg){
 
   const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
   const hasSaved = Object.values(saved).some(v => Array.isArray(v) && v.length);
-
   function getInputs(name){ return Array.from(filters.querySelectorAll("input")).filter(i => i.name === name); }
 
   if(hasSaved){
@@ -359,20 +314,11 @@ function applySavedOrDefaults(last5Avg){
     localStorage.setItem("savedFilters", JSON.stringify(saveObj));
     localStorage.setItem("default_avg_cols", JSON.stringify(last5Avg));
   }
-
-  // Apply immediately (false = don't save again)
   applyFilters(false); 
 }
 
-/* =============================
-   APPLY FILTERS
-============================= */
 function applyFilters(save = true){
-  if(keyboardInteractionOngoing){
-    setTimeout(() => { if(!keyboardInteractionOngoing) runIdle(() => applyFilters(save)); }, 220);
-    return;
-  }
-
+  if(keyboardInteractionOngoing){ setTimeout(() => { if(!keyboardInteractionOngoing) runIdle(() => applyFilters(save)); }, 220); return; }
   showOverlay(80);
 
   requestAnimationFrame(()=> {
@@ -382,8 +328,7 @@ function applyFilters(save = true){
       const selected = {};
       filters.querySelectorAll(".filter-box strong").forEach(h => {
         const t = h.textContent.trim();
-        const checkedInputs = Array.from(filters.querySelectorAll("input")).filter(i => i.name === t && i.checked);
-        selected[t] = checkedInputs.map(i => i.value);
+        selected[t] = Array.from(filters.querySelectorAll("input")).filter(i => i.name === t && i.checked).map(i => i.value);
       });
 
       if(Array.isArray(selected["TOTAL"])) selected["TOTAL"] = selected["TOTAL"].map(v => norm(v));
@@ -408,19 +353,14 @@ function applyFilters(save = true){
         if(!box) return;
         const valid = new Set();
         for(let i=0; i<filtered.length; i++) valid.add(String(getVal(filtered[i], f)));
-        const inputs = Array.from(box.querySelectorAll("input")).filter(i => i.name === f);
-        inputs.forEach(cb => {
+        Array.from(box.querySelectorAll("input")).filter(i => i.name === f).forEach(cb => {
           const label = cb.parentElement;
-          if(valid.has(cb.value) || cb.checked){
-            cb.disabled = false; if(label) label.style.opacity = "1";
-          } else {
-            cb.disabled = true; if(label) label.style.opacity = "0.45";
-          }
+          if(valid.has(cb.value) || cb.checked){ cb.disabled = false; if(label) label.style.opacity = "1"; }
+          else { cb.disabled = true; if(label) label.style.opacity = "0.45"; }
         });
       });
 
       renderTable(filtered, selected);
-
     } finally {
       hideOverlay();
     }
@@ -428,14 +368,25 @@ function applyFilters(save = true){
 }
 
 /* =============================
-   RENDERING (LCP OPTIMIZED)
+   RENDERING (Fixes Layout Overlap)
 ============================= */
 function renderTable(dataToRender, selected){
   const tHead = document.getElementById("tableHead");
   const tBody = document.getElementById("tableBody");
   const tFoot = document.getElementById("tableFoot");
   const table = document.getElementById("dataTable");
-  if(!table) return;
+  if(!table || !tHead || !tBody) return;
+
+  /* 1. SELF-REPAIR: Ensure Structure is Table -> Head -> Body */
+  /* This prevents data from appearing 'above' the header if HTML was malformed */
+  if (table.firstElementChild !== tHead) {
+    table.prepend(tHead);
+  }
+  // Ensure tHead has sticky positioning to stay on top
+  tHead.style.position = "sticky";
+  tHead.style.top = "0";
+  tHead.style.zIndex = "50"; // Forces header above data rows
+  tHead.style.background = "white"; // Prevents transparency bleed-through
 
   const showCols = (selected["SHOW COLUMNS"] && selected["SHOW COLUMNS"].length) ? selected["SHOW COLUMNS"] : baseTextCols;
   const monthColsAvailable = monthOrder.filter(m => originalKeys.map(k=>k.toUpperCase()).includes(m.toUpperCase()));
@@ -448,7 +399,7 @@ function renderTable(dataToRender, selected){
   if(hasComparison && !colsToShow.includes("COMPARISON")) colsToShow.push("COMPARISON");
 
   // Header
-  tHead.innerHTML = `<tr>${colsToShow.map(c => `<th style="white-space:nowrap;padding:8px 10px;font-weight:800;border-bottom:1px solid #ddd">${escapeHtml(c)}</th>`).join("")}</tr>`;
+  tHead.innerHTML = `<tr>${colsToShow.map(c => `<th style="white-space:nowrap;padding:8px 10px;font-weight:800;border-bottom:1px solid #ddd;background:#e0f2fe;color:#000">${escapeHtml(c)}</th>`).join("")}</tr>`;
 
   // Grouping
   const grouped = (function group(){
@@ -463,7 +414,6 @@ function renderTable(dataToRender, selected){
         map.set(key, obj);
       } else {
         const obj = map.get(key);
-        // FIXED: Added missing closing parenthesis below
         monthCols.forEach(m => obj[m] = obj[m] + (Number(getVal(r,m)) || 0));
       }
     });
@@ -471,7 +421,7 @@ function renderTable(dataToRender, selected){
   })();
   currentGroupedData = grouped;
 
-  // Build rows array
+  // Build Rows
   const rowsArr = [];
   if (Array.isArray(totalCols) && totalCols.length) {
     const groups = {};
@@ -493,27 +443,24 @@ function renderTable(dataToRender, selected){
     grouped.forEach(r => rowsArr.push(buildRowHtml(r, colsToShow, monthCols, compareSel)));
   }
 
+  // Render Rows
   tBody.innerHTML = "";
-  
-  /* LCP FIX: Render first 50 rows SYNCHRONOUSLY immediately */
   const LCP_BATCH_SIZE = 50;
   const firstBatch = rowsArr.slice(0, LCP_BATCH_SIZE);
   const remaining = rowsArr.slice(LCP_BATCH_SIZE);
 
   if(firstBatch.length > 0) {
-    tBody.innerHTML = firstBatch.join(""); // Paint immediately
+    tBody.innerHTML = firstBatch.join("");
   }
 
-  // Reveal container NOW (improves LCP perception)
   table.classList.remove("hidden");
   revealTableContainer();
 
-  // Render the rest in background (improves INP/TBT)
   if(remaining.length > 0) {
     renderRowsChunked(remaining, tBody, 200);
   }
 
-  // Footer (Async)
+  // Footer (Totals)
   runIdle(() => {
     if(dataToRender.length){
       const totals = {};
@@ -528,9 +475,7 @@ function renderTable(dataToRender, selected){
         if(monthCols.includes(c)){
           const val = totals[c] || 0;
           let prev = null;
-          for(let j = idx-1; j>=0; j--){
-            if(monthCols.includes(colsToShow[j])){ prev = totals[colsToShow[j]]; break; }
-          }
+          for(let j = idx-1; j>=0; j--){ if(monthCols.includes(colsToShow[j])){ prev = totals[colsToShow[j]]; break; } }
           const cls = prev !== null ? (val > prev ? "bg-pos" : (val < prev ? "bg-neg" : "")) : "";
           return `<td class="numeric ${cls}" style="font-weight:800;padding:8px 10px;border-top:2px solid #222">${val}</td>`;
         }
@@ -562,10 +507,9 @@ function renderRowsChunked(rowsArr, container, chunkSize = 150){
       else setTimeout(appendChunk, 16);
     }
   }
-  appendChunk(); // Start first background chunk
+  appendChunk();
 }
 
-/* Build row HTML helper */
 function buildRowHtml(row, colsToShow, monthCols, compareSel){
   const hasComparison = (compareSel || []).length === 2;
   let html = "<tr>";
@@ -655,9 +599,7 @@ function clearFilters(){
   const filters = document.getElementById("filtersContainer");
   if(filters){
     filters.querySelectorAll("input[type='checkbox']").forEach(cb => {
-      cb.checked = false;
-      cb.disabled = false;
-      if(cb.parentElement) cb.parentElement.style.opacity = "1";
+      cb.checked = false; cb.disabled = false; if(cb.parentElement) cb.parentElement.style.opacity = "1";
     });
   }
   fullDataPromise = startFetch(currentView);

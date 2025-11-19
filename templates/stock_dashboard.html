@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Position</title>
+    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+</head>
+
+<body class="p-6">
+
+    <h2 class="text-2xl font-bold mb-4 text-blue-800">📦 Stock Position Dashboard</h2>
+<div class="mb-4">
+    <button onclick="window.location.href='/dashboard/daily_sale'" 
+            class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-900">
+        📊 View Daily Sale
+    </button>
+</div>
+
+
+
+    <table id="stockTable" class="min-w-full bg-white border">
+        <thead class="bg-slate-100">
+            <tr>
+                <th class="p-2">State</th>
+                <th class="p-2">Depot</th>
+                <th class="p-2">Date</th>
+                <th class="p-2">SKU Name</th>
+                <th class="p-2">Opening</th>
+                <th class="p-2">Received</th>
+                <th class="p-2">Sales</th>
+                <th class="p-2">Closing</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+<script>
+async function loadStockData() {
+    const res = await fetch("/api/get_stock_data");
+    const data = await res.json();
+
+    const tbody = document.querySelector("#stockTable tbody");
+    tbody.innerHTML = "";
+
+    data.forEach(r => {
+        const row = `
+        <tr class="border-t">
+            <td class="p-2">${r.state}</td>
+            <td class="p-2">${r.depot}</td>
+            <td class="p-2">${r.date}</td>
+            <td class="p-2">${r.sku_name}</td>
+            <td class="p-2 text-right">${r.opening}</td>
+            <td class="p-2 text-right">${r.qty_recd}</td>
+            <td class="p-2 text-right">${r.qty_sale}</td>
+            <td class="p-2 text-right">${r.closing}</td>
+        </tr>`;
+        tbody.insertAdjacentHTML("beforeend", row);
+    });
+}
+loadStockData();
+</script>
+
+</body>
+</html>

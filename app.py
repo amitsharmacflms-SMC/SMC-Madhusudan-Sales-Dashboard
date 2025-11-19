@@ -33,7 +33,7 @@ def ensure_users_table():
 
     with engine.begin() as conn:
         conn.execute(text(create_table_query))
-        # unique constraint
+        # unique constraint (safe check)
         conn.execute(text("""
             DO $$
             BEGIN
@@ -115,10 +115,6 @@ def sales_levels():
     return render_template("sales_levels.html", current_year=datetime.utcnow().year)
 
 
-
-
-
-
 # -------------------------------
 # DASHBOARDS
 # -------------------------------
@@ -127,6 +123,20 @@ def dashboard():
     if "user" not in session:
         return redirect(url_for("login"))
     return render_template("dashboard.html", current_year=datetime.utcnow().year)
+
+
+@app.route("/dashboard/stock")
+def dashboard_stock():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    return render_template("stock_dashboard.html")
+
+
+@app.route("/dashboard/daily_sale")
+def dashboard_daily_sale():
+    if "user" not in session:
+        return redirect(url_for("login"))
+    return render_template("daily_sale_dashboard.html")
 
 
 @app.route("/dashboard/plant")
@@ -148,12 +158,6 @@ def comparison():
         print("❌ Error rendering comparison page:", e)
         traceback.print_exc()
         return f"<pre>{traceback.format_exc()}</pre>", 500
-
-
-
-
-
-
 
 
 @app.route("/dashboard/ss")
@@ -291,6 +295,29 @@ def get_data(view_type):
             return jsonify({"error": "Lighthouse data missing in database."}), 404
         app.logger.exception("Error loading data")
         return jsonify({"error": str(e)}), 500
+
+
+# -------------------------------
+# STOCK DATABASE API (NEW)
+# -------------------------------
+@app.route("/api/get_stock_data")
+def get_stock_data_api():
+    engine = get_engine()
+    df = pd.read_sql("SELECT * FROM stock_data", engine)
+    # normalize column names to lower-case keys (optional but consistent)
+    df.columns = [c.strip().lower() for c in df.columns]
+    return jsonify(df.to_dict(orient="records"))
+
+
+# -------------------------------
+# DAILY SALE DATABASE API (NEW)
+# -------------------------------
+@app.route("/api/get_daily_sale")
+def get_daily_sale_api():
+    engine = get_engine()
+    df = pd.read_sql("SELECT * FROM daily_sale", engine)
+    df.columns = [c.strip().lower() for c in df.columns]
+    return jsonify(df.to_dict(orient="records"))
 
 
 # -------------------------------

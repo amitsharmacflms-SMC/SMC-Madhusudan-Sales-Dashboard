@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Daily Sale</title>
+    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+</head>
+
+<body class="p-6">
+
+<h2 class="text-2xl font-bold mb-4 text-green-800">🧾 Daily Sale Dashboard</h2>
+
+<table id="saleTable" class="min-w-full bg-white border">
+    <thead class="bg-slate-100">
+        <tr>
+            <th class="p-2">State</th>
+            <th class="p-2">Date</th>
+            <th class="p-2">Party Name</th>
+            <th class="p-2">District</th>
+            <th class="p-2">SKU</th>
+            <th class="p-2">Quantity</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script>
+async function loadDailySale() {
+    const res = await fetch("/api/get_daily_sale");
+    const data = await res.json();
+
+    const tbody = document.querySelector("#saleTable tbody");
+    tbody.innerHTML = "";
+
+    data.forEach(r => {
+        const row = `
+        <tr class="border-t">
+            <td class="p-2">${r.state}</td>
+            <td class="p-2">${r.date}</td>
+            <td class="p-2">${r.party_name}</td>
+            <td class="p-2">${r.district}</td>
+            <td class="p-2">${r.sku}</td>
+            <td class="p-2 text-right">${r.quantity}</td>
+        </tr>`;
+        tbody.insertAdjacentHTML("beforeend", row);
+    });
+}
+loadDailySale();
+</script>
+
+</body>
+</html>
