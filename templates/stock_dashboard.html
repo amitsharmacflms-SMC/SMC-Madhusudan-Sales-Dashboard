@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -12,109 +12,132 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
-    body { padding: 20px; background: #f8fafc; }
-    .table-fixed tbody { max-height: 56vh; overflow-y: auto; display: block; }
-    .table-fixed thead, .table-fixed tbody tr { display: table; width: 100%; table-layout: fixed; }
-    .table-fixed thead { width: calc(100% - 1em); }
-    .small-muted { font-size: .9rem; color: #6b7280; }
-    .totals-row { background:#f1f5f9; font-weight:600; }
+    body { padding: 18px; background: #f8fafc; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+    .small-muted { font-size:.9rem; color:#6b7280; }
+    /* table wrapper: allow horizontal + vertical scroll */
+    .table-wrap {
+      width: 100%;
+      overflow: auto; /* horizontal + vertical */
+      max-height: 62vh;
+      border: 1px solid #e6e6e6;
+      border-radius: 4px;
+      background: #fff;
+    }
+    table { border-collapse: collapse; width: 100%; }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      z-index: 3;
+      border-bottom: 1px solid #ddd;
+      text-align: center; /* headers centered */
+      vertical-align: middle;
+    }
+    tbody td { border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    /* center numeric cells */
+    td.center { text-align: center; }
+    td.left { text-align: left; padding-left:8px; }
+    .totals-row td { font-weight: 700; background:#f1f5f9; text-align:center; }
+    /* small scrollbar space */
+    .table-wrap::-webkit-scrollbar { height:10px; width:10px; }
+    .sticky-footer { background:#fff; border-top:1px solid #e6e6e6; padding-top:8px; }
   </style>
 </head>
 <body>
   <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3 class="mb-0">📦 Stock Position</h3>
+      <h4 class="mb-0">📦 Stock Position</h4>
       <div>
         <a href="{{ url_for('sales_levels') }}" class="btn btn-outline-secondary btn-sm me-2">← Back</a>
+        <a href="{{ url_for('dashboard_daily_sale') }}" class="btn btn-outline-primary btn-sm me-2">Daily Sale</a>
         <button id="exportBtn" class="btn btn-success btn-sm">Export Excel</button>
       </div>
     </div>
 
-    <!-- Top filters -->
+    <!-- Filters (top row) -->
     <div class="card mb-3">
       <div class="card-body">
         <form id="filtersForm" class="row g-2 align-items-end">
           <div class="col-md-2">
+            <label class="form-label small-muted">Month</label>
+            <select id="filterMonth" class="form-select"></select>
+          </div>
+
+          <div class="col-md-2">
             <label class="form-label small-muted">State</label>
             <select id="filterState" class="form-select"><option value="">All</option></select>
           </div>
+
           <div class="col-md-2">
             <label class="form-label small-muted">Depot</label>
             <select id="filterDepot" class="form-select"><option value="">All</option></select>
           </div>
+
           <div class="col-md-2">
             <label class="form-label small-muted">SKU</label>
             <select id="filterSKU" class="form-select"><option value="">All</option></select>
           </div>
+
           <div class="col-md-2">
             <label class="form-label small-muted">From (Date)</label>
             <input id="filterFrom" type="date" class="form-control">
           </div>
+
           <div class="col-md-2">
             <label class="form-label small-muted">To (Date)</label>
             <input id="filterTo" type="date" class="form-control">
-          </div>
-          <div class="col-md-2 text-end">
-            <button id="clearBtn" type="button" class="btn btn-outline-secondary">Clear</button>
-            <button id="applyBtn" type="button" class="btn btn-primary ms-1">Apply</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Table + pagination -->
-    <div class="card">
-      <div class="card-body p-2">
-        <div class="d-flex justify-content-between align-items-center mb-2 px-2">
-          <div>
-            <span class="small-muted">Showing</span>
-            <select id="pageSize" class="form-select d-inline-block" style="width:80px;">
-              <option>10</option><option>25</option><option>50</option><option>100</option>
-            </select>
-            <span class="small-muted">rows</span>
-          </div>
-          <div>
-            <span id="rowsInfo" class="small-muted me-3"></span>
-            <nav aria-label="pages">
-              <ul id="paginator" class="pagination pagination-sm mb-0"></ul>
-            </nav>
-          </div>
-        </div>
-
-        <div class="table-responsive table-fixed">
-          <table id="stockTable" class="table table-bordered table-sm mb-0">
-            <thead class="table-light">
-              <tr>
-                <th style="width:12%;">State</th>
-                <th style="width:14%;">Depot</th>
-                <th style="width:12%;">Date</th>
-                <th style="width:26%;">SKU Name</th>
-                <th style="width:9%; text-align:right;">Opening</th>
-                <th style="width:9%; text-align:right;">Received</th>
-                <th style="width:9%; text-align:right;">Sales</th>
-                <th style="width:9%; text-align:right;">Closing</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-            <tfoot>
-              <tr class="totals-row">
-                <td colspan="4" class="text-end p-2">Page Total →</td>
-                <td id="page_total_open" class="text-end p-2"></td>
-                <td id="page_total_rec" class="text-end p-2"></td>
-                <td id="page_total_sale" class="text-end p-2"></td>
-                <td id="page_total_close" class="text-end p-2"></td>
-              </tr>
-              <tr class="totals-row">
-                <td colspan="4" class="text-end p-2">Grand Total →</td>
-                <td id="grand_total_open" class="text-end p-2"></td>
-                <td id="grand_total_rec" class="text-end p-2"></td>
-                <td id="grand_total_sale" class="text-end p-2"></td>
-                <td id="grand_total_close" class="text-end p-2"></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+    <!-- controls: page size + paginator info -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div>
+        <span class="small-muted">Rows</span>
+        <select id="pageSize" class="form-select d-inline-block" style="width:90px;">
+          <option>10</option><option>25</option><option>50</option><option>100</option>
+        </select>
       </div>
+      <div class="d-flex align-items-center">
+        <div id="rowsInfo" class="small-muted me-3"></div>
+        <nav><ul id="paginator" class="pagination pagination-sm mb-0"></ul></nav>
+      </div>
+    </div>
+
+    <!-- table wrapper (horizontal + vertical scroll) -->
+    <div class="table-wrap mb-2">
+      <table id="stockTable" class="table table-sm table-bordered mb-0">
+        <thead>
+          <tr>
+            <th style="min-width:140px;">State</th>
+            <th style="min-width:160px;">Depot</th>
+            <th style="min-width:120px;">Date</th>
+            <th style="min-width:300px; text-align:left;">SKU Name</th>
+            <th style="min-width:110px;">Opening</th>
+            <th style="min-width:110px;">Received</th>
+            <th style="min-width:110px;">Sales</th>
+            <th style="min-width:110px;">Closing</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr class="totals-row">
+            <td colspan="4" class="text-end">Page Total →</td>
+            <td id="page_total_open"></td>
+            <td id="page_total_rec"></td>
+            <td id="page_total_sale"></td>
+            <td id="page_total_close"></td>
+          </tr>
+          <tr class="totals-row">
+            <td colspan="4" class="text-end">Grand Total →</td>
+            <td id="grand_total_open"></td>
+            <td id="grand_total_rec"></td>
+            <td id="grand_total_sale"></td>
+            <td id="grand_total_close"></td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
 
   </div>
@@ -122,48 +145,48 @@
   <!-- Bootstrap -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- MAIN SCRIPT -->
   <script>
-  // ---------- Utilities ----------
-  const parseDatePreferDMY = (s) => {
+  // Utilities
+  const parseDatePreferDMY = s => {
     if (!s) return null;
+    // Try ISO first
     const iso = new Date(s);
     if (!isNaN(iso)) return iso;
-    const m = s.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+    // Try dd-mm-yyyy or d-m-yyyy
+    const m = String(s).trim().match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
     if (m) {
       const day = +m[1], mon = +m[2]-1, year = +m[3] < 100 ? 2000 + +m[3] : +m[3];
       return new Date(year, mon, day);
     }
-    return new Date(s);
+    // fallback
+    const fallback = new Date(s);
+    return isNaN(fallback) ? null : fallback;
   };
-  const fmt = v => v == null || isNaN(+v) ? '' : Number(v).toLocaleString();
+  const fmt = v => (v == null || isNaN(+v)) ? '' : Number(v).toLocaleString();
 
-  // ---------- App State ----------
-  let RAW = [];
-  let FILTERED = [];
-  let PAGE = 1;
-  let PAGE_SIZE = 25;
+  // App state
+  let RAW = [], FILTERED = [], PAGE = 1, PAGE_SIZE = 25;
 
-  // ---------- DOM ----------
+  // DOM
   const tbody = document.querySelector("#stockTable tbody");
+  const filterMonth = document.getElementById("filterMonth");
   const filterState = document.getElementById("filterState");
   const filterDepot = document.getElementById("filterDepot");
   const filterSKU = document.getElementById("filterSKU");
   const filterFrom = document.getElementById("filterFrom");
   const filterTo = document.getElementById("filterTo");
-  const applyBtn = document.getElementById("applyBtn");
-  const clearBtn = document.getElementById("clearBtn");
   const pageSizeSel = document.getElementById("pageSize");
   const paginator = document.getElementById("paginator");
   const rowsInfo = document.getElementById("rowsInfo");
   const exportBtn = document.getElementById("exportBtn");
 
-  // ---------- Load Data ----------
+  // Load data
   async function loadData() {
     try {
       const res = await fetch("/api/get_stock_data");
       RAW = await res.json();
 
+      // normalize keys, ensure numeric, parse date
       RAW = RAW.map(r => {
         const obj = {};
         for (const k in r) obj[k.trim().toLowerCase()] = r[k];
@@ -172,30 +195,45 @@
         obj.qty_sale = Number(obj.qty_sale) || 0;
         obj.closing = Number(obj.closing) || 0;
         obj._parsed_date = parseDatePreferDMY(obj.date);
+        obj._month_key = obj._parsed_date ? `${obj._parsed_date.getFullYear()}-${String(obj._parsed_date.getMonth()+1).padStart(2,'0')}` : '';
         return obj;
       });
 
       populateFilters();
-      applyFilters();
-    } catch (e) {
-      console.error("Load failed", e);
+      applyFilters(); // initial render
+    } catch (err) {
+      console.error("Load failed", err);
       tbody.innerHTML = `<tr><td colspan="8" class="text-danger p-3">Failed to load data</td></tr>`;
     }
   }
 
-  // ---------- Populate Filter Dropdowns ----------
+  // Populate filters including Month dropdown (unique months from data)
   function populateFilters() {
-    const states = [...new Set(RAW.map(r => r.state).filter(Boolean))].sort();
-    const depots = [...new Set(RAW.map(r => r.depot).filter(Boolean))].sort();
-    const skus = [...new Set(RAW.map(r => r.sku_name).filter(Boolean))].sort();
+    const months = Array.from(new Set(RAW.map(r => r._month_key).filter(Boolean))).sort();
+    // Month names human-friendly: e.g. "2025-11" -> "November 2025"
+    filterMonth.innerHTML = "<option value=''>All</option>" + months.map(m => {
+      const [y, mm] = m.split("-");
+      const date = new Date(y, Number(mm)-1, 1);
+      return `<option value="${m}">${date.toLocaleString(undefined, { month: 'long' })} ${y}</option>`;
+    }).join("");
 
-    filterState.innerHTML = "<option value=''>All</option>" + states.map(v => `<option>${v}</option>`).join('');
-    filterDepot.innerHTML = "<option value=''>All</option>" + depots.map(v => `<option>${v}</option>`).join('');
-    filterSKU.innerHTML = "<option value=''>All</option>" + skus.map(v => `<option>${v}</option>`).join('');
+    const states = Array.from(new Set(RAW.map(r => r.state || '').filter(Boolean))).sort();
+    filterState.innerHTML = "<option value=''>All</option>" + states.map(s => `<option>${s}</option>`).join("");
+
+    const depots = Array.from(new Set(RAW.map(r => r.depot || '').filter(Boolean))).sort();
+    filterDepot.innerHTML = "<option value=''>All</option>" + depots.map(d => `<option>${d}</option>`).join("");
+
+    const skus = Array.from(new Set(RAW.map(r => r.sku_name || '').filter(Boolean))).sort();
+    filterSKU.innerHTML = "<option value=''>All</option>" + skus.map(s => `<option>${s}</option>`).join("");
   }
 
-  // ---------- Apply Filters ----------
+  // Instant filtering on change
+  [filterMonth, filterState, filterDepot, filterSKU, filterFrom, filterTo].forEach(el => {
+    el.addEventListener('change', () => { PAGE = 1; applyFilters(); });
+  });
+
   function applyFilters() {
+    const m = filterMonth.value; // "YYYY-MM"
     const s = filterState.value;
     const d = filterDepot.value;
     const sku = filterSKU.value;
@@ -203,100 +241,81 @@
     const to = filterTo.value ? new Date(filterTo.value) : null;
 
     FILTERED = RAW.filter(r => {
-      if (s && r.state !== s) return false;
-      if (d && r.depot !== d) return false;
-      if (sku && r.sku_name !== sku) return false;
+      if (m && r._month_key !== m) return false;
+      if (s && (r.state || '') !== s) return false;
+      if (d && (r.depot || '') !== d) return false;
+      if (sku && (r.sku_name || '') !== sku) return false;
       if (from && (!r._parsed_date || r._parsed_date < from)) return false;
       if (to && (!r._parsed_date || r._parsed_date > to)) return false;
       return true;
     });
-
-    PAGE = 1;
     renderPage();
   }
 
-  // ---------- Clear Filters ----------
-  function clearFilters() {
-    filterState.value = "";
-    filterDepot.value = "";
-    filterSKU.value = "";
-    filterFrom.value = "";
-    filterTo.value = "";
-    applyFilters();
-  }
-
-  // ---------- Render Table ----------
+  // Render + pagination
   function renderPage() {
-    PAGE_SIZE = Number(pageSizeSel.value);
+    PAGE_SIZE = Number(pageSizeSel.value) || 25;
     const total = FILTERED.length;
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     if (PAGE > totalPages) PAGE = totalPages;
-
-    const start = (PAGE - 1) * PAGE_SIZE;
+    const start = (PAGE-1)*PAGE_SIZE;
     const end = start + PAGE_SIZE;
     const pageRows = FILTERED.slice(start, end);
 
+    // Build rows - SKU name left align, numeric centered
     tbody.innerHTML = pageRows.map(r => `
       <tr>
-        <td>${r.state}</td>
-        <td>${r.depot}</td>
-        <td>${r.date}</td>
-        <td>${r.sku_name}</td>
-        <td class="text-end">${fmt(r.opening)}</td>
-        <td class="text-end">${fmt(r.qty_recd)}</td>
-        <td class="text-end">${fmt(r.qty_sale)}</td>
-        <td class="text-end">${fmt(r.closing)}</td>
-      </tr>
-    `).join("");
+        <td class="center">${r.state || ''}</td>
+        <td class="center">${r.depot || ''}</td>
+        <td class="center">${r.date || ''}</td>
+        <td class="left">${(r.sku_name || '')}</td>
+        <td class="center">${fmt(r.opening)}</td>
+        <td class="center">${fmt(r.qty_recd)}</td>
+        <td class="center">${fmt(r.qty_sale)}</td>
+        <td class="center">${fmt(r.closing)}</td>
+      </tr>`).join('');
 
     rowsInfo.textContent = `${Math.min(total, start+1)}-${Math.min(total, end)} of ${total}`;
 
     buildPaginator(totalPages);
 
-    // ---------- Page Totals ----------
-    const p = pageRows.reduce((a, r) => {
-      a.open += r.opening; a.rec += r.qty_recd; a.sale += r.qty_sale; a.close += r.closing;
-      return a;
-    }, { open:0, rec:0, sale:0, close:0 });
-
+    // page totals
+    const p = pageRows.reduce((a, r) => { a.open += r.opening; a.rec += r.qty_recd; a.sale += r.qty_sale; a.close += r.closing; return a; }, {open:0,rec:0,sale:0,close:0});
     document.getElementById("page_total_open").textContent = fmt(p.open);
     document.getElementById("page_total_rec").textContent = fmt(p.rec);
     document.getElementById("page_total_sale").textContent = fmt(p.sale);
     document.getElementById("page_total_close").textContent = fmt(p.close);
 
-    // ---------- Grand Totals ----------
-    const g = FILTERED.reduce((a, r) => {
-      a.open += r.opening; a.rec += r.qty_recd; a.sale += r.qty_sale; a.close += r.closing;
-      return a;
-    }, { open:0, rec:0, sale:0, close:0 });
-
+    // grand totals
+    const g = FILTERED.reduce((a, r) => { a.open += r.opening; a.rec += r.qty_recd; a.sale += r.qty_sale; a.close += r.closing; return a; }, {open:0,rec:0,sale:0,close:0});
     document.getElementById("grand_total_open").textContent = fmt(g.open);
     document.getElementById("grand_total_rec").textContent = fmt(g.rec);
     document.getElementById("grand_total_sale").textContent = fmt(g.sale);
     document.getElementById("grand_total_close").textContent = fmt(g.close);
   }
 
-  // ---------- Build Pagination ----------
+  // Paginator builder
   function buildPaginator(totalPages) {
     paginator.innerHTML = "";
-    const create = (p, label=null, disabled=false, active=false) =>
-      `<li class="page-item ${disabled?'disabled':''} ${active?'active':''}">
-        <a class="page-link" href="#" data-page="${p}">${label||p}</a></li>`;
+    const create = (p, label=null, disabled=false, active=false) => `<li class="page-item ${disabled?'disabled':''} ${active?'active':''}"><a class="page-link" href="#" data-page="${p}">${label || p}</a></li>`;
+    paginator.insertAdjacentHTML("beforeend", create(Math.max(1,PAGE-1), "«", PAGE===1));
+    // show window of pages
+    const maxButtons = 7;
+    let start = Math.max(1, PAGE - Math.floor(maxButtons/2));
+    let end = Math.min(totalPages, start + maxButtons - 1);
+    if (end - start + 1 < maxButtons) start = Math.max(1, end - maxButtons + 1);
+    for (let p = start; p <= end; p++) paginator.insertAdjacentHTML("beforeend", create(p, null, false, p===PAGE));
+    paginator.insertAdjacentHTML("beforeend", create(Math.min(totalPages, PAGE+1), "»", PAGE===totalPages));
 
-    paginator.insertAdjacentHTML("beforeend", create(PAGE-1, "«", PAGE===1));
-    for (let p=1; p<=totalPages; p++) paginator.insertAdjacentHTML("beforeend", create(p, null, false, p===PAGE));
-    paginator.insertAdjacentHTML("beforeend", create(PAGE+1, "»", PAGE===totalPages));
-
-    [...paginator.querySelectorAll(".page-link")].forEach(a=>{
-      a.onclick = e=>{
-        e.preventDefault();
-        PAGE = Number(a.dataset.page);
-        renderPage();
-      };
-    });
+    // bind
+    [...paginator.querySelectorAll("a.page-link")].forEach(a => a.addEventListener('click', ev => {
+      ev.preventDefault();
+      const p = Number(a.dataset.page);
+      if (!isNaN(p) && p >= 1) { PAGE = p; renderPage(); }
+    }));
   }
 
-  // ---------- Export to Excel ----------
+  // Export filtered set to Excel (single sheet)
   function exportToExcel() {
     const wsData = [
       ["State","Depot","Date","SKU Name","Opening","Received","Sales","Closing"],
@@ -308,15 +327,12 @@
     XLSX.writeFile(wb, `stock_export_${new Date().toISOString().slice(0,10)}.xlsx`);
   }
 
-  // ---------- Bindings ----------
-  applyBtn.onclick = applyFilters;
-  clearBtn.onclick = clearFilters;
-  pageSizeSel.onchange = ()=>{ PAGE=1; renderPage(); };
-  exportBtn.onclick = exportToExcel;
+  // Event binds
+  pageSizeSel.addEventListener('change', () => { PAGE = 1; renderPage(); });
+  exportBtn.addEventListener('click', exportToExcel);
 
-  // ---------- Init ----------
+  // initialize
   loadData();
   </script>
-
 </body>
 </html>

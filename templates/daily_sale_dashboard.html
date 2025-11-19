@@ -1,137 +1,131 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Daily Sale</title>
 
-  <!-- Bootstrap 5 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <!-- SheetJS for Excel export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
-    body { padding: 20px; background: #f8fafc; }
-    .table-fixed tbody { max-height: 56vh; overflow-y: auto; display: block; }
-    .table-fixed thead, .table-fixed tbody tr { display: table; width: 100%; table-layout: fixed; }
-    .small-muted { font-size: .9rem; color: #6b7280; }
-    .totals-row { background:#f1f5f9; font-weight:600; }
+    body { padding: 18px; background: #f8fafc; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+    .small-muted { font-size:.9rem; color:#6b7280; }
+    .table-wrap { width:100%; overflow:auto; max-height:62vh; border:1px solid #e6e6e6; border-radius:4px; background:#fff; }
+    thead th { position:sticky; top:0; background:#f8fafc; z-index:3; text-align:center; }
+    tbody td { border-bottom:1px solid #f1f5f9; vertical-align: middle; }
+    td.center { text-align:center; }
+    td.left { text-align:left; padding-left:8px; }
+    .totals-row td { font-weight:700; background:#f1f5f9; text-align:center; }
   </style>
 </head>
 <body>
   <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3 class="mb-0">🧾 Daily Sale</h3>
+      <h4 class="mb-0">🧾 Daily Sale</h4>
       <div>
         <a href="{{ url_for('dashboard_stock') }}" class="btn btn-outline-secondary btn-sm me-2">← Stock</a>
         <button id="exportBtn" class="btn btn-success btn-sm">Export Excel</button>
       </div>
     </div>
 
-    <!-- Top filters -->
     <div class="card mb-3">
       <div class="card-body">
         <form id="filtersForm" class="row g-2 align-items-end">
           <div class="col-md-3">
+            <label class="form-label small-muted">Month</label>
+            <select id="filterMonth" class="form-select"></select>
+          </div>
+
+          <div class="col-md-3">
             <label class="form-label small-muted">State</label>
             <select id="filterState" class="form-select"><option value="">All</option></select>
           </div>
+
           <div class="col-md-3">
             <label class="form-label small-muted">SKU</label>
             <select id="filterSKU" class="form-select"><option value="">All</option></select>
           </div>
-          <div class="col-md-2">
+
+          <div class="col-md-3">
             <label class="form-label small-muted">From</label>
             <input id="filterFrom" type="date" class="form-control">
           </div>
-          <div class="col-md-2">
+
+          <div class="col-md-3 mt-2">
             <label class="form-label small-muted">To</label>
             <input id="filterTo" type="date" class="form-control">
-          </div>
-          <div class="col-md-2 text-end">
-            <button id="clearBtn" type="button" class="btn btn-outline-secondary">Clear</button>
-            <button id="applyBtn" type="button" class="btn btn-primary ms-1">Apply</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Table + pagination -->
-    <div class="card">
-      <div class="card-body p-2">
-        <div class="d-flex justify-content-between align-items-center mb-2 px-2">
-          <div>
-            <span class="small-muted">Showing</span>
-            <select id="pageSize" class="form-select d-inline-block" style="width:80px;">
-              <option>10</option><option>25</option><option>50</option><option>100</option>
-            </select>
-            <span class="small-muted">rows</span>
-          </div>
-          <div>
-            <span id="rowsInfo" class="small-muted me-3"></span>
-            <nav aria-label="pages">
-              <ul id="paginator" class="pagination pagination-sm mb-0"></ul>
-            </nav>
-          </div>
-        </div>
-
-        <div class="table-responsive table-fixed">
-          <table id="saleTable" class="table table-bordered table-sm mb-0">
-            <thead class="table-light">
-              <tr>
-                <th style="width:12%;">State</th>
-                <th style="width:12%;">Date</th>
-                <th style="width:30%;">Party Name</th>
-                <th style="width:16%;">District</th>
-                <th style="width:20%;">SKU</th>
-                <th style="width:10%; text-align:right;">Quantity</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-            <tfoot>
-              <tr class="totals-row">
-                <td colspan="5" class="text-end p-2">Page Total →</td>
-                <td id="page_total_qty" class="text-end p-2"></td>
-              </tr>
-              <tr class="totals-row">
-                <td colspan="5" class="text-end p-2">Grand Total →</td>
-                <td id="grand_total_qty" class="text-end p-2"></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div>
+        <span class="small-muted">Rows</span>
+        <select id="pageSize" class="form-select d-inline-block" style="width:90px;">
+          <option>10</option><option>25</option><option>50</option><option>100</option>
+        </select>
       </div>
+      <div class="d-flex align-items-center">
+        <div id="rowsInfo" class="small-muted me-3"></div>
+        <nav><ul id="paginator" class="pagination pagination-sm mb-0"></ul></nav>
+      </div>
+    </div>
+
+    <div class="table-wrap mb-2">
+      <table id="saleTable" class="table table-sm table-bordered mb-0">
+        <thead>
+          <tr>
+            <th style="min-width:120px;">State</th>
+            <th style="min-width:120px;">Date</th>
+            <th style="min-width:300px; text-align:left;">Party Name</th>
+            <th style="min-width:160px;">District</th>
+            <th style="min-width:220px;">SKU</th>
+            <th style="min-width:120px;">Quantity</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr class="totals-row">
+            <td colspan="5" class="text-end">Page Total →</td>
+            <td id="page_total_qty"></td>
+          </tr>
+          <tr class="totals-row">
+            <td colspan="5" class="text-end">Grand Total →</td>
+            <td id="grand_total_qty"></td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
 
   </div>
 
-  <!-- Bootstrap -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-  // Utilities and shared behavior similar to stock page
-  const parseDatePreferDMY = (s) => {
+  // Shared utilities
+  const parseDatePreferDMY = s => {
     if (!s) return null;
     const iso = new Date(s);
     if (!isNaN(iso)) return iso;
-    const m = s.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+    const m = String(s).trim().match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
     if (m) {
-      const day = +m[1], mon = +m[2]-1, year = +m[3] < 100 ? 2000 + +m[3] : +m[3];
+      const day=+m[1], mon=+m[2]-1, year= +m[3] < 100 ? 2000 + +m[3] : +m[3];
       return new Date(year, mon, day);
     }
-    return new Date(s);
+    const fb = new Date(s); return isNaN(fb)? null : fb;
   };
-  const fmt = v => v == null || isNaN(+v) ? '' : Number(v).toLocaleString();
+  const fmt = v => (v == null || isNaN(+v)) ? '' : Number(v).toLocaleString();
 
+  // State
   let RAW = [], FILTERED = [], PAGE = 1, PAGE_SIZE = 25;
   const tbody = document.querySelector("#saleTable tbody");
+  const filterMonth = document.getElementById("filterMonth");
   const filterState = document.getElementById("filterState");
   const filterSKU = document.getElementById("filterSKU");
   const filterFrom = document.getElementById("filterFrom");
   const filterTo = document.getElementById("filterTo");
-  const applyBtn = document.getElementById("applyBtn");
-  const clearBtn = document.getElementById("clearBtn");
   const pageSizeSel = document.getElementById("pageSize");
   const paginator = document.getElementById("paginator");
   const rowsInfo = document.getElementById("rowsInfo");
@@ -146,45 +140,45 @@
         for (const k in r) obj[k.trim().toLowerCase()] = r[k];
         obj.quantity = Number(obj.quantity) || 0;
         obj._parsed_date = parseDatePreferDMY(obj.date);
+        obj._month_key = obj._parsed_date ? `${obj._parsed_date.getFullYear()}-${String(obj._parsed_date.getMonth()+1).padStart(2,'0')}` : '';
         return obj;
       });
       populateFilters();
       applyFilters();
-    } catch (e) {
-      console.error("Load failed", e);
+    } catch (err) {
+      console.error("Failed load", err);
       tbody.innerHTML = `<tr><td colspan="6" class="text-danger p-3">Failed to load data</td></tr>`;
     }
   }
 
   function populateFilters() {
-    const states = Array.from(new Set(RAW.map(r => r.state || '').filter(Boolean))).sort();
-    const skus = Array.from(new Set(RAW.map(r => r.sku || '').filter(Boolean))).sort();
-    filterState.innerHTML = '<option value="">All</option>' + states.map(v => `<option>${v}</option>`).join('');
-    filterSKU.innerHTML = '<option value="">All</option>' + skus.map(v => `<option>${v}</option>`).join('');
+    const months = Array.from(new Set(RAW.map(r => r._month_key).filter(Boolean))).sort();
+    filterMonth.innerHTML = "<option value=''>All</option>" + months.map(m=>{
+      const [y,mm] = m.split("-");
+      const d = new Date(y, Number(mm)-1, 1);
+      return `<option value="${m}">${d.toLocaleString(undefined, { month:'long' })} ${y}</option>`;
+    }).join("");
+    const states = Array.from(new Set(RAW.map(r=>r.state || '').filter(Boolean))).sort();
+    filterState.innerHTML = "<option value=''>All</option>" + states.map(s => `<option>${s}</option>`).join('');
+    const skus = Array.from(new Set(RAW.map(r=>r.sku || '').filter(Boolean))).sort();
+    filterSKU.innerHTML = "<option value=''>All</option>" + skus.map(s => `<option>${s}</option>`).join('');
   }
 
+  [filterMonth, filterState, filterSKU, filterFrom, filterTo].forEach(el => el.addEventListener('change', () => { PAGE=1; applyFilters(); }));
+
   function applyFilters() {
-    const s = filterState.value;
-    const sku = filterSKU.value;
+    const m = filterMonth.value, s = filterState.value, sku = filterSKU.value;
     const from = filterFrom.value ? new Date(filterFrom.value) : null;
     const to = filterTo.value ? new Date(filterTo.value) : null;
     FILTERED = RAW.filter(r => {
-      if (s && (r.state||'') !== s) return false;
-      if (sku && (r.sku||'') !== sku) return false;
+      if (m && r._month_key !== m) return false;
+      if (s && (r.state || '') !== s) return false;
+      if (sku && (r.sku || '') !== sku) return false;
       if (from && (!r._parsed_date || r._parsed_date < from)) return false;
       if (to && (!r._parsed_date || r._parsed_date > to)) return false;
       return true;
     });
-    PAGE = 1;
     renderPage();
-  }
-
-  function clearFilters() {
-    filterState.value = "";
-    filterSKU.value = "";
-    filterFrom.value = "";
-    filterTo.value = "";
-    applyFilters();
   }
 
   function renderPage() {
@@ -193,66 +187,48 @@
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     if (PAGE > totalPages) PAGE = totalPages;
     const start = (PAGE-1)*PAGE_SIZE, end = start + PAGE_SIZE;
-    const pageRows = FILTERED.slice(start, end);
+    const rows = FILTERED.slice(start, end);
 
-    tbody.innerHTML = pageRows.map(r => `
-      <tr>
-        <td class="p-2">${r.state||''}</td>
-        <td class="p-2">${r.date||''}</td>
-        <td class="p-2">${r.party_name||''}</td>
-        <td class="p-2">${r.district||''}</td>
-        <td class="p-2">${r.sku||''}</td>
-        <td class="p-2 text-end">${fmt(r.quantity)}</td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = rows.map(r => `<tr>
+      <td class="center">${r.state || ''}</td>
+      <td class="center">${r.date || ''}</td>
+      <td class="left">${r.party_name || ''}</td>
+      <td class="center">${r.district || ''}</td>
+      <td class="left">${r.sku || ''}</td>
+      <td class="center">${fmt(r.quantity)}</td>
+    </tr>`).join('');
 
-    buildPaginator(totalPages);
     rowsInfo.textContent = `${Math.min(total, start+1)}-${Math.min(total, end)} of ${total}`;
+    buildPaginator(totalPages);
 
-    const pageTotal = pageRows.reduce((s, r) => s + (Number(r.quantity)||0), 0);
-    const grandTotal = FILTERED.reduce((s, r) => s + (Number(r.quantity)||0), 0);
-    document.getElementById("page_total_qty").textContent = fmt(pageTotal);
-    document.getElementById("grand_total_qty").textContent = fmt(grandTotal);
+    const pTotal = rows.reduce((s, r) => s + (Number(r.quantity)||0), 0);
+    const gTotal = FILTERED.reduce((s, r) => s + (Number(r.quantity)||0), 0);
+    document.getElementById("page_total_qty").textContent = pTotal.toLocaleString();
+    document.getElementById("grand_total_qty").textContent = gTotal.toLocaleString();
   }
 
   function buildPaginator(totalPages) {
     paginator.innerHTML = "";
-    const createPageItem = (p, label = null, disabled=false, active=false) => {
-      return `<li class="page-item ${disabled?'disabled':''} ${active?'active':''}">
-        <a class="page-link" href="#" data-page="${p}">${label ?? p}</a></li>`;
-    };
-
-    paginator.insertAdjacentHTML("beforeend", createPageItem(Math.max(1,PAGE-1), "«", PAGE===1, false));
+    const create = (p, label=null, disabled=false, active=false) => `<li class="page-item ${disabled?'disabled':''} ${active?'active':''}"><a class="page-link" href="#" data-page="${p}">${label||p}</a></li>`;
+    paginator.insertAdjacentHTML("beforeend", create(Math.max(1,PAGE-1), "«", PAGE===1));
     const maxButtons = 7;
     let start = Math.max(1, PAGE - Math.floor(maxButtons/2));
     let end = Math.min(totalPages, start + maxButtons - 1);
     if (end - start + 1 < maxButtons) start = Math.max(1, end - maxButtons + 1);
-    for (let p = start; p <= end; p++) paginator.insertAdjacentHTML("beforeend", createPageItem(p, null, false, p===PAGE));
-    paginator.insertAdjacentHTML("beforeend", createPageItem(Math.min(totalPages, PAGE+1), "»", PAGE===totalPages, false));
-    [...paginator.querySelectorAll("a.page-link")].forEach(a => {
-      a.addEventListener("click", (ev)=> {
-        ev.preventDefault();
-        const p = Number(a.dataset.page);
-        if (!isNaN(p) && p>=1) { PAGE = p; renderPage(); }
-      });
-    });
+    for (let p = start; p <= end; p++) paginator.insertAdjacentHTML("beforeend", create(p, null, false, p===PAGE));
+    paginator.insertAdjacentHTML("beforeend", create(Math.min(totalPages, PAGE+1), "»", PAGE===totalPages));
+    [...paginator.querySelectorAll(".page-link")].forEach(a=>a.addEventListener('click', e=>{ e.preventDefault(); PAGE=Number(a.dataset.page); renderPage(); }));
   }
 
+  pageSizeSel.addEventListener('change', ()=>{ PAGE=1; renderPage(); });
+
   function exportToExcel() {
-    const ws_data = [];
-    const header = ["State","Date","Party Name","District","SKU","Quantity"];
-    ws_data.push(header);
-    FILTERED.forEach(r => ws_data.push([r.state||'', r.date||'', r.party_name||'', r.district||'', r.sku||'', r.quantity]));
-    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    const ws = XLSX.utils.aoa_to_sheet([["State","Date","Party Name","District","SKU","Quantity"], ...FILTERED.map(r=>[r.state,r.date,r.party_name,r.district,r.sku,r.quantity])]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "DailySale");
     XLSX.writeFile(wb, `daily_sale_export_${new Date().toISOString().slice(0,10)}.xlsx`);
   }
-
-  applyBtn.addEventListener("click", applyFilters);
-  clearBtn.addEventListener("click", clearFilters);
-  pageSizeSel.addEventListener("change", ()=> { PAGE = 1; renderPage(); });
-  exportBtn.addEventListener("click", exportToExcel);
+  exportBtn.addEventListener('click', exportToExcel);
 
   loadData();
   </script>
