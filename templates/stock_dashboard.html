@@ -1,63 +1,332 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Stock Position</title>
-    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Stock Position</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    body { padding: 20px; background: #f8fafc; }
+    .table-fixed tbody { max-height: 56vh; overflow-y: auto; display: block; }
+    .table-fixed thead, .table-fixed tbody tr { display: table; width: 100%; table-layout: fixed; }
+    .table-fixed thead { width: calc(100% - 1em); }
+    .small-muted { font-size: .9rem; color: #6b7280; }
+    .totals-row { background:#f1f5f9; font-weight:600; }
+  </style>
 </head>
+<body>
+  <div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="mb-0">📦 Stock Position</h3>
+      <div>
+        <a href="{{ url_for('sales_levels') }}" class="btn btn-outline-secondary btn-sm me-2">← Back</a>
+        <button id="exportBtn" class="btn btn-success btn-sm">Export Excel</button>
+      </div>
+    </div>
 
-<body class="p-6">
+    <!-- Top filters (single row) -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <form id="filtersForm" class="row g-2 align-items-end">
+          <div class="col-md-2">
+            <label class="form-label small-muted">State</label>
+            <select id="filterState" class="form-select"><option value="">All</option></select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small-muted">Depot</label>
+            <select id="filterDepot" class="form-select"><option value="">All</option></select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small-muted">SKU</label>
+            <select id="filterSKU" class="form-select"><option value="">All</option></select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small-muted">From (Date)</label>
+            <input id="filterFrom" type="date" class="form-control">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small-muted">To (Date)</label>
+            <input id="filterTo" type="date" class="form-control">
+          </div>
+          <div class="col-md-2 text-end">
+            <button id="clearBtn" type="button" class="btn btn-outline-secondary">Clear</button>
+            <button id="applyBtn" type="button" class="btn btn-primary ms-1">Apply</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-    <h2 class="text-2xl font-bold mb-4 text-blue-800">📦 Stock Position Dashboard</h2>
-<div class="mb-4">
-    <button onclick="window.location.href='/dashboard/daily_sale'" 
-            class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-900">
-        📊 View Daily Sale
-    </button>
-</div>
+    <!-- Table + pagination -->
+    <div class="card">
+      <div class="card-body p-2">
+        <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+          <div>
+            <span class="small-muted">Showing</span>
+            <select id="pageSize" class="form-select d-inline-block" style="width:80px;">
+              <option>10</option><option>25</option><option>50</option><option>100</option>
+            </select>
+            <span class="small-muted">rows</span>
+          </div>
+          <div>
+            <span id="rowsInfo" class="small-muted me-3"></span>
+            <nav aria-label="pages">
+              <ul id="paginator" class="pagination pagination-sm mb-0"></ul>
+            </nav>
+          </div>
+        </div>
 
+        <div class="table-responsive table-fixed">
+          <table id="stockTable" class="table table-bordered table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="width:12%;">State</th>
+                <th style="width:14%;">Depot</th>
+                <th style="width:12%;">Date</th>
+                <th style="width:26%;">SKU Name</th>
+                <th style="width:9%; text-align:right;">Opening</th>
+                <th style="width:9%; text-align:right;">Received</th>
+                <th style="width:9%; text-align:right;">Sales</th>
+                <th style="width:9%; text-align:right;">Closing</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr class="totals-row">
+                <td colspan="4" class="text-end p-2">Page Total →</td>
+                <td id="page_total_open" class="text-end p-2"></td>
+                <td id="page_total_rec" class="text-end p-2"></td>
+                <td id="page_total_sale" class="text-end p-2"></td>
+                <td id="page_total_close" class="text-end p-2"></td>
+              </tr>
+              <tr class="totals-row">
+                <td colspan="4" class="text-end p-2">Grand Total →</td>
+                <td id="grand_total_open" class="text-end p-2"></td>
+                <td id="grand_total_rec" class="text-end p-2"></td>
+                <td id="grand_total_sale" class="text-end p-2"></td>
+                <td id="grand_total_close" class="text-end p-2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
 
+  </div>
 
-    <table id="stockTable" class="min-w-full bg-white border">
-        <thead class="bg-slate-100">
-            <tr>
-                <th class="p-2">State</th>
-                <th class="p-2">Depot</th>
-                <th class="p-2">Date</th>
-                <th class="p-2">SKU Name</th>
-                <th class="p-2">Opening</th>
-                <th class="p-2">Received</th>
-                <th class="p-2">Sales</th>
-                <th class="p-2">Closing</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+  <!-- Bootstrap & utilities -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-<script>
-async function loadStockData() {
-    const res = await fetch("/api/get_stock_data");
-    const data = await res.json();
+  <script>
+  // ---------- Utilities ----------
+  const parseDatePreferDMY = (s) => {
+    if (!s) return null;
+    // Try ISO first
+    const iso = new Date(s);
+    if (!isNaN(iso)) return iso;
+    // Try dd-mm-yyyy or d-m-yyyy
+    const m = s.match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+    if (m) {
+      const day = +m[1], mon = +m[2]-1, year = +m[3] < 100 ? 2000 + +m[3] : +m[3];
+      return new Date(year, mon, day);
+    }
+    return new Date(s);
+  };
 
-    const tbody = document.querySelector("#stockTable tbody");
-    tbody.innerHTML = "";
+  // Format number
+  const fmt = v => v == null || isNaN(+v) ? '' : Number(v).toLocaleString();
 
-    data.forEach(r => {
-        const row = `
-        <tr class="border-t">
-            <td class="p-2">${r.state}</td>
-            <td class="p-2">${r.depot}</td>
-            <td class="p-2">${r.date}</td>
-            <td class="p-2">${r.sku_name}</td>
-            <td class="p-2 text-right">${r.opening}</td>
-            <td class="p-2 text-right">${r.qty_recd}</td>
-            <td class="p-2 text-right">${r.qty_sale}</td>
-            <td class="p-2 text-right">${r.closing}</td>
-        </tr>`;
-        tbody.insertAdjacentHTML("beforeend", row);
+  // ---------- App state ----------
+  let RAW = [];         // full dataset
+  let FILTERED = [];    // filtered dataset
+  let PAGE = 1;
+  let PAGE_SIZE = 25;
+
+  // ---------- DOM refs ----------
+  const tbody = document.querySelector("#stockTable tbody");
+  const filterState = document.getElementById("filterState");
+  const filterDepot = document.getElementById("filterDepot");
+  const filterSKU = document.getElementById("filterSKU");
+  const filterFrom = document.getElementById("filterFrom");
+  const filterTo = document.getElementById("filterTo");
+  const applyBtn = document.getElementById("applyBtn");
+  const clearBtn = document.getElementById("clearBtn");
+  const pageSizeSel = document.getElementById("pageSize");
+  const paginator = document.getElementById("paginator");
+  const rowsInfo = document.getElementById("rowsInfo");
+  const exportBtn = document.getElementById("exportBtn");
+
+  // ---------- Fetch data ----------
+  async function loadData() {
+    try {
+      const res = await fetch("/api/get_stock_data");
+      RAW = await res.json();
+      // Normalize keys lower-case and parse numeric fields to numbers
+      RAW = RAW.map(r => {
+        const obj = {};
+        for (const k in r) obj[k.trim().toLowerCase()] = r[k];
+        // coerce numbers
+        obj.opening = Number(obj.opening) || 0;
+        obj.qty_recd = Number(obj.qty_recd) || 0;
+        obj.qty_sale = Number(obj.qty_sale) || 0;
+        obj.closing = Number(obj.closing) || 0;
+        obj._parsed_date = parseDatePreferDMY(obj.date);
+        return obj;
+      });
+      populateFilters();
+      applyFilters();
+    } catch (e) {
+      console.error("Load failed", e);
+      tbody.innerHTML = `<tr><td colspan="8" class="text-danger p-3">Failed to load data</td></tr>`;
+    }
+  }
+
+  function populateFilters() {
+    const states = Array.from(new Set(RAW.map(r => r.state || '').filter(Boolean))).sort();
+    const depots = Array.from(new Set(RAW.map(r => r.depot || '').filter(Boolean))).sort();
+    const skus = Array.from(new Set(RAW.map(r => r.sku_name || '').filter(Boolean))).sort();
+
+    [states, depots, skus].forEach((arr, idx) => {
+      const sel = [filterState, filterDepot, filterSKU][idx];
+      sel.innerHTML = '<option value="">All</option>' + arr.map(v => `<option>${v}</option>`).join('');
     });
-}
-loadStockData();
-</script>
+  }
 
+  // ---------- Filtering ----------
+  function applyFilters() {
+    const s = filterState.value;
+    const d = filterDepot.value;
+    const sku = filterSKU.value;
+    const from = filterFrom.value ? new Date(filterFrom.value) : null;
+    const to = filterTo.value ? new Date(filterTo.value) : null;
+    FILTERED = RAW.filter(r => {
+      if (s && (r.state || '') !== s) return false;
+      if (d && (r.depot || '') !== d) return false;
+      if (sku && (r.sku_name || '') !== sku) return false;
+      if (from && (!r._parsed_date || r._parsed_date < from)) return false;
+      if (to && (!r._parsed_date || r._parsed_date > to)) return false;
+      return true;
+    });
+    PAGE = 1;
+    renderPage();
+  }
+
+  function clearFilters() {
+    filterState.value = "";
+    filterDepot.value = "";
+    filterSKU.value = "";
+    filterFrom.value = "";
+    filterTo.value = "";
+    applyFilters();
+  }
+
+  // ---------- Pagination & render ----------
+  function renderPage() {
+    PAGE_SIZE = Number(pageSizeSel.value) || 25;
+    const total = FILTERED.length;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (PAGE > totalPages) PAGE = totalPages;
+
+    const start = (PAGE-1)*PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+    const pageRows = FILTERED.slice(start, end);
+
+    tbody.innerHTML = pageRows.map(r => `
+      <tr>
+        <td class="p-2">${r.state||''}</td>
+        <td class="p-2">${r.depot||''}</td>
+        <td class="p-2">${r.date||''}</td>
+        <td class="p-2 text-truncate">${r.sku_name||''}</td>
+        <td class="p-2 text-end">${fmt(r.opening)}</td>
+        <td class="p-2 text-end">${fmt(r.qty_recd)}</td>
+        <td class="p-2 text-end">${fmt(r.qty_sale)}</td>
+        <td class="p-2 text-end">${fmt(r.closing)}</td>
+      </tr>
+    `).join('');
+
+    // paginator
+    buildPaginator(totalPages);
+
+    // rows info
+    rowsInfo.textContent = `${Math.min(total, start+1)}-${Math.min(total, end)} of ${total}`;
+
+    // page totals + grand totals
+    const pageTotals = pageRows.reduce((acc, r) => {
+      acc.open += r.opening; acc.rec += r.qty_recd; acc.sale += r.qty_sale; acc.close += r.closing; return acc;
+    }, {open:0, rec:0, sale:0, close:0});
+    const grandTotals = FILTERED.reduce((acc, r) => { acc.open += r.open; return acc; }, null); // placeholder
+
+    document.getElementById("page_total_open").textContent = fmt(pageTotals.open);
+    document.getElementById("page_total_rec").textContent = fmt(pageTotals.rec);
+    document.getElementById("page_total_sale").textContent = fmt(pageTotals.sale);
+    document.getElementById("page_total_close").textContent = fmt(pageTotals.close);
+
+    // grand totals computed properly
+    const g = FILTERED.reduce((acc, r) => {
+      acc.open += r.opening; acc.rec += r.qty_recd; acc.sale += r.qty_sale; acc.close += r.closing; return acc;
+    }, {open:0, rec:0, sale:0, close:0});
+    document.getElementById("grand_total_open").textContent = fmt(g.open);
+    document.getElementById("grand_total_rec").textContent = fmt(g.rec);
+    document.getElementById("grand_total_sale").textContent = fmt(g.sale);
+    document.getElementById("grand_total_close").textContent = fmt(g.close);
+  }
+
+  function buildPaginator(totalPages) {
+    paginator.innerHTML = "";
+    const createPageItem = (p, label = null, disabled=false, active=false) => {
+      return `<li class="page-item ${disabled?'disabled':''} ${active?'active':''}">
+        <a class="page-link" href="#" data-page="${p}">${label ?? p}</a></li>`;
+    };
+
+    // prev
+    paginator.insertAdjacentHTML("beforeend", createPageItem(Math.max(1,PAGE-1), "«", PAGE===1, false));
+    // show first + maybe ...
+    const maxButtons = 7;
+    let start = Math.max(1, PAGE - Math.floor(maxButtons/2));
+    let end = Math.min(totalPages, start + maxButtons - 1);
+    if (end - start + 1 < maxButtons) start = Math.max(1, end - maxButtons + 1);
+    for (let p = start; p <= end; p++) paginator.insertAdjacentHTML("beforeend", createPageItem(p, null, false, p===PAGE));
+    // next
+    paginator.insertAdjacentHTML("beforeend", createPageItem(Math.min(totalPages, PAGE+1), "»", PAGE===totalPages, false));
+
+    // bind clicks
+    [...paginator.querySelectorAll("a.page-link")].forEach(a => {
+      a.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        const p = Number(a.dataset.page);
+        if (!isNaN(p) && p >= 1) { PAGE = p; renderPage(); }
+      });
+    });
+  }
+
+  // ---------- Export to Excel ----------
+  function exportToExcel() {
+    // Build worksheet from FILTERED (full filtered set) or current page? We'll export FILTERED (all matches)
+    const ws_data = [];
+    const header = ["State","Depot","Date","SKU Name","Opening","Received","Sales","Closing"];
+    ws_data.push(header);
+    FILTERED.forEach(r => {
+      ws_data.push([r.state||'', r.depot||'', r.date||'', r.sku_name||'', r.opening, r.qty_recd, r.qty_sale, r.closing]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Stock");
+    XLSX.writeFile(wb, `stock_export_${new Date().toISOString().slice(0,10)}.xlsx`);
+  }
+
+  // ---------- Event bindings ----------
+  applyBtn.addEventListener("click", applyFilters);
+  clearBtn.addEventListener("click", clearFilters);
+  pageSizeSel.addEventListener("change", () => { PAGE = 1; renderPage(); });
+  exportBtn.addEventListener("click", exportToExcel);
+
+  // initial load
+  loadData();
+  </script>
 </body>
 </html>
