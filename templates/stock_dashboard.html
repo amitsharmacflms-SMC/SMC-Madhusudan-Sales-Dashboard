@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Stock Position — Single Page</title>
+  <title>SMC - Stock Position</title>
 
   <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -11,60 +11,94 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
-    body { padding:16px; background:#f8fafc; font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial; }
-    .small-muted { color:#6b7280; font-size:.9rem; }
-    .table-wrap { width:100%; overflow:auto; max-height:66vh; border:1px solid #e6e6e6; border-radius:6px; background:#fff; }
-    table { border-collapse: collapse; width:100%; }
-    thead th {
-      position: sticky; top:0; background:#ffffff; z-index:4;
-      border-bottom:1px solid #ddd; text-align:center; vertical-align:middle; padding:8px;
+    :root {
+      --border-color: #bfc8d1;
+      --header-blue: #e7f1ff;
     }
-    tbody td { border-bottom:1px solid #f1f5f9; padding:8px; vertical-align:middle; }
+    body { padding:18px; background:#f8fafc; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+    /* Logo header */
+    .logo-header {
+      text-align:center;
+      padding:10px 16px;
+      border:3px solid #0d6efd;
+      border-radius:8px;
+      background: var(--header-blue);
+      margin-bottom:12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+    }
+    .logo-header img { height:56px; display:block; }
+    .logo-header h2 { margin:0; font-weight:700; font-size:1.25rem; color:#073763; }
+
+    /* Controls */
+    .controls { display:flex; gap:8px; align-items:center; }
+    .small-muted { color:#6b7280; font-size:.9rem; }
+
+    /* Table container */
+    .table-wrap { width:100%; overflow:auto; max-height:68vh; border:1.5px solid var(--border-color); border-radius:6px; background:#fff; }
+    table { border-collapse: collapse; width:100%; }
+    table, th, td { border: 1.5px solid var(--border-color); }
+    thead th {
+      position: sticky; top:0; z-index:4;
+      background:#ffffff; text-align:center; vertical-align:middle; padding:10px;
+      font-weight:700;
+    }
+    tbody td { padding:8px; vertical-align:middle; }
     td.center { text-align:center; }
     td.left { text-align:left; padding-left:10px; }
-    .subtotal-row td { background:#f3f6f9; font-weight:700; text-align:center; border-top:1px solid #dcdfe3; }
-    .grand-row td { background:#e9eef5; font-weight:800; text-align:center; }
-    .col-toggle { max-height:260px; overflow:auto; }
-    .controls { gap:8px; }
-    .filter-row .form-select, .filter-row .form-control { height:38px; }
-    .badge-count { font-weight:600; margin-left:6px; color:#0b5ed7; }
-    /* ensure sticky footer not overlapping */
-    .table-wrap thead th:first-child { box-shadow: inset 0 -1px 0 rgba(0,0,0,0.02); }
+    .subtotal-row td { background:#f3f6f9; font-weight:700; text-align:center; }
+    .depot-grand-row td { background:#e9f0ff; font-weight:800; text-align:center; }
+    .state-grand-row td { background:#d8e8ff; font-weight:900; text-align:center; }
+    /* small datalist width fix */
+    input[list] { width:100%; }
+    /* Dropdown column toggles */
+    .col-toggle { max-height:260px; overflow:auto; padding:8px; width:220px; }
+    /* footer spacing */
+    .footer-space { height:8px; }
   </style>
 </head>
 <body>
   <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h4 class="mb-0">📦 Stock Position</h4>
-      <div class="d-flex align-items-center">
-        <a href="{{ url_for('sales_levels') }}" class="btn btn-outline-secondary btn-sm me-2">← Back</a>
-        <a href="{{ url_for('dashboard_daily_sale') }}" class="btn btn-outline-primary btn-sm me-2">Daily Sale</a>
 
-        <!-- Column toggle dropdown -->
+    <!-- Logo header -->
+    <div class="logo-header">
+      <img src="/static/onlylogo.png" alt="SMC logo">
+      <h2>SMC - Stock Position</h2>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="d-flex gap-2 align-items-center">
+        <a href="{{ url_for('sales_levels') }}" class="btn btn-outline-secondary btn-sm">← Back</a>
+        <a href="{{ url_for('dashboard_daily_sale') }}" class="btn btn-outline-primary btn-sm">Daily Sale</a>
+      </div>
+
+      <div class="d-flex align-items-center">
         <div class="dropdown me-2">
           <button class="btn btn-outline-dark btn-sm dropdown-toggle" id="colToggleBtn" data-bs-toggle="dropdown">
             Columns
           </button>
-          <div class="dropdown-menu dropdown-menu-end p-3 col-toggle" aria-labelledby="colToggleBtn">
-            <div><label class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="state" checked> <span class="form-check-label">State</span></label></div>
-            <div><label class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="depot" checked> <span class="form-check-label">Depot</span></label></div>
-            <div><label class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="date" checked> <span class="form-check-label">Date</span></label></div>
-            <div><label class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="sku_name" checked> <span class="form-check-label">SKU Name</span></label></div>
-            <div><label class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="opening" checked> <span class="form-check-label">Opening</span></label></div>
-            <div><label class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="qty_recd" checked> <span class="form-check-label">Received</span></label></div>
-            <div><label class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="qty_sale" checked> <span class="form-check-label">Sales</span></label></div>
-            <div><label class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="closing" checked> <span class="form-check-label">Closing</span></label></div>
+          <div class="dropdown-menu dropdown-menu-end p-2 col-toggle" aria-labelledby="colToggleBtn">
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="state" checked> <label class="form-check-label">State</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="depot" checked> <label class="form-check-label">Depot</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="date" checked> <label class="form-check-label">Date</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="sku_name" checked> <label class="form-check-label">SKU Name</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="opening" checked> <label class="form-check-label">Opening</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="qty_recd" checked> <label class="form-check-label">Received</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="qty_sale" checked> <label class="form-check-label">Sales</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" type="checkbox" data-col="closing" checked> <label class="form-check-label">Closing</label></div>
           </div>
         </div>
 
-        <button id="exportBtn" class="btn btn-success btn-sm">Export Excel</button>
+        <button id="exportBtn" class="btn btn-success btn-sm me-2">Export Excel</button>
       </div>
     </div>
 
     <!-- Filters -->
     <div class="card mb-3">
       <div class="card-body">
-        <div class="row g-2 filter-row">
+        <div class="row g-2">
           <div class="col-md-2">
             <label class="form-label small-muted">Month</label>
             <select id="filterMonth" class="form-select"></select>
@@ -97,15 +131,15 @@
       </div>
     </div>
 
-    <!-- Table wrapper (single page) -->
-    <div class="table-wrap mb-2">
+    <!-- Table -->
+    <div class="table-wrap">
       <table id="stockTable" class="table table-sm mb-0">
         <thead>
           <tr>
-            <th data-col="state" style="min-width:140px;">State</th>
-            <th data-col="depot" style="min-width:160px;">Depot</th>
-            <th data-col="date" style="min-width:120px;">Date</th>
-            <th data-col="sku_name" style="min-width:320px; text-align:left;">SKU Name</th>
+            <th data-col="state" style="min-width:130px;">State</th>
+            <th data-col="depot" style="min-width:150px;">Depot</th>
+            <th data-col="date" style="min-width:110px;">Date</th>
+            <th data-col="sku_name" style="min-width:300px; text-align:left;">SKU Name</th>
             <th data-col="opening" style="min-width:110px;">Opening</th>
             <th data-col="qty_recd" style="min-width:110px;">Received</th>
             <th data-col="qty_sale" style="min-width:110px;">Sales</th>
@@ -114,19 +148,14 @@
         </thead>
         <tbody></tbody>
         <tfoot>
-          <tr class="grand-row">
-            <td colspan="4" class="text-end">Grand Total →</td>
-            <td id="grand_open"></td>
-            <td id="grand_rec"></td>
-            <td id="grand_sale"></td>
-            <td id="grand_close"></td>
-          </tr>
+          <!-- state grand rows will be inserted into tbody as rows, but footer reserved for final overall totals if you want -->
         </tfoot>
       </table>
     </div>
+    <div class="footer-space"></div>
   </div>
 
-  <!-- Bootstrap bundle -->
+  <!-- Bootstrap -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
@@ -145,41 +174,38 @@
   };
   const fmt = v => (v == null || isNaN(+v)) ? '' : Number(v).toLocaleString();
 
-  // App state
-  let RAW = [];         // original rows from API (cleaned)
-  let FILTERED = [];    // filtered set (after instant filters)
+  // Elements
   const table = document.getElementById('stockTable');
   const tbody = table.querySelector('tbody');
-  const skuList = document.getElementById('skuList');
-
-  // DOM controls
   const filterMonth = document.getElementById('filterMonth');
   const filterState = document.getElementById('filterState');
   const filterDepot = document.getElementById('filterDepot');
   const filterSKU = document.getElementById('filterSKU');
+  const skuList = document.getElementById('skuList');
   const filterFrom = document.getElementById('filterFrom');
   const filterTo = document.getElementById('filterTo');
   const clearFilters = document.getElementById('clearFilters');
   const exportBtn = document.getElementById('exportBtn');
-
-  // Column toggles
   const colCheckboxes = Array.from(document.querySelectorAll('.col-toggle-checkbox'));
 
-  // Fetch data and prepare
+  // State arrays
+  let RAW = []; // cleaned source rows
+  let FILTERED = [];
+
+  // Load data from API
   async function loadData() {
     try {
       const res = await fetch('/api/get_stock_data');
       const raw = await res.json();
 
-      // Normalize and clean rows
       RAW = raw.map(r => {
         const obj = {};
         for (const k in r) obj[k.trim().toLowerCase()] = r[k];
+        // trim strings and coerce numbers
         obj.state = (obj.state||'').toString().trim();
         obj.depot = (obj.depot||'').toString().trim();
         obj.date = (obj.date||'').toString().trim();
         obj.sku_name = (obj.sku_name||'').toString().trim();
-        // numeric coercion (NaN -> 0)
         obj.opening = Number(obj.opening) || 0;
         obj.qty_recd = Number(obj.qty_recd) || 0;
         obj.qty_sale = Number(obj.qty_sale) || 0;
@@ -189,7 +215,7 @@
         return obj;
       });
 
-      // Deduplicate exact identical rows (stringify key of non-numeric fields + numeric fields)
+      // Deduplicate exact duplicate rows (stringified key)
       const seen = new Set();
       RAW = RAW.filter(r => {
         const key = JSON.stringify([r.state, r.depot, r.date, r.sku_name, r.opening, r.qty_recd, r.qty_sale, r.closing]);
@@ -199,56 +225,54 @@
       });
 
       populateFilters();
-      applyFilters();
-    } catch (e) {
-      console.error('Failed to load stock data', e);
+      applyFilters(); // initial render
+    } catch (err) {
+      console.error('Failed to load /api/get_stock_data', err);
       tbody.innerHTML = '<tr><td colspan="8" class="text-danger p-3">Failed to load data</td></tr>';
     }
   }
 
-  // Populate Month, State, Depot, SKU controls
+  // Populate Month, State, Depot, SKU
   function populateFilters() {
     const months = Array.from(new Set(RAW.map(r => r._month_key).filter(Boolean))).sort();
     filterMonth.innerHTML = '<option value="">All</option>' + months.map(m => {
-      const [y,mm] = m.split('-'); const dt = new Date(y, Number(mm)-1,1);
-      return `<option value="${m}">${dt.toLocaleString(undefined,{month:'long'})} ${y}</option>`;
+      const [y,mm] = m.split('-'); const dt = new Date(y, Number(mm)-1, 1);
+      return `<option value="${m}">${dt.toLocaleString(undefined, { month: 'long' })} ${y}</option>`;
     }).join('');
 
     const states = Array.from(new Set(RAW.map(r => r.state).filter(Boolean))).sort();
-    filterState.innerHTML = '<option value="">All</option>' + states.map(v => `<option>${v}</option>`).join('');
+    filterState.innerHTML = '<option value="">All</option>' + states.map(s => `<option>${s}</option>`).join('');
 
     const depots = Array.from(new Set(RAW.map(r => r.depot).filter(Boolean))).sort();
-    filterDepot.innerHTML = '<option value="">All</option>' + depots.map(v => `<option>${v}</option>`).join('');
+    filterDepot.innerHTML = '<option value="">All</option>' + depots.map(d => `<option>${d}</option>`).join('');
 
     const skus = Array.from(new Set(RAW.map(r => r.sku_name).filter(Boolean))).sort();
     filterSKU.value = '';
     skuList.innerHTML = skus.map(s => `<option value="${s}">`).join('');
   }
 
-  // Instant filters (fire on change)
-  [filterMonth, filterState, filterDepot, filterFrom, filterTo].forEach(el => el.addEventListener('change', () => applyFilters()));
-  filterSKU.addEventListener('input', () => applyFilters());
+  // Instant filters (change -> apply)
+  [filterMonth, filterState, filterDepot, filterFrom, filterTo].forEach(el => el.addEventListener('change', applyFilters));
+  filterSKU.addEventListener('input', applyFilters);
   clearFilters.addEventListener('click', () => {
-    filterMonth.value=''; filterState.value=''; filterDepot.value=''; filterSKU.value=''; filterFrom.value=''; filterTo.value=''; applyFilters();
+    filterMonth.value=''; filterState.value=''; filterDepot.value=''; filterSKU.value=''; filterFrom.value=''; filterTo.value='';
+    applyFilters();
   });
 
   // Column toggle handling
   colCheckboxes.forEach(ch => ch.addEventListener('change', () => {
-    const col = ch.dataset.col;
-    const show = ch.checked;
-    // toggle header
+    const col = ch.dataset.col; const show = ch.checked;
     const th = table.querySelector(`thead th[data-col="${col}"]`);
     if (th) th.style.display = show ? '' : 'none';
-    // toggle body & footer cells by data-col attribute stored on <td> (we will set attribute when rendering)
-    Array.from(table.querySelectorAll(`td[data-col="${col}"], tfoot td[data-col="${col}"]`)).forEach(td => td.style.display = show ? '' : 'none');
+    Array.from(table.querySelectorAll(`td[data-col="${col}"]`)).forEach(td => td.style.display = show ? '' : 'none');
   }));
 
-  // Build and render table with grouping & subtotals
+  // Apply current filters to RAW -> FILTERED
   function applyFilters() {
     const m = filterMonth.value;
     const s = filterState.value;
     const d = filterDepot.value;
-    const skuQuery = filterSKU.value ? filterSKU.value.toString().trim().toLowerCase() : '';
+    const skuQ = (filterSKU.value || '').toLowerCase().trim();
     const from = filterFrom.value ? new Date(filterFrom.value) : null;
     const to = filterTo.value ? new Date(filterTo.value) : null;
 
@@ -256,22 +280,21 @@
       if (m && r._month_key !== m) return false;
       if (s && (r.state || '') !== s) return false;
       if (d && (r.depot || '') !== d) return false;
-      if (skuQuery && !r.sku_name.toLowerCase().includes(skuQuery)) return false;
+      if (skuQ && !r.sku_name.toLowerCase().includes(skuQ)) return false;
       if (from && (!r._parsed_date || r._parsed_date < from)) return false;
       if (to && (!r._parsed_date || r._parsed_date > to)) return false;
       return true;
     });
 
-    renderTableWithSubtotals();
+    renderGrouped();
   }
 
-  // Render rows -> grouped by state+depot+date+sku_name. Show group rows, and if group size >=2 insert a subtotal row after group.
-  function renderTableWithSubtotals() {
-    // Sort to keep groups together (by state, depot, date, sku)
+  // Render grouped rows with subtotals and grand totals
+  function renderGrouped() {
+    // Sort FILTERED by state -> depot -> date -> sku_name
     FILTERED.sort((a,b) => {
       if (a.state !== b.state) return a.state.localeCompare(b.state);
       if (a.depot !== b.depot) return a.depot.localeCompare(b.depot);
-      // compare parsed dates (fallback to string)
       const da = a._parsed_date ? a._parsed_date.getTime() : 0;
       const db = b._parsed_date ? b._parsed_date.getTime() : 0;
       if (da !== db) return da - db;
@@ -279,110 +302,179 @@
       return 0;
     });
 
-    // Build HTML rows
     let html = '';
-    let grand = {open:0, rec:0, sale:0, close:0};
+    // Accumulators for overall grand totals by state/depot
+    let stateGrand = null; // {state, open, rec, sale, close}
+    let depotGrand = null;
+    let overallGrand = {open:0, rec:0, sale:0, close:0};
 
-    // Build groups
+    // iterate through rows grouping by state->depot->date
     let i = 0;
     while (i < FILTERED.length) {
-      // find group key
-      const gkey = `${FILTERED[i].state}||${FILTERED[i].depot}||${FILTERED[i].date}||${FILTERED[i].sku_name}`;
-      const groupRows = [];
+      const row = FILTERED[i];
+      const curState = row.state;
+      const curDepot = row.depot;
+
+      // initialize stateGrand for new state
+      if (!stateGrand || stateGrand.state !== curState) {
+        // if previous depot/state exist, flush depot grand and state grand rows
+        if (depotGrand) {
+          // append depot grand row
+          html += `<tr class="depot-grand-row"><td colspan="4">GRAND TOTAL OF ${escapeHtml(depotGrand.depot)}</td>
+            <td class="center" data-col="opening">${fmt(depotGrand.open)}</td>
+            <td class="center" data-col="qty_recd">${fmt(depotGrand.rec)}</td>
+            <td class="center" data-col="qty_sale">${fmt(depotGrand.sale)}</td>
+            <td class="center" data-col="closing">${fmt(depotGrand.close)}</td>
+          </tr>`;
+          depotGrand = null;
+        }
+        if (stateGrand) {
+          // append prior state grand
+          html += `<tr class="state-grand-row"><td colspan="4">GRAND TOTAL OF ${escapeHtml(stateGrand.state)}</td>
+            <td class="center" data-col="opening">${fmt(stateGrand.open)}</td>
+            <td class="center" data-col="qty_recd">${fmt(stateGrand.rec)}</td>
+            <td class="center" data-col="qty_sale">${fmt(stateGrand.sale)}</td>
+            <td class="center" data-col="closing">${fmt(stateGrand.close)}</td>
+          </tr>`;
+        }
+        // start a new state accumulator
+        stateGrand = { state: curState, open:0, rec:0, sale:0, close:0 };
+      }
+
+      // start new depot group
+      depotGrand = { depot: curDepot, open:0, rec:0, sale:0, close:0 };
+
+      // now process all rows for this depot within current state
+      // collect rows by date within depot
       let j = i;
-      while (j < FILTERED.length) {
-        const keyj = `${FILTERED[j].state}||${FILTERED[j].depot}||${FILTERED[j].date}||${FILTERED[j].sku_name}`;
-        if (keyj !== gkey) break;
-        groupRows.push(FILTERED[j]);
+      const depotRows = [];
+      while (j < FILTERED.length && FILTERED[j].state === curState && FILTERED[j].depot === curDepot) {
+        depotRows.push(FILTERED[j]);
         j++;
       }
 
-      // render each row of group
-      groupRows.forEach(r => {
-        html += `<tr>
-          <td class="center" data-col="state">${escapeHtml(r.state)}</td>
-          <td class="center" data-col="depot">${escapeHtml(r.depot)}</td>
-          <td class="center" data-col="date">${escapeHtml(r.date)}</td>
-          <td class="left" data-col="sku_name">${escapeHtml(r.sku_name)}</td>
-          <td class="center" data-col="opening">${fmt(r.opening)}</td>
-          <td class="center" data-col="qty_recd">${fmt(r.qty_recd)}</td>
-          <td class="center" data-col="qty_sale">${fmt(r.qty_sale)}</td>
-          <td class="center" data-col="closing">${fmt(r.closing)}</td>
-        </tr>`;
-      });
+      // within depotRows, group by date
+      let k = 0;
+      while (k < depotRows.length) {
+        const dateKey = depotRows[k].date;
+        // gather rows for this date
+        const dateGroup = [];
+        let mIdx = k;
+        while (mIdx < depotRows.length && depotRows[mIdx].date === dateKey) {
+          dateGroup.push(depotRows[mIdx]);
+          mIdx++;
+        }
 
-      // if groupRows length >= 2 insert subtotal row
-      if (groupRows.length >= 2) {
-        const subtotal = groupRows.reduce((acc, r) => {
+        // render each sku row inside dateGroup
+        dateGroup.forEach(r => {
+          html += `<tr>
+            <td class="center" data-col="state">${escapeHtml(r.state)}</td>
+            <td class="center" data-col="depot">${escapeHtml(r.depot)}</td>
+            <td class="center" data-col="date">${escapeHtml(r.date)}</td>
+            <td class="left" data-col="sku_name">${escapeHtml(r.sku_name)}</td>
+            <td class="center" data-col="opening">${fmt(r.opening)}</td>
+            <td class="center" data-col="qty_recd">${fmt(r.qty_recd)}</td>
+            <td class="center" data-col="qty_sale">${fmt(r.qty_sale)}</td>
+            <td class="center" data-col="closing">${fmt(r.closing)}</td>
+          </tr>`;
+        });
+
+        // compute subtotal for date (sum of dateGroup)
+        const subtotal = dateGroup.reduce((acc, r) => {
           acc.open += r.opening; acc.rec += r.qty_recd; acc.sale += r.qty_sale; acc.close += r.closing; return acc;
         }, {open:0, rec:0, sale:0, close:0});
 
+        // append subtotal row for this date (always show, per your example)
         html += `<tr class="subtotal-row">
-          <td colspan="4">Subtotal →</td>
+          <td colspan="4">subtotal of Date (${escapeHtml(dateKey)})</td>
           <td class="center" data-col="opening">${fmt(subtotal.open)}</td>
           <td class="center" data-col="qty_recd">${fmt(subtotal.rec)}</td>
           <td class="center" data-col="qty_sale">${fmt(subtotal.sale)}</td>
           <td class="center" data-col="closing">${fmt(subtotal.close)}</td>
         </tr>`;
-      }
 
-      // accumulate grand totals
-      groupRows.forEach(r => { grand.open += r.opening; grand.rec += r.qty_recd; grand.sale += r.qty_sale; grand.close += r.closing; });
+        // accumulate depot & state & overall totals from this dateGroup
+        subtotalAddTo(subtotal, depotGrand);
+        subtotalAddTo(subtotal, stateGrand);
+        subtotalAddTo(subtotal, overallGrand);
 
+        // move k forward
+        k = mIdx;
+      } // end date grouping inside depot
+
+      // after finishing this depot, append depot grand row
+      html += `<tr class="depot-grand-row"><td colspan="4">GRAND TOTAL OF ${escapeHtml(depotGrand.depot)}</td>
+        <td class="center" data-col="opening">${fmt(depotGrand.open)}</td>
+        <td class="center" data-col="qty_recd">${fmt(depotGrand.rec)}</td>
+        <td class="center" data-col="qty_sale">${fmt(depotGrand.sale)}</td>
+        <td class="center" data-col="closing">${fmt(depotGrand.close)}</td>
+      </tr>`;
+
+      // move i to j (next depot)
       i = j;
+    } // end while i < FILTERED.length
+
+    // after loop, if stateGrand remains add state grand row
+    if (stateGrand) {
+      html += `<tr class="state-grand-row"><td colspan="4">GRAND TOTAL OF ${escapeHtml(stateGrand.state)}</td>
+            <td class="center" data-col="opening">${fmt(stateGrand.open)}</td>
+            <td class="center" data-col="qty_recd">${fmt(stateGrand.rec)}</td>
+            <td class="center" data-col="qty_sale">${fmt(stateGrand.sale)}</td>
+            <td class="center" data-col="closing">${fmt(stateGrand.close)}</td>
+          </tr>`;
     }
 
+    // overall grand (if you want a final overall grand below table rather than inside table footer,
+    // we will append a visible row at bottom)
+    html += `<tr class="state-grand-row"><td colspan="4">OVERALL GRAND TOTAL</td>
+      <td class="center" data-col="opening">${fmt(overallGrand.open)}</td>
+      <td class="center" data-col="qty_recd">${fmt(overallGrand.rec)}</td>
+      <td class="center" data-col="qty_sale">${fmt(overallGrand.sale)}</td>
+      <td class="center" data-col="closing">${fmt(overallGrand.close)}</td>
+    </tr>`;
+
+    // set tbody
     tbody.innerHTML = html;
 
-    // Set grand totals in footer
-    document.getElementById('grand_open').textContent = fmt(grand.open);
-    document.getElementById('grand_rec').textContent = fmt(grand.rec);
-    document.getElementById('grand_sale').textContent = fmt(grand.sale);
-    document.getElementById('grand_close').textContent = fmt(grand.close);
-
-    // Apply column visibility after we render
+    // enforce column visibility (in case toggles changed)
     colCheckboxes.forEach(ch => {
       const col = ch.dataset.col;
       const show = ch.checked;
-      // header
       const th = table.querySelector(`thead th[data-col="${col}"]`);
       if (th) th.style.display = show ? '' : 'none';
-      // body + footer cells by data-col attribute
-      Array.from(table.querySelectorAll(`td[data-col="${col}"], tfoot td[data-col="${col}"]`)).forEach(td => td.style.display = show ? '' : 'none');
+      Array.from(table.querySelectorAll(`td[data-col="${col}"]`)).forEach(td => td.style.display = show ? '' : 'none');
     });
   }
 
-  // Safe escape for HTML
-  function escapeHtml(str) {
-    if (str == null) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  function subtotalAddTo(src, target) {
+    target.open += src.open; target.rec += src.rec; target.sale += src.sale; target.close += src.close;
   }
 
-  // Export including subtotal rows (we will construct rows like visible)
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Export function: export exactly what is rendered (includes subtotal/state/depot rows)
   function exportToExcel() {
-    // Build array with headers
     const header = ["State","Depot","Date","SKU Name","Opening","Received","Sales","Closing"];
     const wsData = [header];
-
-    // iterate through rendered rows in tbody (includes subtotal rows)
     const rows = Array.from(tbody.querySelectorAll('tr'));
     rows.forEach(tr => {
       const cells = Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim());
+      // Normalize length to 8 columns (subtotal rows may have first 4 columns filled and rest numeric)
+      while (cells.length < 8) cells.push('');
       wsData.push(cells);
     });
-
-    // append grand totals row as last
-    wsData.push(["Grand Total","","","","", document.getElementById('grand_open').textContent, document.getElementById('grand_rec').textContent, document.getElementById('grand_sale').textContent, document.getElementById('grand_close')].slice(0,8));
-
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Stock");
-    XLSX.writeFile(wb, `stock_filtered_export_${new Date().toISOString().slice(0,10)}.xlsx`);
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Stock');
+    XLSX.writeFile(wb, `stock_export_${new Date().toISOString().slice(0,10)}.xlsx`);
   }
 
-  // Init
+  // initialize
   exportBtn.addEventListener('click', exportToExcel);
-  // initial load
+  // load data on open
   loadData();
   </script>
 </body>
