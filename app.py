@@ -304,8 +304,18 @@ def get_data(view_type):
 def get_stock_data_api():
     engine = get_engine()
     df = pd.read_sql("SELECT * FROM stock_data", engine)
-    # normalize column names to lower-case keys (optional but consistent)
+
+    # Clean column names
     df.columns = [c.strip().lower() for c in df.columns]
+
+    # Convert NaN to 0
+    df = df.fillna(0)
+
+    # Convert all numeric columns to proper float/int
+    for col in ["opening", "qty_recd", "qty_sale", "closing"]:
+        if col in df.columns:
+            df[col] = df[col].astype(float)
+
     return jsonify(df.to_dict(orient="records"))
 
 
@@ -316,7 +326,16 @@ def get_stock_data_api():
 def get_daily_sale_api():
     engine = get_engine()
     df = pd.read_sql("SELECT * FROM daily_sale", engine)
+
     df.columns = [c.strip().lower() for c in df.columns]
+
+    # Replace NaN
+    df = df.fillna(0)
+
+    # Make sure quantity is numeric
+    if "quantity" in df.columns:
+        df["quantity"] = df["quantity"].astype(float)
+
     return jsonify(df.to_dict(orient="records"))
 
 

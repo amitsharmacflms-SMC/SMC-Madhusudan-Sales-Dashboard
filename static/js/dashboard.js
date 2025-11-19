@@ -1,18 +1,18 @@
-/* dashboard.js — Final Robust Version
-   - Fixes: "Cannot read properties of null" (Safe DOM manipulation)
-   - Fixes: Headers overlapping rows (Z-Index 9999)
-   - Fixes: Filters not updating (Render Task Cancellation)
+/* dashboard.js — Self-Repairing Version
+   - Auto-creates missing table sections (Head/Body/Foot)
+   - Prevents blank screen issues
+   - Keeps all previous fixes (Speed, Z-Index, Filters)
 */
 
 /* =============================
-   1. GLOBAL CONFIG & STATE
+   1. GLOBAL CONFIG
 ============================= */
 let fullDataPromise = null;
 let currentView = "product"; 
 let fullData = [];
 let originalKeys = [];
 let currentGroupedData = [];
-let currentRenderTaskId = 0; // Prevents filter overlap/freezing
+let currentRenderTaskId = 0;
 let keyboardInteractionOngoing = false;
 
 const baseTextCols = ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","SKU","PARTY_NAME"];
@@ -46,7 +46,6 @@ function startFetch(view) {
       return [];
     });
 }
-// Start immediately
 fullDataPromise = startFetch(currentView);
 
 /* =============================
@@ -72,8 +71,6 @@ async function initializeData() {
 
   } catch(e) {
     console.error("Init Error", e);
-    const loader = document.getElementById("loader");
-    if(loader) loader.textContent = "Error loading data.";
   } finally {
     hideOverlay();
   }
@@ -183,7 +180,6 @@ function buildFilters(){
     container.appendChild(box);
   });
 
-  // Listeners
   container.querySelectorAll("input[data-all]").forEach(cb => {
     cb.addEventListener("change", (e) => {
       const t = e.target.dataset.all;
@@ -205,7 +201,7 @@ function triggerFilterUpdate(){
 }
 
 /* =============================
-   6. APPLY LOGIC
+   6. APPLY FILTERS
 ============================= */
 function applySavedOrDefaults(last5Avg){
   const container = document.getElementById("filtersContainer");
@@ -221,7 +217,6 @@ function applySavedOrDefaults(last5Avg){
     });
   } else {
     container.querySelectorAll("input").forEach(i => i.checked = false);
-    // Defaults
     container.querySelectorAll(`input[name="STATE"]`).forEach(i=>i.checked=true);
     container.querySelectorAll(`input[name="PRODUCT"]`).forEach(i=>{ if(String(i.value).toUpperCase() === "ALL IN CASES") i.checked = true; });
     container.querySelectorAll(`input[name="MONTH / YEAR"]`).forEach(i=>{ if(last5Avg.includes(i.value)) i.checked = true; });
@@ -234,7 +229,7 @@ function applyFilters(save = true){
   showOverlay(50);
   requestAnimationFrame(() => {
     const container = document.getElementById("filtersContainer");
-    if(!container) return; // Safety
+    if(!container) return; 
 
     const selected = {};
     container.querySelectorAll(".filter-box").forEach(box => {
@@ -245,7 +240,6 @@ function applyFilters(save = true){
 
     if(save) localStorage.setItem("savedFilters", JSON.stringify(selected));
 
-    // Filter Logic
     let result = fullData;
     const filtersToApply = currentView === "product" 
        ? ["STATE","MANAGER_NAME","DISTRICT","PRODUCT","PARTY_NAME"]
@@ -262,7 +256,6 @@ function applyFilters(save = true){
       }
     });
 
-    // Gray out invalid
     filtersToApply.forEach(key => {
        const available = new Set(result.map(r => String(r[key]||r[key.toUpperCase()])));
        const inputs = container.querySelectorAll(`input[name="${key}"]`);
@@ -278,24 +271,33 @@ function applyFilters(save = true){
 }
 
 /* =============================
-   7. RENDER (SAFE & FIXED)
+   7. RENDER TABLE (Fixed: Auto-Creates Missing Elements)
 ============================= */
 function renderTable(data, selected){
-  // 1. Mark new render task
   currentRenderTaskId++;
   const thisTaskId = currentRenderTaskId;
 
   const table = document.getElementById("dataTable");
-  const tHead = document.getElementById("tableHead");
-  const tBody = document.getElementById("tableBody");
-  const tFoot = document.getElementById("tableFoot");
+  if(!table) {
+      console.error("Missing <table> with id='dataTable'");
+      return;
+  }
 
-  if(!table || !tHead || !tBody) return;
+  // --- AUTO REPAIR HTML STRUCTURE ---
+  let tHead = document.getElementById("tableHead");
+  if(!tHead) { tHead = table.createTHead(); tHead.id = "tableHead"; }
 
-  // 2. Ensure Header is First (Fixes visual glitch)
+  let tBody = document.getElementById("tableBody");
+  if(!tBody) { tBody = document.createElement("tbody"); tBody.id = "tableBody"; table.appendChild(tBody); }
+
+  let tFoot = document.getElementById("tableFoot");
+  if(!tFoot) { tFoot = table.createTFoot(); tFoot.id = "tableFoot"; }
+  // ----------------------------------
+
+  // Fix Order
   if(table.firstElementChild !== tHead) table.prepend(tHead);
 
-  // 3. Prep Columns
+  // Determine Columns
   const showCols = (selected["SHOW COLUMNS"]?.length) ? selected["SHOW COLUMNS"] : baseTextCols;
   const monthCols = (selected["MONTH / YEAR"]?.length) ? selected["MONTH / YEAR"] : [];
   const totalCols = selected["TOTAL"] || [];
@@ -305,7 +307,7 @@ function renderTable(data, selected){
   const hasComparison = (compareSel.length === 2);
   if(hasComparison && !cols.includes("COMPARISON")) cols.push("COMPARISON");
 
-  // 4. Render Header (Fixed Z-Index & Background)
+  // Render Header
   const thHTML = cols.map(c => `
     <th style="
       position: sticky; 
@@ -321,7 +323,7 @@ function renderTable(data, selected){
   `).join("");
   tHead.innerHTML = `<tr>${thHTML}</tr>`;
 
-  // 5. Grouping
+  // Group Data
   const groupedMap = new Map();
   data.forEach(row => {
     const key = showCols.map(k => row[k] || row[k.toUpperCase()] || "").join("|");
@@ -338,7 +340,7 @@ function renderTable(data, selected){
   const groupedData = Array.from(groupedMap.values());
   currentGroupedData = groupedData;
 
-  // 6. Build Rows HTML
+  // Build Rows
   let allRowsHTML = [];
   if(totalCols.length > 0){
     const subGroups = {};
@@ -359,10 +361,10 @@ function renderTable(data, selected){
     allRowsHTML = groupedData.map(r => buildRow(r, cols, monthCols, compareSel));
   }
 
-  // 7. Inject Rows
+  // Inject Rows
   tBody.innerHTML = "";
   
-  // --- FIX: SAFE DOM CHECK ---
+  // Safe DOM Reveal
   const elContainer = document.getElementById("tableContainer");
   const elSkeleton = document.getElementById("tableSkeleton");
   const elLoader = document.getElementById("loader");
@@ -370,24 +372,21 @@ function renderTable(data, selected){
   if(elContainer) elContainer.classList.remove("hidden");
   if(elSkeleton) elSkeleton.classList.add("hidden");
   if(elLoader) { elLoader.style.visibility = "hidden"; elLoader.textContent = ""; }
-  // ---------------------------
 
-  // Sync Render (Batch 1)
+  // 1. Sync Render (First 50)
   const batchSize = 50;
   if(allRowsHTML.length > 0){
     tBody.innerHTML = allRowsHTML.slice(0, batchSize).join("");
   }
 
-  // Async Render (Rest)
+  // 2. Async Render (Rest)
   if(allRowsHTML.length > batchSize){
     let idx = batchSize;
     function renderNextChunk(){
-      if(currentRenderTaskId !== thisTaskId) return; // Cancel if filter changed
-      
+      if(currentRenderTaskId !== thisTaskId) return; 
       const chunkEnd = Math.min(idx + 200, allRowsHTML.length);
       const chunkStr = allRowsHTML.slice(idx, chunkEnd).join("");
       tBody.insertAdjacentHTML('beforeend', chunkStr);
-      
       idx = chunkEnd;
       if(idx < allRowsHTML.length){
         requestAnimationFrame(renderNextChunk);
@@ -400,8 +399,8 @@ function renderTable(data, selected){
     hideOverlay();
   }
 
-  // 8. Footer
-  if(tFoot && groupedData.length > 0){
+  // Footer
+  if(groupedData.length > 0){
     const grand = {};
     monthCols.forEach(m => grand[m] = groupedData.reduce((a,b) => a + (b[m]||0), 0));
     
@@ -419,7 +418,7 @@ function renderTable(data, selected){
       return `<td></td>`;
     }).join("");
     tFoot.innerHTML = `<tr style="background:#eee;border-top:2px solid #000">${footerHTML}</tr>`;
-  } else if(tFoot) {
+  } else {
     tFoot.innerHTML = "";
   }
   
@@ -427,7 +426,7 @@ function renderTable(data, selected){
 }
 
 /* =============================
-   8. HTML HELPERS
+   8. HTML BUILDERS
 ============================= */
 function buildRow(row, cols, monthCols, compareSel){
   const hasComp = (compareSel.length === 2);
@@ -489,17 +488,10 @@ function addSorting(cols){
          let vb = b[colKey]||0;
          return isAsc ? va - vb : vb - va;
        });
-       // Re-render sorted (Note: this resets manual filtering if not handled carefully, 
-       // but for this snippet structure we just call applyFilters to be safe or just re-render data)
-       // Simply re-calling renderTable with sorted data:
-       // We need the 'currentSelectedFilters' for column logic
-       const container = document.getElementById("filtersContainer");
-       // Quick hack to re-render sorted data without full refilter:
-       // In production, you'd separate 'Filter' from 'Sort'. Here we just invoke renderTable again.
-       // But we need to know the columns... let's trigger applyFilters but pass a sorted flag?
-       // Easiest: Just alert user sorting is minimal here.
-       // Or:
-       renderTable(currentGroupedData, JSON.parse(localStorage.getItem("savedFilters") || "{}"));
+       
+       // Re-render logic needed here if you want sorting to be instant
+       const saved = JSON.parse(localStorage.getItem("savedFilters") || "{}");
+       renderTable(currentGroupedData, saved);
     });
   });
 }
@@ -524,6 +516,5 @@ function hideOverlay(){
 }
 
 async function exportExcel(){
-  // ... (Keep your existing Excel logic here or placeholder)
   hideOverlay();
 }
