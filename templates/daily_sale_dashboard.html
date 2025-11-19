@@ -3,20 +3,22 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Daily Sale</title>
+  <title>Daily Sale — Single Page</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
-    body { padding: 18px; background: #f8fafc; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
-    .small-muted { font-size:.9rem; color:#6b7280; }
-    .table-wrap { width:100%; overflow:auto; max-height:62vh; border:1px solid #e6e6e6; border-radius:4px; background:#fff; }
-    thead th { position:sticky; top:0; background:#f8fafc; z-index:3; text-align:center; }
-    tbody td { border-bottom:1px solid #f1f5f9; vertical-align: middle; }
+    body { padding:16px; background:#f8fafc; font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial; }
+    .small-muted { color:#6b7280; font-size:.9rem; }
+    .table-wrap { width:100%; overflow:auto; max-height:66vh; border:1px solid #e6e6e6; border-radius:6px; background:#fff; }
+    table { border-collapse:collapse; width:100%; }
+    thead th { position:sticky; top:0; background:#fff; z-index:4; border-bottom:1px solid #ddd; text-align:center; padding:8px; }
+    tbody td { border-bottom:1px solid #f1f5f9; padding:8px; vertical-align:middle; }
     td.center { text-align:center; }
-    td.left { text-align:left; padding-left:8px; }
-    .totals-row td { font-weight:700; background:#f1f5f9; text-align:center; }
+    td.left { text-align:left; padding-left:10px; }
+    .subtotal-row td { background:#f3f6f9; font-weight:700; text-align:center; }
+    .grand-row td { background:#e9eef5; font-weight:800; text-align:center; }
   </style>
 </head>
 <body>
@@ -31,205 +33,214 @@
 
     <div class="card mb-3">
       <div class="card-body">
-        <form id="filtersForm" class="row g-2 align-items-end">
+        <div class="row g-2">
           <div class="col-md-3">
             <label class="form-label small-muted">Month</label>
             <select id="filterMonth" class="form-select"></select>
           </div>
-
           <div class="col-md-3">
             <label class="form-label small-muted">State</label>
             <select id="filterState" class="form-select"><option value="">All</option></select>
           </div>
-
           <div class="col-md-3">
-            <label class="form-label small-muted">SKU</label>
-            <select id="filterSKU" class="form-select"><option value="">All</option></select>
+            <label class="form-label small-muted">SKU (search)</label>
+            <input id="filterSKU" list="skuList" class="form-control" placeholder="Type or choose SKU">
+            <datalist id="skuList"></datalist>
           </div>
-
-          <div class="col-md-3">
+          <div class="col-md-2">
             <label class="form-label small-muted">From</label>
             <input id="filterFrom" type="date" class="form-control">
           </div>
-
-          <div class="col-md-3 mt-2">
-            <label class="form-label small-muted">To</label>
-            <input id="filterTo" type="date" class="form-control">
+          <div class="col-md-1 d-flex align-items-end">
+            <button id="clearFilters" class="btn btn-outline-secondary btn-sm w-100">Reset</button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mb-2">
-      <div>
-        <span class="small-muted">Rows</span>
-        <select id="pageSize" class="form-select d-inline-block" style="width:90px;">
-          <option>10</option><option>25</option><option>50</option><option>100</option>
-        </select>
-      </div>
-      <div class="d-flex align-items-center">
-        <div id="rowsInfo" class="small-muted me-3"></div>
-        <nav><ul id="paginator" class="pagination pagination-sm mb-0"></ul></nav>
-      </div>
-    </div>
-
-    <div class="table-wrap mb-2">
-      <table id="saleTable" class="table table-sm table-bordered mb-0">
+    <div class="table-wrap">
+      <table id="saleTable" class="table table-sm mb-0">
         <thead>
           <tr>
-            <th style="min-width:120px;">State</th>
-            <th style="min-width:120px;">Date</th>
-            <th style="min-width:300px; text-align:left;">Party Name</th>
-            <th style="min-width:160px;">District</th>
-            <th style="min-width:220px;">SKU</th>
-            <th style="min-width:120px;">Quantity</th>
+            <th data-col="state" style="min-width:120px;">State</th>
+            <th data-col="date" style="min-width:120px;">Date</th>
+            <th data-col="party_name" style="min-width:320px; text-align:left;">Party Name</th>
+            <th data-col="district" style="min-width:160px;">District</th>
+            <th data-col="sku" style="min-width:220px;">SKU</th>
+            <th data-col="quantity" style="min-width:120px;">Quantity</th>
           </tr>
         </thead>
         <tbody></tbody>
         <tfoot>
-          <tr class="totals-row">
-            <td colspan="5" class="text-end">Page Total →</td>
-            <td id="page_total_qty"></td>
-          </tr>
-          <tr class="totals-row">
+          <tr class="grand-row">
             <td colspan="5" class="text-end">Grand Total →</td>
-            <td id="grand_total_qty"></td>
+            <td id="grand_qty"></td>
           </tr>
         </tfoot>
       </table>
     </div>
-
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-  // Shared utilities
   const parseDatePreferDMY = s => {
     if (!s) return null;
     const iso = new Date(s);
     if (!isNaN(iso)) return iso;
     const m = String(s).trim().match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
     if (m) {
-      const day=+m[1], mon=+m[2]-1, year= +m[3] < 100 ? 2000 + +m[3] : +m[3];
+      const day = +m[1], mon = +m[2]-1, year = +m[3] < 100 ? 2000 + +m[3] : +m[3];
       return new Date(year, mon, day);
     }
-    const fb = new Date(s); return isNaN(fb)? null : fb;
+    const fb = new Date(s);
+    return isNaN(fb) ? null : fb;
   };
   const fmt = v => (v == null || isNaN(+v)) ? '' : Number(v).toLocaleString();
 
-  // State
-  let RAW = [], FILTERED = [], PAGE = 1, PAGE_SIZE = 25;
-  const tbody = document.querySelector("#saleTable tbody");
-  const filterMonth = document.getElementById("filterMonth");
-  const filterState = document.getElementById("filterState");
-  const filterSKU = document.getElementById("filterSKU");
-  const filterFrom = document.getElementById("filterFrom");
-  const filterTo = document.getElementById("filterTo");
-  const pageSizeSel = document.getElementById("pageSize");
-  const paginator = document.getElementById("paginator");
-  const rowsInfo = document.getElementById("rowsInfo");
-  const exportBtn = document.getElementById("exportBtn");
+  let RAW = [], FILTERED = [];
+  const tbody = document.querySelector('#saleTable tbody');
+  const filterMonth = document.getElementById('filterMonth');
+  const filterState = document.getElementById('filterState');
+  const filterSKU = document.getElementById('filterSKU');
+  const skuList = document.getElementById('skuList');
+  const filterFrom = document.getElementById('filterFrom');
+  const clearFilters = document.getElementById('clearFilters');
+  const exportBtn = document.getElementById('exportBtn');
 
   async function loadData() {
     try {
-      const res = await fetch("/api/get_daily_sale");
-      RAW = await res.json();
-      RAW = RAW.map(r => {
+      const res = await fetch('/api/get_daily_sale');
+      const raw = await res.json();
+      RAW = raw.map(r => {
         const obj = {};
         for (const k in r) obj[k.trim().toLowerCase()] = r[k];
+        obj.state = (obj.state||'').toString().trim();
+        obj.date = (obj.date||'').toString().trim();
+        obj.party_name = (obj.party_name||'').toString().trim();
+        obj.district = (obj.district||'').toString().trim();
+        obj.sku = (obj.sku||'').toString().trim();
         obj.quantity = Number(obj.quantity) || 0;
         obj._parsed_date = parseDatePreferDMY(obj.date);
         obj._month_key = obj._parsed_date ? `${obj._parsed_date.getFullYear()}-${String(obj._parsed_date.getMonth()+1).padStart(2,'0')}` : '';
         return obj;
       });
+
+      // dedupe exact duplicates
+      const seen = new Set();
+      RAW = RAW.filter(r => {
+        const key = JSON.stringify([r.state, r.date, r.party_name, r.district, r.sku, r.quantity]);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
       populateFilters();
       applyFilters();
-    } catch (err) {
-      console.error("Failed load", err);
-      tbody.innerHTML = `<tr><td colspan="6" class="text-danger p-3">Failed to load data</td></tr>`;
+    } catch (e) {
+      console.error('Failed load', e);
+      tbody.innerHTML = '<tr><td colspan="6" class="text-danger p-3">Failed to load data</td></tr>';
     }
   }
 
   function populateFilters() {
-    const months = Array.from(new Set(RAW.map(r => r._month_key).filter(Boolean))).sort();
-    filterMonth.innerHTML = "<option value=''>All</option>" + months.map(m=>{
-      const [y,mm] = m.split("-");
-      const d = new Date(y, Number(mm)-1, 1);
-      return `<option value="${m}">${d.toLocaleString(undefined, { month:'long' })} ${y}</option>`;
-    }).join("");
-    const states = Array.from(new Set(RAW.map(r=>r.state || '').filter(Boolean))).sort();
-    filterState.innerHTML = "<option value=''>All</option>" + states.map(s => `<option>${s}</option>`).join('');
-    const skus = Array.from(new Set(RAW.map(r=>r.sku || '').filter(Boolean))).sort();
-    filterSKU.innerHTML = "<option value=''>All</option>" + skus.map(s => `<option>${s}</option>`).join('');
+    const months = Array.from(new Set(RAW.map(r=>r._month_key).filter(Boolean))).sort();
+    filterMonth.innerHTML = '<option value="">All</option>' + months.map(m=>{
+      const [y,mm] = m.split('-'); const d=new Date(y,Number(mm)-1,1);
+      return `<option value="${m}">${d.toLocaleString(undefined,{month:'long'})} ${y}</option>`;
+    }).join('');
+
+    const states = Array.from(new Set(RAW.map(r=>r.state).filter(Boolean))).sort();
+    filterState.innerHTML = '<option value="">All</option>' + states.map(s=>`<option>${s}</option>`).join('');
+
+    const skus = Array.from(new Set(RAW.map(r=>r.sku).filter(Boolean))).sort();
+    filterSKU.value=''; skuList.innerHTML = skus.map(s=>`<option value="${s}">`).join('');
   }
 
-  [filterMonth, filterState, filterSKU, filterFrom, filterTo].forEach(el => el.addEventListener('change', () => { PAGE=1; applyFilters(); }));
+  [filterMonth, filterState, filterSKU, filterFrom].forEach(el => el.addEventListener('change', ()=>applyFilters()));
+  filterSKU.addEventListener('input', ()=>applyFilters());
+  clearFilters.addEventListener('click', ()=>{ filterMonth.value=''; filterState.value=''; filterSKU.value=''; filterFrom.value=''; applyFilters(); });
 
   function applyFilters() {
-    const m = filterMonth.value, s = filterState.value, sku = filterSKU.value;
+    const m = filterMonth.value; const s = filterState.value; const skuQ = (filterSKU.value||'').toLowerCase();
     const from = filterFrom.value ? new Date(filterFrom.value) : null;
-    const to = filterTo.value ? new Date(filterTo.value) : null;
     FILTERED = RAW.filter(r => {
       if (m && r._month_key !== m) return false;
-      if (s && (r.state || '') !== s) return false;
-      if (sku && (r.sku || '') !== sku) return false;
+      if (s && (r.state||'') !== s) return false;
+      if (skuQ && !r.sku.toLowerCase().includes(skuQ)) return false;
       if (from && (!r._parsed_date || r._parsed_date < from)) return false;
-      if (to && (!r._parsed_date || r._parsed_date > to)) return false;
       return true;
     });
-    renderPage();
+    renderWithSubtotals();
   }
 
-  function renderPage() {
-    PAGE_SIZE = Number(pageSizeSel.value) || 25;
-    const total = FILTERED.length;
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    if (PAGE > totalPages) PAGE = totalPages;
-    const start = (PAGE-1)*PAGE_SIZE, end = start + PAGE_SIZE;
-    const rows = FILTERED.slice(start, end);
+  // group by state + date + sku (daily sale doesn't have depot by default)
+  function renderWithSubtotals() {
+    FILTERED.sort((a,b)=>{
+      if (a.state !== b.state) return a.state.localeCompare(b.state);
+      const da = a._parsed_date ? a._parsed_date.getTime() : 0;
+      const db = b._parsed_date ? b._parsed_date.getTime() : 0;
+      if (da !== db) return da - db;
+      if (a.sku !== b.sku) return a.sku.localeCompare(b.sku);
+      return 0;
+    });
 
-    tbody.innerHTML = rows.map(r => `<tr>
-      <td class="center">${r.state || ''}</td>
-      <td class="center">${r.date || ''}</td>
-      <td class="left">${r.party_name || ''}</td>
-      <td class="center">${r.district || ''}</td>
-      <td class="left">${r.sku || ''}</td>
-      <td class="center">${fmt(r.quantity)}</td>
-    </tr>`).join('');
+    let html = '';
+    let grand = 0;
+    let i=0;
+    while (i < FILTERED.length) {
+      const key = `${FILTERED[i].state}||${FILTERED[i].date}||${FILTERED[i].sku}`;
+      const group = [];
+      let j=i;
+      while (j < FILTERED.length) {
+        const keyj = `${FILTERED[j].state}||${FILTERED[j].date}||${FILTERED[j].sku}`;
+        if (keyj !== key) break;
+        group.push(FILTERED[j]); j++;
+      }
 
-    rowsInfo.textContent = `${Math.min(total, start+1)}-${Math.min(total, end)} of ${total}`;
-    buildPaginator(totalPages);
+      group.forEach(r => {
+        html += `<tr>
+          <td class="center">${escapeHtml(r.state)}</td>
+          <td class="center">${escapeHtml(r.date)}</td>
+          <td class="left">${escapeHtml(r.party_name)}</td>
+          <td class="center">${escapeHtml(r.district)}</td>
+          <td class="left">${escapeHtml(r.sku)}</td>
+          <td class="center">${fmt(r.quantity)}</td>
+        </tr>`;
+      });
 
-    const pTotal = rows.reduce((s, r) => s + (Number(r.quantity)||0), 0);
-    const gTotal = FILTERED.reduce((s, r) => s + (Number(r.quantity)||0), 0);
-    document.getElementById("page_total_qty").textContent = pTotal.toLocaleString();
-    document.getElementById("grand_total_qty").textContent = gTotal.toLocaleString();
+      if (group.length >= 2) {
+        const subtotal = group.reduce((s,r)=>s + (Number(r.quantity)||0), 0);
+        html += `<tr class="subtotal-row"><td colspan="5">Subtotal →</td><td class="center">${fmt(subtotal)}</td></tr>`;
+      }
+
+      grand += group.reduce((s,r)=>s + (Number(r.quantity)||0), 0);
+      i = j;
+    }
+
+    tbody.innerHTML = html;
+    document.getElementById('grand_qty').textContent = fmt(grand);
   }
 
-  function buildPaginator(totalPages) {
-    paginator.innerHTML = "";
-    const create = (p, label=null, disabled=false, active=false) => `<li class="page-item ${disabled?'disabled':''} ${active?'active':''}"><a class="page-link" href="#" data-page="${p}">${label||p}</a></li>`;
-    paginator.insertAdjacentHTML("beforeend", create(Math.max(1,PAGE-1), "«", PAGE===1));
-    const maxButtons = 7;
-    let start = Math.max(1, PAGE - Math.floor(maxButtons/2));
-    let end = Math.min(totalPages, start + maxButtons - 1);
-    if (end - start + 1 < maxButtons) start = Math.max(1, end - maxButtons + 1);
-    for (let p = start; p <= end; p++) paginator.insertAdjacentHTML("beforeend", create(p, null, false, p===PAGE));
-    paginator.insertAdjacentHTML("beforeend", create(Math.min(totalPages, PAGE+1), "»", PAGE===totalPages));
-    [...paginator.querySelectorAll(".page-link")].forEach(a=>a.addEventListener('click', e=>{ e.preventDefault(); PAGE=Number(a.dataset.page); renderPage(); }));
-  }
-
-  pageSizeSel.addEventListener('change', ()=>{ PAGE=1; renderPage(); });
+  function escapeHtml(s){ if (s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   function exportToExcel() {
-    const ws = XLSX.utils.aoa_to_sheet([["State","Date","Party Name","District","SKU","Quantity"], ...FILTERED.map(r=>[r.state,r.date,r.party_name,r.district,r.sku,r.quantity])]);
+    const header = ["State","Date","Party Name","District","SKU","Quantity"];
+    const wsData = [header];
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.forEach(tr => {
+      const cells = Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim());
+      wsData.push(cells);
+    });
+    wsData.push(["Grand Total","","","","", document.getElementById('grand_qty').textContent]);
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "DailySale");
     XLSX.writeFile(wb, `daily_sale_export_${new Date().toISOString().slice(0,10)}.xlsx`);
   }
-  exportBtn.addEventListener('click', exportToExcel);
 
+  exportBtn.addEventListener('click', exportToExcel);
+  // initial load
   loadData();
   </script>
 </body>
