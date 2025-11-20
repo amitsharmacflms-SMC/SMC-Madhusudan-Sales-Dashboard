@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SMC - Daily Sale (Optimized)</title>
+  <title>SMC - Daily Sale (Final)</title>
 
   <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -16,7 +16,7 @@
       --muted:#6b7280;
       --border:#9fb1c8;
       --card-bg:#ffffff;
-      --row-height:44px;
+      --row-height:46px;
     }
     body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;margin:14px;background:linear-gradient(180deg,#f6fbff,#f2f6fb 60%)}
     .top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
@@ -27,75 +27,41 @@
     .filter-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
     .filter-row .form-label{font-weight:600;color:var(--muted);font-size:.9rem}
 
-    /* table container */
     .table-wrap{border-radius:10px;overflow:hidden;background:var(--card-bg);box-shadow:0 8px 30px rgba(2,6,23,0.05);border:2px solid var(--border);height:62vh;display:flex;flex-direction:column}
     .table-head{overflow:hidden}
     table{width:100%;border-collapse:collapse;min-width:900px}
     table,th,td{border:2px solid var(--border)}
-    thead th{position:sticky;top:0;z-index:6;background:linear-gradient(90deg,#f0f8ff,#ffffff);padding:10px;text-align:center;font-weight:800;color:#0b3b66}
-    /* REPLACE the existing tbody css block with this: */
+    thead th{position:sticky;top:0;z-index:6;background:linear-gradient(90deg,#f0f8ff,#ffffff);padding:12px;text-align:center;font-weight:800;color:#0b3b66}
+    tbody{display:block;overflow:auto;flex:1;height:100%}
+    tbody tr{display:flex;align-items:center;height:var(--row-height)}
+    tbody td{padding:8px 12px;flex:0 0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    td.center{text-align:center}
+    td.left{text-align:left;padding-left:8px}
 
-/* Was: tbody { ... } */
-#vbody {
-  display: block;
-  overflow: auto;
-  flex: 1;
-  height: 100%;
-  width: 100%; /* Ensure it takes width */
-}
-
-/* Was: tbody tr { ... } */
-.vrow {
-  display: flex;
-  align-items: center;
-  height: var(--row-height);
-  width: 100%; /* Ensure row fills container */
-}
-
-/* Was: tbody td { ... } */
-.cell {
-  padding: 6px 10px;
-  flex: 0 0 auto;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  border-right: 2px solid var(--border); /* Add borders to cells to match table look */
-  border-bottom: 2px solid var(--border);
-  height: 100%; /* Full height of row */
-  display: flex; /* To align text vertically if needed */
-  align-items: center;
-}
-
-/* Update specific column classes to target .cell instead of td if needed, 
-   but your JS adds classes like .col-state to the .cell div, so existing .col-state css works fine. */
-    .center{text-align:center; justify-content:center;} 
-.left{text-align:left; justify-content:flex-start; padding-left:8px;}
-
-    /* column width helper classes */
+    /* unified widths */
     .col-state{width:120px}
     .col-date{width:110px}
-    .col-party{width:320px}
-    .col-district{width:150px}
-    .col-sku{width:300px}
-    .col-qty{width:110px;text-align:right;padding-right:12px}
+    .col-party{width:330px}
+    .col-district{width:160px}
+    .col-sku{width:310px}
+    .col-quantity{width:110px;text-align:right;padding-right:12px}
 
-    /* totals styling */
-    .subtotal-row .cell { background:#e6f0ff !important; font-weight:700; }
-.depot-grand-row .cell { background:#e0ecff !important; font-weight:800; }
-.state-grand-row .cell { background:#d4e7ff !important; font-weight:900; }
-.overall-grand-row .cell { background:linear-gradient(90deg,#cfe4ff,#bfe0ff) !important; font-weight:900; color:#05284a; }
+    .subtotal-row td{background:#e6f0ff !important;font-weight:700;text-align:center}
+    .depot-grand-row td{background:#e0ecff !important;font-weight:800;text-align:center}
+    .state-grand-row td{background:#d4e7ff !important;font-weight:900;text-align:center}
+    .overall-grand-row td{background:linear-gradient(90deg,#cfe4ff,#bfe0ff) !important;font-weight:900;text-align:center;color:#05284a}
 
-    /* skeleton */
     #skeleton{height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted)}
     .skeleton-box{width:92%;height:60%;border-radius:8px;background:linear-gradient(90deg,#f3f6fb,#eef6ff);display:flex;align-items:center;justify-content:center}
 
     .col-toggle{max-height:320px;overflow:auto;padding:10px;width:260px}
 
-    /* mobile: M1 default visible columns (party_name, sku, quantity) */
+    /* mobile M1 defaults */
     @media (max-width:520px){
-      thead th[data-col="state"], thead th[data-col="date"], thead th[data-col="district"],
-      tbody .cell-state, tbody .cell-date, tbody .cell-district { display:none !important; }
-      /* allow toggling via Columns menu to show them if needed */
+      thead th[data-col="state"], thead th[data-col="date"], thead th[data-col="district"], tbody .cell-state, tbody .cell-date, tbody .cell-district { display:none !important; }
+      .col-party{width:55%}
+      .col-sku{width:35%}
+      .col-quantity{width:110px}
     }
   </style>
 </head>
@@ -150,23 +116,20 @@
           <th data-col="party_name" class="col-party" style="text-align:left">Party Name</th>
           <th data-col="district" class="col-district">District</th>
           <th data-col="sku" class="col-sku" style="text-align:left">SKU</th>
-          <th data-col="quantity" class="col-qty">Quantity</th>
+          <th data-col="quantity" class="col-quantity">Quantity</th>
         </tr></thead></table>
       </div>
 
       <div id="skeleton"><div class="skeleton-box">Loading daily sale — preparing fast view...</div></div>
 
-      <div id="vbody" style="display:none" aria-live="polite"></div>
+      <tbody id="vbody" style="display:none" aria-live="polite"></tbody>
     </div>
   </div>
 
   <!-- bootstrap -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-
   <script>
-  // Worker code as blob — will dedupe exact duplicate rows (merge identical rows),
-  // heavy grouping (month summary) is done on main thread to preserve party_name behavior.
+  // Worker for dedupe/merge identical rows
   const workerDailyCode = `
     self.onmessage = function(e){
       try {
@@ -183,17 +146,13 @@
             const sku=(o.sku||'').toString().trim();
             const qty = Number(o.quantity)||0;
             const key = state+'||'+date+'||'+party+'||'+district+'||'+sku;
-            if(!map.has(key)){
-              map.set(key, { state, date, party_name:party, district, sku, quantity: qty });
-            } else {
-              const g = map.get(key);
-              g.quantity += qty;
-            }
+            if(!map.has(key)) map.set(key, { state, date, party_name:party, district, sku, quantity: qty });
+            else map.get(key).quantity += qty;
           });
           self.postMessage({ ok:true, merged: Array.from(map.values()) });
         }
       } catch(err){
-        self.postMessage({ ok:false, error: String(err) });
+        self.postMessage({ ok:false, error:String(err) });
       }
     };
   `;
@@ -218,7 +177,6 @@
 
   // DOM refs
   const vbody = document.getElementById('vbody');
-  const theadRow = document.getElementById('theadRow');
   const skeleton = document.getElementById('skeleton');
   const filterPanel = document.getElementById('filterPanel');
   const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
@@ -236,10 +194,11 @@
 
   // state
   let RAW = [], MERGED = [], FILTERED = [];
-  const ROW_HEIGHT = 44, BUFFER = 10;
-  let pool = [], poolCount = 0;
+  const ROW_HEIGHT = 46, BUFFER = 10;
 
-  // fetch and process via worker
+
+ 
+  // fetch & process with worker
   function fetchDaily(){
     showSkeleton(true);
     fetch('/api/get_daily_sale').then(r=>r.json()).then(rows=>{
@@ -293,35 +252,15 @@
     rows.forEach(r=>{
       const key = `${r.state}||${r.date}||${r.party_name}||${r.district}||${r.sku}`;
       if(!map.has(key)) map.set(key, {...r});
-      else {
-        const g = map.get(key);
-        g.quantity += r.quantity;
-      }
+      else map.get(key).quantity += r.quantity;
     });
     return Array.from(map.values());
   }
 
-  // UI events
-  toggleFiltersBtn.addEventListener('click', ()=>{ filterPanel.style.display = filterPanel.style.display==='none' ? 'block' : 'none'; });
-  clearFilters.addEventListener('click', ()=>{ filterMonth.value=''; filterState.value=''; filterDistrict.value=''; filterSKU.value=''; filterFrom.value=''; filterTo.value=''; applyFilters(); });
-  colCheckboxes.forEach(ch=>ch.addEventListener('change', ()=>{ renderSmart(); }));
-
-  yesterdayBtn.addEventListener('click', ()=>{
-    const now = new Date(); const y = new Date(now.getFullYear(), now.getMonth(), now.getDate()-1);
-    const val = `${y.getFullYear()}-${pad2(y.getMonth()+1)}-${pad2(y.getDate())}`;
-    filterFrom.value = val; filterTo.value = val; applyFilters();
-    yesterdayBtn.classList.add('btn-success'); setTimeout(()=>yesterdayBtn.classList.remove('btn-success'),700);
-  });
-
-
-  
-  // populate filter dropdowns
+  // filters
   function populateFilters(){
     const months = Array.from(new Set(MERGED.map(r=>r._month_key).filter(Boolean))).sort();
-    filterMonth.innerHTML = '<option value="">All</option>' + months.map(m=>{
-      const [y,mm]=m.split('-'); const d=new Date(Date.UTC(y,mm-1,1));
-      return `<option value="${m}">${d.toLocaleString(undefined,{month:'long'})} ${y}</option>`;
-    }).join('');
+    filterMonth.innerHTML = '<option value="">All</option>' + months.map(m=>{ const [y,mm]=m.split('-'); const d=new Date(Date.UTC(y,mm-1,1)); return `<option value="${m}">${d.toLocaleString(undefined,{month:'long'})} ${y}</option>`; }).join('');
     const states = Array.from(new Set(MERGED.map(r=>r.state).filter(Boolean))).sort();
     filterState.innerHTML = '<option value="">All</option>' + states.map(s=>`<option>${s}</option>`).join('');
     const districts = Array.from(new Set(MERGED.map(r=>r.district).filter(Boolean))).sort();
@@ -332,6 +271,7 @@
 
   [filterMonth, filterState, filterDistrict, filterFrom, filterTo].forEach(el=>el.addEventListener('change', applyFilters));
   filterSKU.addEventListener('input', applyFilters);
+  clearFilters.addEventListener('click', ()=>{ filterMonth.value=''; filterState.value=''; filterDistrict.value=''; filterSKU.value=''; filterFrom.value=''; filterTo.value=''; applyFilters(); });
 
   function applyFilters(){
     const m = filterMonth.value, s = filterState.value, d = filterDistrict.value, skuQ = (filterSKU.value||'').toLowerCase().trim();
@@ -356,39 +296,25 @@
     else prepareNormalAndRender();
   }
 
-  // Normal mode: show rows grouped by state->district->date and subtotal per date
+  // normal mode
   function prepareNormalAndRender(){
     const items = [];
-    FILTERED.sort((a,b)=>{
-      if(a.state!==b.state) return a.state.localeCompare(b.state);
-      if(a.district!==b.district) return a.district.localeCompare(b.district);
-      const da = a._parsed_date?a._parsed_date.getTime():0; const db = b._parsed_date?b._parsed_date.getTime():0;
-      if(da!==db) return da-db;
-      return a.sku.localeCompare(b.sku);
-    });
+    FILTERED.sort((a,b)=>{ if(a.state!==b.state) return a.state.localeCompare(b.state); if(a.district!==b.district) return a.district.localeCompare(b.district); const da=a._parsed_date?a._parsed_date.getTime():0; const db=b._parsed_date?b._parsed_date.getTime():0; if(da!==db) return da-db; return a.sku.localeCompare(b.sku); });
 
-    let i=0;
-    const overall = { qty:0 };
+    let i=0; const overall={qty:0};
     while(i<FILTERED.length){
-      const r = FILTERED[i];
-      const ST = r.state, DT = r.district;
-      // collect district block
-      const block = []; let j=i;
-      while(j<FILTERED.length && FILTERED[j].state===ST && FILTERED[j].district===DT){
-        block.push(FILTERED[j]); j++;
-      }
-      // within block group by date
+      const ST = FILTERED[i].state, DT = FILTERED[i].district;
+      const block=[]; let j=i;
+      while(j<FILTERED.length && FILTERED[j].state===ST && FILTERED[j].district===DT){ block.push(FILTERED[j]); j++; }
       let k=0;
-      let districtAcc = { district: DT, qty:0 };
+      let districtAcc={district:DT, qty:0};
       while(k<block.length){
         const dateVal = block[k].date;
-        const group = []; let m=k;
-        while(m<block.length && block[m].date===dateVal){
-          group.push(block[m]); m++;
-        }
-        group.forEach(row => items.push({ type:'row', data: row }));
+        const group=[]; let m=k;
+        while(m<block.length && block[m].date===dateVal){ group.push(block[m]); m++; }
+        group.forEach(row=> items.push({ type:'row', data: row }));
         const subQty = group.reduce((s,t)=>s + (Number(t.quantity)||0), 0);
-        items.push({ type:'subtotal', data: { labelDate: group[0]._parsed_date || group[0].date, qty: subQty }});
+        items.push({ type:'subtotal', data:{ labelDate: group[0]._parsed_date || group[0].date, qty: subQty }});
         districtAcc.qty += subQty;
         overall.qty += subQty;
         k = m;
@@ -398,7 +324,7 @@
       const nextIdx = j;
       if(nextIdx >= FILTERED.length || FILTERED[nextIdx].state !== ST){
         const stateQty = FILTERED.filter(x=>x.state===ST).reduce((s,t)=>s + (Number(t.quantity)||0), 0);
-        items.push({ type:'stateTotal', data: { state: ST, qty: stateQty }});
+        items.push({ type:'stateTotal', data:{ state: ST, qty: stateQty }});
       }
       i = j;
     }
@@ -407,28 +333,24 @@
     initVirtualRenderer(items);
   }
 
-  // Month summary: group by state+district+sku (sum quantity)
+  // month summary
   function prepareMonthSummaryAndRender(){
     const groups = new Map();
-    FILTERED.forEach(r=>{
-      const key = `${r.state}||${r.district}||${r.sku}`;
-      if(!groups.has(key)) groups.set(key, { state: r.state, district: r.district, sku: r.sku, qty: 0 });
-      groups.get(key).qty += Number(r.quantity)||0;
-    });
-    const rows = Array.from(groups.values()).map(g=>({ state: g.state, district: g.district, sku: g.sku, quantity: g.qty }));
+    FILTERED.forEach(r=>{ const key = `${r.state}||${r.district}||${r.sku}`; if(!groups.has(key)) groups.set(key, { state:r.state, district:r.district, sku:r.sku, qty:0 }); groups.get(key).qty += Number(r.quantity)||0; });
+    const rows = Array.from(groups.values()).map(g=>({ state:g.state, district:g.district, sku:g.sku, quantity:g.qty }));
     rows.sort((a,b)=>{ if(a.state!==b.state) return a.state.localeCompare(b.state); if(a.district!==b.district) return a.district.localeCompare(b.district); return a.sku.localeCompare(b.sku); });
 
-    const items = []; let i=0; const overall={qty:0};
+    const items=[]; let i=0; const overall={qty:0};
     while(i<rows.length){
       const ST = rows[i].state, DT = rows[i].district;
-      const depotRows = []; let j=i;
+      const depotRows=[]; let j=i;
       while(j<rows.length && rows[j].state===ST && rows[j].district===DT){ depotRows.push(rows[j]); j++; }
-      depotRows.forEach(r=>{ items.push({ type:'row', data: r }); overall.qty += r.quantity; });
+      depotRows.forEach(r=>{ items.push({ type:'row', data:r }); overall.qty += r.quantity; });
       const depotAcc = depotRows.reduce((a,t)=>{ a.qty+=t.quantity; return a; },{qty:0});
-      items.push({ type:'districtTotal', data: { district: DT, qty: depotAcc.qty }});
+      items.push({ type:'districtTotal', data:{ district: DT, qty: depotAcc.qty }});
       if(j >= rows.length || rows[j].state !== ST){
         const stateAcc = rows.filter(x=>x.state===ST).reduce((a,t)=>{ a.qty+=t.quantity; return a; },{qty:0});
-        items.push({ type:'stateTotal', data: { state: ST, qty: stateAcc.qty }});
+        items.push({ type:'stateTotal', data:{ state: ST, qty: stateAcc.qty }});
       }
       i = j;
     }
@@ -437,17 +359,16 @@
     initVirtualRenderer(items);
   }
 
-  // virtual renderer (recycled pool)
+  // virtual renderer
+  let pool = [];
   function initVirtualRenderer(items){
     vbody.style.display = '';
     skeleton.style.display = 'none';
     const total = items.length;
-    // spacer
     vbody.innerHTML = '';
     const spacer = document.createElement('div'); spacer.id = 'vSpacer'; spacer.style.height = (total * ROW_HEIGHT) + 'px';
     vbody.appendChild(spacer);
 
-    // determine visible count
     const wrap = document.querySelector('.table-wrap');
     const avail = Math.max(3, Math.floor((wrap.clientHeight - 40) / ROW_HEIGHT));
     const poolSize = avail + BUFFER*2;
@@ -455,7 +376,6 @@
     pool = [];
     for(let p=0;p<Math.min(poolSize, total);p++){
       const tr = document.createElement('div'); tr.className='vrow'; tr.style.position='absolute'; tr.style.left='0'; tr.style.right='0'; tr.style.display='flex';
-      // render children for current visible columns
       const cols = getVisibleColumnsOrder();
       cols.forEach(col=>{
         const td = document.createElement('div'); td.className='cell cell-'+col; td.setAttribute('data-col', col);
@@ -464,15 +384,13 @@
         if(col==='party_name') td.classList.add('col-party');
         if(col==='district') td.classList.add('col-district');
         if(col==='sku') td.classList.add('col-sku');
-        if(col==='quantity') td.classList.add('col-qty');
+        if(col==='quantity') td.classList.add('col-quantity');
         tr.appendChild(td);
       });
       vbody.appendChild(tr);
       pool.push(tr);
     }
-
     vbody.onscroll = onScrollDaily;
-    // initial paint
     onScrollDaily();
   }
 
@@ -481,96 +399,64 @@
     return ths.filter(th => th.style.display !== 'none').map(th => th.dataset.col);
   }
 
-  
+  function paintDailyRowAt(poolIndex, itemIndex){
+    const node = pool[poolIndex];
+    const items = window._renderItems || [];
+    if(itemIndex < 0 || itemIndex >= items.length){ node.style.display='none'; return; }
+    node.style.display='flex'; node.style.top = (itemIndex * ROW_HEIGHT) + 'px';
+    const it = items[itemIndex];
+    const cols = getVisibleColumnsOrder();
+    if(node.children.length !== cols.length){
+      node.innerHTML = '';
+      cols.forEach(col=>{
+        const td = document.createElement('div'); td.className='cell cell-'+col; td.setAttribute('data-col', col);
+        if(col==='state') td.classList.add('col-state');
+        if(col==='date') td.classList.add('col-date');
+        if(col==='party_name') td.classList.add('col-party');
+        if(col==='district') td.classList.add('col-district');
+        if(col==='sku') td.classList.add('col-sku');
+        if(col==='quantity') td.classList.add('col-quantity');
+        node.appendChild(td);
+      });
+    }
 
+    cols.forEach((col,ci)=>{
+      const td = node.children[ci];
+      td.classList.remove('center','left');
+      if(col==='quantity') td.classList.add('center'); else if(col==='party_name' || col==='sku') td.classList.add('left'); else td.classList.add('center');
 
-
-function paintDailyRowAt(poolIndex, itemIndex){
-  const node = pool[poolIndex];
-  const items = window._renderItems || [];
-  if(itemIndex < 0 || itemIndex >= items.length){ node.style.display = 'none'; return; }
-  
-  const it = items[itemIndex];
-  node.style.display = 'flex';
-  node.style.top = (itemIndex * ROW_HEIGHT) + 'px';
-
-  // --- NEW: Reset class list and add type-specific classes for coloring ---
-  node.className = 'vrow'; // Reset to base class
-  if(it.type === 'subtotal') node.classList.add('subtotal-row');
-  else if(it.type === 'districtTotal') node.classList.add('depot-grand-row');
-  else if(it.type === 'stateTotal') node.classList.add('state-grand-row');
-  else if(it.type === 'overall') node.classList.add('overall-grand-row');
-  // -----------------------------------------------------------------------
-
-  const cols = getVisibleColumnsOrder();
-  // ensure children count matches
-  if(node.children.length !== cols.length){
-    node.innerHTML = '';
-    cols.forEach(col=>{
-      const td = document.createElement('div'); 
-      td.className='cell cell-'+col; 
-      td.setAttribute('data-col', col);
-      // Add width classes
-      if(col==='state') td.classList.add('col-state');
-      if(col==='date') td.classList.add('col-date');
-      if(col==='party_name') td.classList.add('col-party');
-      if(col==='district') td.classList.add('col-district');
-      if(col==='sku') td.classList.add('col-sku');
-      if(col==='quantity') td.classList.add('col-qty');
-      node.appendChild(td);
+      if(it.type==='row'){
+        const d = it.data;
+        if(col==='state') td.textContent = d.state || '';
+        else if(col==='date') td.textContent = d._parsed_date ? formatDateDDMMYYYYUTC(d._parsed_date) : (d.date||'');
+        else if(col==='party_name') td.textContent = d.party_name || '';
+        else if(col==='district') td.textContent = d.district || '';
+        else if(col==='sku') td.textContent = d.sku || '';
+        else if(col==='quantity') td.textContent = fmt(d.quantity);
+      } else if(it.type==='subtotal'){
+        if(ci===0){ td.textContent = `subtotal of Date (${ it.data.labelDate instanceof Date ? formatDateDDMMYYYYUTC(it.data.labelDate) : it.data.labelDate })`; td.style.fontWeight='700'; }
+        else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
+      } else if(it.type==='districtTotal'){
+        if(ci===0){ td.textContent = `GRAND TOTAL OF ${it.data.district || ''}`; td.style.fontWeight='800'; } else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
+      } else if(it.type==='stateTotal'){
+        if(ci===0){ td.textContent = `GRAND TOTAL OF ${it.data.state || ''}`; td.style.fontWeight='800'; } else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
+      } else if(it.type==='overall'){
+        if(ci===0){ td.textContent = `OVERALL GRAND TOTAL`; td.style.fontWeight='900'; } else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
+      }
     });
   }
 
-  cols.forEach((col,ci)=>{
-    const td = node.children[ci];
-    // Reset alignment classes
-    td.classList.remove('center','left');
-    
-    // Apply alignment
-    if(col==='quantity') td.classList.add('center'); 
-    else if(col==='party_name' || col==='sku') td.classList.add('left'); 
-    else td.classList.add('center');
-
-    if(it.type === 'row'){
-      const d = it.data;
-      if(col==='state') td.textContent = d.state||'';
-      else if(col==='date') td.textContent = d._parsed_date ? formatDateDDMMYYYYUTC(d._parsed_date) : (d.date||'');
-      else if(col==='party_name') td.textContent = d.party_name || '';
-      else if(col==='district') td.textContent = d.district || '';
-      else if(col==='sku') td.textContent = d.sku || '';
-      else if(col==='quantity') td.textContent = fmt(d.quantity);
-    } else if(it.type === 'subtotal'){
-      if(ci === 0){
-        td.textContent = `Subtotal (${ it.data.labelDate instanceof Date ? formatDateDDMMYYYYUTC(it.data.labelDate) : it.data.labelDate })`;
-      } else {
-        if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = '';
-      }
-    } else if(it.type === 'districtTotal'){
-      if(ci===0){ td.textContent = `GRAND TOTAL OF ${it.data.district || ''}`; }
-      else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
-    } else if(it.type === 'stateTotal'){
-      if(ci===0){ td.textContent = `GRAND TOTAL OF ${it.data.state || ''}`; }
-      else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
-    } else if(it.type === 'overall'){
-      if(ci===0){ td.textContent = `OVERALL GRAND TOTAL`; }
-      else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
-    }
-  });
-}
   function onScrollDaily(){
     const sTop = vbody.scrollTop;
-    const firstIndex = Math.max(0, Math.floor(sTop / ROW_HEIGHT) - BUFFER);
-    const items = window._renderItems || [];
+    const first = Math.max(0, Math.floor(sTop / ROW_HEIGHT) - BUFFER);
     for(let p=0;p<pool.length;p++){
-      const itemIndex = firstIndex + p;
-      paintDailyRowAt(p, itemIndex);
+      paintDailyRowAt(p, first + p);
     }
   }
 
-  // reapply column visibility
   function reapplyColumnVisibilityDaily(){
     colCheckboxes.forEach(ch=>{
-      const col = ch.dataset.col, show = ch.checked;
+      const col = ch.dataset.col; const show = ch.checked;
       const th = document.querySelector(`thead th[data-col="${col}"]`);
       if(th) th.style.display = show ? '' : 'none';
     });
@@ -579,40 +465,19 @@ function paintDailyRowAt(poolIndex, itemIndex){
 
   // export
   exportBtn.addEventListener('click', ()=>{
-    const header = getVisibleColumnsOrder().map(c=>{
-      if(c==='state') return 'State';
-      if(c==='date') return 'Date';
-      if(c==='party_name') return 'Party Name';
-      if(c==='district') return 'District';
-      if(c==='sku') return 'SKU';
-      if(c==='quantity') return 'Quantity';
-      return c;
-    });
+    const header = getVisibleColumnsOrder().map(c=>{ if(c==='state') return 'State'; if(c==='date') return 'Date'; if(c==='party_name') return 'Party Name'; if(c==='district') return 'District'; if(c==='sku') return 'SKU'; if(c==='quantity') return 'Quantity'; return c; });
     const rows = [];
     const items = window._renderItems || [];
     items.forEach(it=>{
-      if(it.type === 'row'){
+      if(it.type==='row'){
         const d = it.data;
-        rows.push(getVisibleColumnsOrder().map(col=>{
-          if(col==='state') return d.state;
-          if(col==='date') return d._parsed_date ? formatDateDDMMYYYYUTC(d._parsed_date) : d.date;
-          if(col==='party_name') return d.party_name;
-          if(col==='district') return d.district;
-          if(col==='sku') return d.sku;
-          if(col==='quantity') return d.quantity;
-          return '';
-        }));
-      } else if(it.type === 'subtotal'){
-        rows.push(getVisibleColumnsOrder().map(col=> col==='quantity' ? it.data.qty : (col==='date'?(`Subtotal (${ it.data.labelDate instanceof Date ? formatDateDDMMYYYYUTC(it.data.labelDate) : it.data.labelDate })`): '')));
-      } else if(it.type === 'districtTotal' || it.type === 'stateTotal' || it.type === 'overall'){
-        rows.push(getVisibleColumnsOrder().map(col=>{
-          if(col==='state' || col==='district'){
-            if(it.type==='districtTotal') return `GRAND TOTAL OF ${it.data.district || ''}`;
-            if(it.type==='stateTotal') return `GRAND TOTAL OF ${it.data.state || ''}`;
-            if(it.type==='overall') return `OVERALL GRAND TOTAL`;
-          }
-          if(col==='quantity') return it.data.qty;
-          return '';
+        rows.push(getVisibleColumnsOrder().map(col=> col==='state'?d.state: col==='date'? (d._parsed_date?formatDateDDMMYYYYUTC(d._parsed_date):d.date) : col==='party_name'?d.party_name: col==='district'?d.district: col==='sku'?d.sku: col==='quantity'?d.quantity:''));
+      } else if(it.type==='subtotal'){
+        rows.push(getVisibleColumnsOrder().map(col=> col==='quantity'? it.data.qty : (col==='date'? `Subtotal (${ it.data.labelDate instanceof Date ? formatDateDDMMYYYYUTC(it.data.labelDate) : it.data.labelDate })` : '')));
+      } else if(it.type==='districtTotal' || it.type==='stateTotal' || it.type==='overall'){
+        rows.push(getVisibleColumnsOrder().map(col=> {
+          if(col==='state' || col==='district'){ if(it.type==='districtTotal') return `GRAND TOTAL OF ${it.data.district || ''}`; if(it.type==='stateTotal') return `GRAND TOTAL OF ${it.data.state || ''}`; if(it.type==='overall') return `OVERALL GRAND TOTAL`; }
+          if(col==='quantity') return it.data.qty; return '';
         }));
       }
     });
@@ -623,23 +488,13 @@ function paintDailyRowAt(poolIndex, itemIndex){
     XLSX.writeFile(wb, `daily_sale_export_${new Date().toISOString().slice(0,10)}.xlsx`);
   });
 
-  // show skeleton helper
-  // show skeleton helper
-function showSkeleton(on){
-  // Add checks for skeleton and vbody existence
-  if(on){ 
-    if(skeleton) skeleton.style.display='flex'; 
-    if(vbody) vbody.style.display='none'; 
-  } else { 
-    if(skeleton) skeleton.style.display='none'; 
-    if(vbody) vbody.style.display='block'; 
-  }
-}
-
-  // watch column checkbox changes
+  // column checkbox handler
   colCheckboxes.forEach(ch=>ch.addEventListener('change', ()=>{ reapplyColumnVisibilityDaily(); }));
 
-  // init fetch
+  // show skeleton helper
+  function showSkeleton(on){ if(on){ skeleton.style.display='flex'; vbody.style.display='none'; } else { skeleton.style.display='none'; vbody.style.display='block'; } }
+
+  // start
   fetchDaily();
   </script>
 </body>
