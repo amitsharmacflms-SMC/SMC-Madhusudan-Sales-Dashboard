@@ -33,11 +33,43 @@
     table{width:100%;border-collapse:collapse;min-width:900px}
     table,th,td{border:2px solid var(--border)}
     thead th{position:sticky;top:0;z-index:6;background:linear-gradient(90deg,#f0f8ff,#ffffff);padding:10px;text-align:center;font-weight:800;color:#0b3b66}
-    tbody{display:block;overflow:auto;flex:1;height:100%}
-    tbody tr{display:flex;align-items:center;height:var(--row-height)}
-    tbody td{padding:6px 10px;flex:0 0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    td.center{text-align:center}
-    td.left{text-align:left;padding-left:8px}
+    /* REPLACE the existing tbody css block with this: */
+
+/* Was: tbody { ... } */
+#vbody {
+  display: block;
+  overflow: auto;
+  flex: 1;
+  height: 100%;
+  width: 100%; /* Ensure it takes width */
+}
+
+/* Was: tbody tr { ... } */
+.vrow {
+  display: flex;
+  align-items: center;
+  height: var(--row-height);
+  width: 100%; /* Ensure row fills container */
+}
+
+/* Was: tbody td { ... } */
+.cell {
+  padding: 6px 10px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 2px solid var(--border); /* Add borders to cells to match table look */
+  border-bottom: 2px solid var(--border);
+  height: 100%; /* Full height of row */
+  display: flex; /* To align text vertically if needed */
+  align-items: center;
+}
+
+/* Update specific column classes to target .cell instead of td if needed, 
+   but your JS adds classes like .col-state to the .cell div, so existing .col-state css works fine. */
+    .center{text-align:center; justify-content:center;} 
+.left{text-align:left; justify-content:flex-start; padding-left:8px;}
 
     /* column width helper classes */
     .col-state{width:120px}
@@ -48,10 +80,10 @@
     .col-qty{width:110px;text-align:right;padding-right:12px}
 
     /* totals styling */
-    .subtotal-row td{background:#e6f0ff !important;font-weight:700;text-align:center}
-    .depot-grand-row td{background:#e0ecff !important;font-weight:800;text-align:center}
-    .state-grand-row td{background:#d4e7ff !important;font-weight:900;text-align:center}
-    .overall-grand-row td{background:linear-gradient(90deg,#cfe4ff,#bfe0ff) !important;font-weight:900;text-align:center;color:#05284a}
+    .subtotal-row .cell { background:#e6f0ff !important; font-weight:700; }
+.depot-grand-row .cell { background:#e0ecff !important; font-weight:800; }
+.state-grand-row .cell { background:#d4e7ff !important; font-weight:900; }
+.overall-grand-row .cell { background:linear-gradient(90deg,#cfe4ff,#bfe0ff) !important; font-weight:900; color:#05284a; }
 
     /* skeleton */
     #skeleton{height:100%;display:flex;align-items:center;justify-content:center;color:var(--muted)}
@@ -124,7 +156,7 @@
 
       <div id="skeleton"><div class="skeleton-box">Loading daily sale — preparing fast view...</div></div>
 
-      <tbody id="vbody" style="display:none" aria-live="polite"></tbody>
+      <div id="vbody" style="display:none" aria-live="polite"></div>
     </div>
   </div>
 
@@ -449,63 +481,82 @@
     return ths.filter(th => th.style.display !== 'none').map(th => th.dataset.col);
   }
 
-  function paintDailyRowAt(poolIndex, itemIndex){
-    const node = pool[poolIndex];
-    const items = window._renderItems || [];
-    if(itemIndex < 0 || itemIndex >= items.length){ node.style.display = 'none'; return; }
-    const it = items[itemIndex];
-    node.style.display = 'flex';
-    node.style.top = (itemIndex * ROW_HEIGHT) + 'px';
+  
 
-    const cols = getVisibleColumnsOrder();
-    // ensure children count matches
-    if(node.children.length !== cols.length){
-      node.innerHTML = '';
-      cols.forEach(col=>{
-        const td = document.createElement('div'); td.className='cell cell-'+col; td.setAttribute('data-col', col);
-        if(col==='state') td.classList.add('col-state');
-        if(col==='date') td.classList.add('col-date');
-        if(col==='party_name') td.classList.add('col-party');
-        if(col==='district') td.classList.add('col-district');
-        if(col==='sku') td.classList.add('col-sku');
-        if(col==='quantity') td.classList.add('col-qty');
-        node.appendChild(td);
-      });
-    }
 
-    cols.forEach((col,ci)=>{
-      const td = node.children[ci];
-      td.classList.remove('center','left');
-      if(col==='quantity') td.classList.add('center'); else if(col==='party_name' || col==='sku') td.classList.add('left'); else td.classList.add('center');
 
-      if(it.type === 'row'){
-        const d = it.data;
-        if(col==='state') td.textContent = d.state||'';
-        else if(col==='date') td.textContent = d._parsed_date ? formatDateDDMMYYYYUTC(d._parsed_date) : (d.date||'');
-        else if(col==='party_name') td.textContent = d.party_name || '';
-        else if(col==='district') td.textContent = d.district || '';
-        else if(col==='sku') td.textContent = d.sku || '';
-        else if(col==='quantity') td.textContent = fmt(d.quantity);
-      } else if(it.type === 'subtotal'){
-        if(ci === 0){
-          td.textContent = `subtotal of Date (${ it.data.labelDate instanceof Date ? formatDateDDMMYYYYUTC(it.data.labelDate) : it.data.labelDate })`;
-          td.style.fontWeight = '700';
-        } else {
-          if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = '';
-        }
-      } else if(it.type === 'districtTotal'){
-        if(ci===0){ td.textContent = `GRAND TOTAL OF ${it.data.district || ''}`; td.style.fontWeight='800'; }
-        else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
-      } else if(it.type === 'stateTotal'){
-        if(ci===0){ td.textContent = `GRAND TOTAL OF ${it.data.state || ''}`; td.style.fontWeight='800'; }
-        else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
-      } else if(it.type === 'overall'){
-        if(ci===0){ td.textContent = `OVERALL GRAND TOTAL`; td.style.fontWeight='900'; }
-        else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
-      }
+function paintDailyRowAt(poolIndex, itemIndex){
+  const node = pool[poolIndex];
+  const items = window._renderItems || [];
+  if(itemIndex < 0 || itemIndex >= items.length){ node.style.display = 'none'; return; }
+  
+  const it = items[itemIndex];
+  node.style.display = 'flex';
+  node.style.top = (itemIndex * ROW_HEIGHT) + 'px';
+
+  // --- NEW: Reset class list and add type-specific classes for coloring ---
+  node.className = 'vrow'; // Reset to base class
+  if(it.type === 'subtotal') node.classList.add('subtotal-row');
+  else if(it.type === 'districtTotal') node.classList.add('depot-grand-row');
+  else if(it.type === 'stateTotal') node.classList.add('state-grand-row');
+  else if(it.type === 'overall') node.classList.add('overall-grand-row');
+  // -----------------------------------------------------------------------
+
+  const cols = getVisibleColumnsOrder();
+  // ensure children count matches
+  if(node.children.length !== cols.length){
+    node.innerHTML = '';
+    cols.forEach(col=>{
+      const td = document.createElement('div'); 
+      td.className='cell cell-'+col; 
+      td.setAttribute('data-col', col);
+      // Add width classes
+      if(col==='state') td.classList.add('col-state');
+      if(col==='date') td.classList.add('col-date');
+      if(col==='party_name') td.classList.add('col-party');
+      if(col==='district') td.classList.add('col-district');
+      if(col==='sku') td.classList.add('col-sku');
+      if(col==='quantity') td.classList.add('col-qty');
+      node.appendChild(td);
     });
   }
 
+  cols.forEach((col,ci)=>{
+    const td = node.children[ci];
+    // Reset alignment classes
+    td.classList.remove('center','left');
+    
+    // Apply alignment
+    if(col==='quantity') td.classList.add('center'); 
+    else if(col==='party_name' || col==='sku') td.classList.add('left'); 
+    else td.classList.add('center');
+
+    if(it.type === 'row'){
+      const d = it.data;
+      if(col==='state') td.textContent = d.state||'';
+      else if(col==='date') td.textContent = d._parsed_date ? formatDateDDMMYYYYUTC(d._parsed_date) : (d.date||'');
+      else if(col==='party_name') td.textContent = d.party_name || '';
+      else if(col==='district') td.textContent = d.district || '';
+      else if(col==='sku') td.textContent = d.sku || '';
+      else if(col==='quantity') td.textContent = fmt(d.quantity);
+    } else if(it.type === 'subtotal'){
+      if(ci === 0){
+        td.textContent = `Subtotal (${ it.data.labelDate instanceof Date ? formatDateDDMMYYYYUTC(it.data.labelDate) : it.data.labelDate })`;
+      } else {
+        if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = '';
+      }
+    } else if(it.type === 'districtTotal'){
+      if(ci===0){ td.textContent = `GRAND TOTAL OF ${it.data.district || ''}`; }
+      else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
+    } else if(it.type === 'stateTotal'){
+      if(ci===0){ td.textContent = `GRAND TOTAL OF ${it.data.state || ''}`; }
+      else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
+    } else if(it.type === 'overall'){
+      if(ci===0){ td.textContent = `OVERALL GRAND TOTAL`; }
+      else { if(col==='quantity') td.textContent = fmt(it.data.qty); else td.textContent = ''; }
+    }
+  });
+}
   function onScrollDaily(){
     const sTop = vbody.scrollTop;
     const firstIndex = Math.max(0, Math.floor(sTop / ROW_HEIGHT) - BUFFER);
@@ -573,10 +624,17 @@
   });
 
   // show skeleton helper
-  function showSkeleton(on){
-    if(on){ skeleton.style.display='flex'; vbody.style.display='none'; }
-    else { skeleton.style.display='none'; vbody.style.display='block'; }
+  // show skeleton helper
+function showSkeleton(on){
+  // Add checks for skeleton and vbody existence
+  if(on){ 
+    if(skeleton) skeleton.style.display='flex'; 
+    if(vbody) vbody.style.display='none'; 
+  } else { 
+    if(skeleton) skeleton.style.display='none'; 
+    if(vbody) vbody.style.display='block'; 
   }
+}
 
   // watch column checkbox changes
   colCheckboxes.forEach(ch=>ch.addEventListener('change', ()=>{ reapplyColumnVisibilityDaily(); }));
