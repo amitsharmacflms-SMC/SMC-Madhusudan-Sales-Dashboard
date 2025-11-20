@@ -672,9 +672,17 @@ function getVisibleColumnCount(){
   return Array.from(ths).filter(th=>th.style.display!=='none').length;
 }
 
-function getDynamicColspan(){
-  const visible = getVisibleColumnCount();
-  return Math.max(1, visible - 4); // 4 numeric cols
+function getDynamicColspan() {
+  // Non-numeric columns
+  const nonNumericCols = ["state", "depot", "date", "sku_name"];
+
+  let count = 0;
+  nonNumericCols.forEach(col => {
+    const th = document.querySelector(`thead th[data-col="${col}"]`);
+    if (th && th.style.display !== "none") count++;
+  });
+
+  return Math.max(1, count);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
