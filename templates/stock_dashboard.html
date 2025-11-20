@@ -1,1048 +1,155 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SMC – Stock Position (F1 Optimized)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SMC - Stock Position (F1)</title>
 
-<!-- Bootstrap -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/f1-style.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+  <script src="/static/js/f1-core.js" defer></script>
 
-<!-- Excel Export -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-<style>
-/* -----------------------------------------------------------
-   F1 SUPER OPTIMIZED DASHBOARD BASE STYLING
-   -----------------------------------------------------------*/
-:root {
-  --smc-blue: #0d6efd;
-  --soft-blue: #e7f0ff;
-  --muted: #6b7280;
-  --border: #9fb1c8;
-  --card-bg: #ffffff;
-
-  --row-height: 46px;
-  --frozen-z: 30;
-}
-
-/* Layout Base */
-body {
-  background: linear-gradient(180deg,#f6fbff,#f2f6fb 60%);
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-  padding: 18px;
-}
-
-/* Header Zone */
-.top-header {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding-bottom:12px;
-}
-
-.logo-box {
-  display:flex;
-  align-items:center;
-  gap:14px;
-  padding:10px 16px;
-  border-radius:10px;
-  border-left:6px solid var(--smc-blue);
-  background:linear-gradient(90deg,#e7f0ff,#ffffff);
-  box-shadow:0 6px 18px rgba(0,0,0,0.06);
-}
-.logo-box img {
-  height:48px;
-}
-.logo-box h1 {
-  font-size:1.25rem;
-  font-weight:800;
-  margin:0;
-  color:#073763;
-}
-
-.controls {
-  display:flex;
-  gap:8px;
-}
-
-/* Filter panel */
-.filter-panel {
-  display:none;
-  background:#ffffffd9;
-  backdrop-filter:blur(6px);
-  border-radius:10px;
-  padding:14px;
-  margin-bottom:14px;
-  box-shadow:0 4px 18px rgba(0,0,0,0.08);
-}
-
-.filter-row {
-  display:flex;
-  flex-wrap:wrap;
-  gap:12px;
-}
-.filter-row .form-label {
-  font-weight:600;
-  font-size:0.87rem;
-  color:var(--muted);
-}
-
-/* Table Container */
-.table-wrap {
-  position:relative;
-  width:100%;
-  height:70vh;
-  border-radius:12px;
-  background:white;
-  border:2px solid var(--border);
-  overflow:hidden;
-  box-shadow:0 8px 24px rgba(0,0,0,0.05);
-}
-
-/* Virtualized Table Layers */
-.main-layer {
-  position:absolute;
-  inset:0;
-  overflow:auto;
-  will-change:transform;
-}
-
-.frozen-layer {
-  position:absolute;
-  inset:0 0 0 0;
-  overflow:hidden;
-  pointer-events:none;
-  z-index:var(--frozen-z);
-}
-
-.frozen-scroll {
-  overflow:hidden;
-}
-
-/* Headings */
-table {
-  border-collapse:separate;
-  border-spacing:0;
-  width:max-content;
-}
-
-thead th {
-  background:linear-gradient(90deg,#f0f8ff,#ffffff);
-  font-weight:800;
-  text-align:center;
-  border-right:2px solid var(--border);
-  border-bottom:2px solid var(--border);
-  padding:10px;
-  height: var(--row-height);
-  line-height: var(--row-height);
-  white-space:nowrap;
-  position:sticky;
-  top:0;
-  z-index:2;
-}
-
-/* Rows */
-.row-style {
-  height: var(--row-height);
-  line-height: var(--row-height);
-  border-bottom:2px solid var(--border);
-  display:flex;
-}
-
-/* Cells */
-.cell {
-  display:flex;
-  align-items:center;
-  padding:0 10px;
-  white-space:nowrap;
-  border-right:2px solid var(--border);
-}
-
-/* Frozen columns styling */
-.frozen-cell {
-  background:white;
-  position:sticky;
-  z-index:var(--frozen-z);
-}
-
-/* 1st frozen column */
-.frozen-1 {
-  left:0;
-  box-shadow:3px 0 6px rgba(0,0,0,0.08);
-}
-
-/* 2nd frozen column */
-.frozen-2 {
-  left:150px; /* will be overwritten dynamically */
-  box-shadow:3px 0 6px rgba(0,0,0,0.08);
-}
-
-/* Resize Handle */
-.resize-handle {
-  position:absolute;
-  right:0;
-  top:0;
-  width:8px;
-  height:100%;
-  cursor:col-resize;
-  background:transparent;
-  z-index:100;
-}
-
-.resize-handle:hover {
-  background:#d0e4ff;
-}
-
-/* Totals Rows */
-.subtotal-row {
-  background:#e6f0ff !important;
-  font-weight:700;
-}
-
-.depot-total {
-  background:#e0ecff !important;
-  font-weight:800;
-}
-
-.state-total {
-  background:#d4e7ff !important;
-  font-weight:900;
-}
-
-.overall-total {
-  background:linear-gradient(90deg,#cfe4ff,#bfe0ff) !important;
-  font-weight:1000;
-  color:#05284a;
-}
-
-/* No-data row */
-.no-data {
-  padding:18px;
-  text-align:center;
-  font-size:1rem;
-  color:#888;
-}
-
-/* Mobile */
-@media(max-width:800px) {
-  :root { --row-height:40px; }
-  .logo-box h1 { font-size:1rem; }
-  .table-wrap { height:65vh; }
-}
-</style>
+  <style>
+    /* Small page-specific tweaks */
+    .page-pad { padding: 12px; }
+    .controls .btn { margin-left: 6px; }
+    .f1-table-head { padding: 8px 12px; display:flex; align-items:center; gap:0; overflow:auto; }
+    .f1-thead { display:flex; gap:0; }
+    /* map known column keys to sensible default widths (also used by F1.init) */
+  </style>
 </head>
 <body>
+  <div class="page-pad">
+    <div class="f1-header">
+      <div class="f1-logo">
+        <img src="/static/onlylogo.png" alt="SMC" onerror="this.style.display='none'">
+        <h1>SMC - Stock Position</h1>
+      </div>
 
-<div class="container-fluid">
+      <div class="f1-controls">
+        <a href="{{ url_for('sales_levels') }}" class="btn btn-outline-secondary btn-sm">← Back</a>
+        <a href="{{ url_for('dashboard_daily_sale') }}" class="btn btn-outline-primary btn-sm">Daily Sale</a>
 
-  <!-- HEADER -->
-  <div class="top-header">
-    <div class="logo-box">
-      <img src="/static/onlylogo.png" alt="SMC Logo" />
-      <h1>SMC – Stock Position</h1>
-    </div>
+        <button id="toggleFiltersBtn" class="btn btn-light btn-sm">Filters</button>
+        <button id="yesterdayBtn" class="btn btn-info btn-sm text-white">Yesterday</button>
 
-    <div class="controls">
-      <a href="{{ url_for('sales_levels') }}" class="btn btn-outline-secondary btn-sm">← Back</a>
-      <a href="{{ url_for('dashboard_daily_sale') }}" class="btn btn-outline-primary btn-sm">Daily Sale</a>
-
-      <button id="toggleFiltersBtn" class="btn btn-light">Filters</button>
-      <button id="yesterdayBtn" class="btn btn-info text-white">Yesterday</button>
-
-      <!-- Column Toggle Dropdown -->
-      <div class="dropdown">
-        <button class="btn btn-outline-dark btn-sm dropdown-toggle" data-bs-toggle="dropdown">Columns</button>
-        <div class="dropdown-menu p-2" style="max-height:260px; overflow:auto;">
-          
-          <div class="form-check">
-            <input class="form-check-input col-toggle" type="checkbox" data-col="state" checked>
-            <label class="form-check-label">State</label>
+        <div class="dropdown">
+          <button class="btn btn-outline-dark btn-sm dropdown-toggle" data-bs-toggle="dropdown">Columns</button>
+          <div class="dropdown-menu dropdown-menu-end col-toggle p-3" id="stockColToggle">
+            <!-- Column toggles filled by HTML below; keep in sync with F1.init columns -->
+            <div class="form-check mb-1"><input class="form-check-input col-toggle-checkbox" data-col="state" type="checkbox" checked> <label class="form-check-label">State</label></div>
+            <div class="form-check mb-1"><input class="form-check-input col-toggle-checkbox" data-col="depot" type="checkbox" checked> <label class="form-check-label">Depot</label></div>
+            <div class="form-check mb-1"><input class="form-check-input col-toggle-checkbox" data-col="date" type="checkbox" checked> <label class="form-check-label">Date</label></div>
+            <div class="form-check mb-1"><input class="form-check-input col-toggle-checkbox" data-col="sku_name" type="checkbox" checked> <label class="form-check-label">SKU Name</label></div>
+            <div class="form-check mb-1"><input class="form-check-input col-toggle-checkbox" data-col="opening" type="checkbox" checked> <label class="form-check-label">Opening</label></div>
+            <div class="form-check mb-1"><input class="form-check-input col-toggle-checkbox" data-col="qty_recd" type="checkbox" checked> <label class="form-check-label">Received</label></div>
+            <div class="form-check mb-1"><input class="form-check-input col-toggle-checkbox" data-col="qty_sale" type="checkbox" checked> <label class="form-check-label">Sales</label></div>
+            <div class="form-check mb-1"><input class="form-check-input col-toggle-checkbox" data-col="closing" type="checkbox" checked> <label class="form-check-label">Closing</label></div>
           </div>
-          
-          <div class="form-check">
-            <input class="form-check-input col-toggle" type="checkbox" data-col="depot" checked>
-            <label class="form-check-label">Depot</label>
-          </div>
-
-          <div class="form-check">
-            <input id="dateColCheckbox" class="form-check-input col-toggle" type="checkbox" data-col="date" checked>
-            <label class="form-check-label">Date</label>
-          </div>
-
-          <div class="form-check">
-            <input class="form-check-input col-toggle" type="checkbox" data-col="sku_name" checked>
-            <label class="form-check-label">SKU Name</label>
-          </div>
-
-          <div class="form-check">
-            <input class="form-check-input col-toggle" type="checkbox" data-col="opening" checked>
-            <label class="form-check-label">Opening</label>
-          </div>
-
-          <div class="form-check">
-            <input class="form-check-input col-toggle" type="checkbox" data-col="qty_recd" checked>
-            <label class="form-check-label">Received</label>
-          </div>
-
-          <div class="form-check">
-            <input class="form-check-input col-toggle" type="checkbox" data-col="qty_sale" checked>
-            <label class="form-check-label">Sales</label>
-          </div>
-
-          <div class="form-check">
-            <input class="form-check-input col-toggle" type="checkbox" data-col="closing" checked>
-            <label class="form-check-label">Closing</label>
-          </div>
-
         </div>
-      </div>
 
-      <button id="exportBtn" class="btn btn-success">Export Excel</button>
+        <button id="exportStockBtn" class="btn btn-success btn-sm">Export Excel</button>
+      </div>
+    </div>
+
+    <div id="stockFilterPanel" class="f1-filter" style="display:none;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+        <div><label class="form-label small-muted">Month</label><select id="stockFilterMonth" class="form-select"><option value="">All</option></select></div>
+        <div><label class="form-label small-muted">State</label><select id="stockFilterState" class="form-select"><option value="">All</option></select></div>
+        <div><label class="form-label small-muted">Depot</label><select id="stockFilterDepot" class="form-select"><option value="">All</option></select></div>
+        <div style="flex:1"><label class="form-label small-muted">SKU (search)</label><input id="stockFilterSKU" list="stockSkuList" class="form-control" placeholder="Type or pick SKU"><datalist id="stockSkuList"></datalist></div>
+        <div><label class="form-label small-muted">From</label><input id="stockFilterFrom" type="date" class="form-control"></div>
+        <div><label class="form-label small-muted">To</label><input id="stockFilterTo" type="date" class="form-control"></div>
+        <div><button id="stockClearFilters" class="btn btn-outline-secondary">Reset</button></div>
+      </div>
+    </div>
+
+    <div id="stockContainer" class="f1-table-wrap">
+      <div class="f1-table-head">
+        <div class="f1-thead"></div>
+      </div>
+      <div class="f1-body"></div>
     </div>
   </div>
 
-  <!-- FILTER PANEL -->
-  <div id="filterPanel" class="filter-panel">
-    <div class="filter-row">
+  <!-- Bootstrap -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-      <div style="flex:1; min-width:180px;">
-        <label class="form-label">Month</label>
-        <select id="filterMonth" class="form-select">
-          <option value="">All</option>
-        </select>
-      </div>
+  <script>
+  // Stock page wiring using F1 core
+  document.addEventListener('DOMContentLoaded', ()=>{
 
-      <div style="flex:1; min-width:160px;">
-        <label class="form-label">State</label>
-        <select id="filterState" class="form-select">
-          <option value="">All</option>
-        </select>
-      </div>
+    const stockCols = [
+      { key:'state', label:'State', width:130, frozen:true },
+      { key:'depot', label:'Depot', width:150, frozen:true },
+      { key:'date', label:'Date', width:110 },
+      { key:'sku_name', label:'SKU Name', width:320 },
+      { key:'opening', label:'Opening', width:120 },
+      { key:'qty_recd', label:'Received', width:120 },
+      { key:'qty_sale', label:'Sales', width:120 },
+      { key:'closing', label:'Closing', width:120 }
+    ];
 
-      <div style="flex:1; min-width:160px;">
-        <label class="form-label">Depot</label>
-        <select id="filterDepot" class="form-select">
-          <option value="">All</option>
-        </select>
-      </div>
-
-      <div style="flex:2; min-width:250px;">
-        <label class="form-label">SKU (search)</label>
-        <input id="filterSKU" list="skuList" class="form-control" placeholder="Type or pick SKU">
-        <datalist id="skuList"></datalist>
-      </div>
-
-      <div style="min-width:140px;">
-        <label class="form-label">From</label>
-        <input id="filterFrom" type="date" class="form-control">
-      </div>
-
-      <div style="min-width:140px;">
-        <label class="form-label">To</label>
-        <input id="filterTo" type="date" class="form-control">
-      </div>
-
-      <div style="min-width:120px; display:flex; align-items:end;">
-        <button id="clearFilters" class="btn btn-outline-secondary w-100">Reset</button>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- TABLE WRAPPER -->
-  <div class="table-wrap">
-
-    <!-- MAIN SCROLLABLE LAYER -->
-    <div id="mainLayer" class="main-layer">
-      <div id="mainContent"></div>
-    </div>
-
-    <!-- FROZEN FIRST 2 COLUMNS -->
-    <div id="frozenLayer" class="frozen-layer">
-      <div id="frozenContent"></div>
-    </div>
-
-  </div>
-</div>
-
-<!-- Worker (created dynamically later) -->
-<script id="workerBlob" type="javascript/worker"></script>
-
-<script>
-/* ---------------------------
-   Stock Dashboard — Virtual Engine (Part S3)
-   ---------------------------*/
-
-// Utilities
-const pad2 = n => String(n).padStart(2, '0');
-const fmt = v => (v == null || isNaN(+v)) ? '' : Number(v).toLocaleString();
-function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function parseDMYtoUTC(s){
-  if(!s) return null;
-  const m = String(s).trim().match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
-  if(m) return new Date(Date.UTC(+m[3], +m[2]-1, +m[1]));
-  const iso = new Date(s);
-  return isNaN(iso) ? null : new Date(Date.UTC(iso.getUTCFullYear(), iso.getUTCMonth(), iso.getUTCDate()));
-}
-function formatDateDDMMYYYYUTC(d){ if(!d) return ''; return `${pad2(d.getUTCDate())}-${pad2(d.getUTCMonth()+1)}-${d.getUTCFullYear()}`; }
-
-// DOM refs
-const mainLayer = document.getElementById('mainLayer');
-const mainContent = document.getElementById('mainContent');
-const frozenLayer = document.getElementById('frozenLayer');
-const frozenContent = document.getElementById('frozenContent');
-
-const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
-const filterPanel = document.getElementById('filterPanel');
-const yesterdayBtn = document.getElementById('yesterdayBtn');
-const filterMonth = document.getElementById('filterMonth');
-const filterState = document.getElementById('filterState');
-const filterDepot = document.getElementById('filterDepot');
-const filterSKU = document.getElementById('filterSKU');
-const filterFrom = document.getElementById('filterFrom');
-const filterTo = document.getElementById('filterTo');
-const clearFilters = document.getElementById('clearFilters');
-const exportBtn = document.getElementById('exportBtn');
-const colToggleInputs = Array.from(document.querySelectorAll('.col-toggle'));
-const dateColCheckbox = document.getElementById('dateColCheckbox');
-
-// Data state
-let RAW = [], MERGED = [], FILTERED = [];
-let items = []; // items to render (rows, subtotals, totals)
-const ROW_HEIGHT = 46;
-const BUFFER = 8;
-const NUMERIC_COLS = ['opening','qty_recd','qty_sale','closing'];
-
-// Default widths (Option B for stock)
-const DEFAULT_WIDTHS = { state:130, depot:150, date:110, sku_name:320, opening:120, qty_recd:120, qty_sale:120, closing:120 };
-const STORAGE_KEY = 'smc_col_widths_stock';
-let colWidths = Object.assign({}, DEFAULT_WIDTHS, JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'));
-
-// Pools for virtual rows
-let poolMain = [];
-let poolFrozen = [];
-let totalItems = 0;
-let lastFirstIndex = 0;
-
-// Helper: create element with class
-function el(tag, cls){ const e = document.createElement(tag); if(cls) e.className = cls; return e; }
-
-// Build headers (frozen + main)
-function buildHeaders(){
-  // Clear header containers
-  frozenContent.innerHTML = '';
-  mainContent.innerHTML = '';
-
-  // Frozen header wrapper
-  const frozenHeader = el('div','row-style');
-  frozenHeader.style.position = 'sticky';
-  frozenHeader.style.top = '0';
-  frozenHeader.style.zIndex = 20;
-  frozenHeader.style.background = 'linear-gradient(90deg,#f0f8ff,#fff)';
-  // state cell
-  const stateTh = el('div','cell frozen-cell');
-  stateTh.dataset.col = 'state';
-  stateTh.style.width = (colWidths.state || DEFAULT_WIDTHS.state) + 'px';
-  stateTh.textContent = 'State';
-  // resize handle
-  const sHandle = el('div','resize-handle'); sHandle.dataset.col = 'state';
-  stateTh.style.position='relative'; stateTh.appendChild(sHandle);
-
-  const depotTh = el('div','cell frozen-cell');
-  depotTh.dataset.col = 'depot';
-  depotTh.style.width = (colWidths.depot || DEFAULT_WIDTHS.depot) + 'px';
-  depotTh.textContent = 'Depot';
-  const dHandle = el('div','resize-handle'); dHandle.dataset.col = 'depot';
-  depotTh.style.position='relative'; depotTh.appendChild(dHandle);
-
-  frozenHeader.appendChild(stateTh);
-  frozenHeader.appendChild(depotTh);
-  frozenContent.appendChild(frozenHeader);
-
-  // Main header wrapper
-  const mainHeader = el('div','row-style');
-  mainHeader.style.position='sticky';
-  mainHeader.style.top='0';
-  mainHeader.style.zIndex=10;
-  mainHeader.style.background='linear-gradient(90deg,#f0f8ff,#fff)';
-
-  const headCols = ['date','sku_name','opening','qty_recd','qty_sale','closing'];
-  headCols.forEach(col => {
-    const th = el('div','cell');
-    th.dataset.col = col;
-    th.style.width = (colWidths[col] || DEFAULT_WIDTHS[col]) + 'px';
-    th.style.minWidth = th.style.width;
-    th.style.textAlign = NUMERIC_COLS.includes(col) ? 'right' : (col==='sku_name' ? 'left' : 'center');
-    // label
-    let label = col;
-    if(col==='sku_name') label = 'SKU Name';
-    if(col==='qty_recd') label = 'Received';
-    if(col==='qty_sale') label = 'Sales';
-    if(col==='opening') label = 'Opening';
-    if(col==='closing') label = 'Closing';
-    if(col==='date') label = 'Date';
-    th.textContent = label;
-    const h = el('div','resize-handle'); h.dataset.col = col;
-    th.style.position='relative'; th.appendChild(h);
-    mainHeader.appendChild(th);
-  });
-
-  mainContent.appendChild(mainHeader);
-}
-
-// Resize engine
-let resizing = null;
-function initResize(){
-  document.addEventListener('mousedown', (ev) => {
-    const handle = ev.target.closest('.resize-handle');
-    if(!handle) return;
-    const col = handle.dataset.col;
-    resizing = { col, startX: ev.clientX, startW: colWidths[col] || DEFAULT_WIDTHS[col] };
-    document.body.style.cursor = 'col-resize';
-    ev.preventDefault();
-  });
-  window.addEventListener('mousemove', (ev) => {
-    if(!resizing) return;
-    const delta = ev.clientX - resizing.startX;
-    const newW = Math.max(60, Math.round(resizing.startW + delta));
-    colWidths[resizing.col] = newW;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(colWidths));
-    // update header widths
-    document.querySelectorAll('[data-col]').forEach(th => {
-      if(th.dataset && th.dataset.col && colWidths[th.dataset.col]) {
-        th.style.width = (colWidths[th.dataset.col]) + 'px';
-        th.style.minWidth = (colWidths[th.dataset.col]) + 'px';
+    F1.init({
+      container: '#stockContainer',
+      apiUrl: '/api/get_stock_data',
+      colWidthsKey: 'smc_col_widths_stock',
+      colWidths: { state:130, depot:150, date:110, sku_name:320, opening:120, qty_recd:120, qty_sale:120, closing:120 },
+      columns: stockCols,
+      onReady: ({ merged })=>{
+        // populate filters from merged rows
+        const months = [...new Set(merged.map(r=>r._month).filter(Boolean))].sort();
+        const monthSel = document.getElementById('stockFilterMonth');
+        monthSel.innerHTML = '<option value="">All</option>' + months.map(m=>{ const [y,mm]=m.split('-'); const d=new Date(y,mm-1,1); return `<option value="${m}">${d.toLocaleString(undefined,{month:'long'})} ${y}</option>`; }).join('');
+        const states = [...new Set(merged.map(r=>r.state).filter(Boolean))].sort();
+        document.getElementById('stockFilterState').innerHTML = '<option value="">All</option>' + states.map(s=>`<option>${s}</option>`).join('');
+        const depots = [...new Set(merged.map(r=>r.depot).filter(Boolean))].sort();
+        document.getElementById('stockFilterDepot').innerHTML = '<option value="">All</option>' + depots.map(d=>`<option>${d}</option>`).join('');
+        const skus = [...new Set(merged.map(r=>r.sku_name).filter(Boolean))].sort();
+        document.getElementById('stockSkuList').innerHTML = skus.map(s=>`<option value="${s}">`).join('');
       }
     });
-    // update frozen width
-    const frozenWidth = (colWidths.state || DEFAULT_WIDTHS.state) + (colWidths.depot || DEFAULT_WIDTHS.depot);
-    frozenContent.style.width = frozenWidth + 'px';
-    // repaint visible rows
-    paintRange(Math.max(0, lastFirstIndex));
-  });
-  window.addEventListener('mouseup', ()=>{ if(resizing){ resizing = null; document.body.style.cursor=''; } });
-}
 
-// Column visibility
-function getVisibleCols(){
-  // returns array in order: frozen [state,depot] then main columns
-  const frozen = [];
-  if(document.querySelector('.col-toggle[data-col="state"]').checked) frozen.push('state');
-  if(document.querySelector('.col-toggle[data-col="depot"]').checked) frozen.push('depot');
-  const mainOrder = ['date','sku_name','opening','qty_recd','qty_sale','closing'];
-  const mains = mainOrder.filter(c => {
-    const el = document.querySelector(`.col-toggle[data-col="${c}"]`);
-    return !el || el.checked;
-  });
-  return frozen.concat(mains);
-}
-
-function reapplyVisibility(){
-  // adjust header cell visibility (frozen + main)
-  // frozenContent header
-  const frozenHeaderCells = frozenContent.querySelectorAll('[data-col]');
-  frozenHeaderCells.forEach(th => {
-    const col = th.dataset.col;
-    const should = document.querySelector(`.col-toggle[data-col="${col}"]`);
-    if(!should) th.style.display = '';
-    else th.style.display = should.checked ? '' : 'none';
-  });
-  // main header
-  const mainHeaderCells = mainContent.querySelectorAll('.row-style > [data-col]');
-  mainHeaderCells.forEach(th => {
-    const col = th.dataset.col;
-    const chk = document.querySelector(`.col-toggle[data-col="${col}"]`);
-    th.style.display = (chk && !chk.checked) ? 'none' : '';
-  });
-  // adjust frozen width
-  const frozenWidth = ((document.querySelector('.col-toggle[data-col="state"]').checked ? (colWidths.state||DEFAULT_WIDTHS.state) : 0) +
-                       (document.querySelector('.col-toggle[data-col="depot"]').checked ? (colWidths.depot||DEFAULT_WIDTHS.depot) : 0));
-  frozenContent.style.width = frozenWidth + 'px';
-}
-
-// Virtual rendering core
-function virtualRender(renderItems){
-  items = renderItems;
-  totalItems = items.length;
-  lastFirstIndex = 0;
-
-  // clear containers (preserve header - which is first child)
-  const mainHeader = mainContent.querySelector('.row-style');
-  mainContent.innerHTML = '';
-  if(mainHeader) mainContent.appendChild(mainHeader);
-  const frozenHeader = frozenContent.querySelector('.row-style');
-  frozenContent.innerHTML = '';
-  if(frozenHeader) frozenContent.appendChild(frozenHeader);
-
-  // spacer
-  const spacer = el('div'); spacer.style.height = (totalItems * ROW_HEIGHT) + 'px'; spacer.style.position='relative';
-  mainContent.appendChild(spacer);
-
-  // clear any existing pools
-  poolMain.forEach(n=>n.remove());
-  poolFrozen.forEach(n=>n.remove());
-  poolMain = []; poolFrozen = [];
-
-  const visibleRows = Math.max(3, Math.ceil((mainLayer.clientHeight) / ROW_HEIGHT));
-  const poolSize = Math.min(totalItems, visibleRows + BUFFER*2);
-
-  for(let i=0;i<poolSize;i++){
-    const mainRow = el('div','row-style'); mainRow.style.position='absolute'; mainRow.style.left='0'; mainRow.style.right='0'; mainRow.style.height = ROW_HEIGHT + 'px';
-    const frozenRow = el('div','row-style'); frozenRow.style.position='absolute'; frozenRow.style.left='0'; frozenRow.style.height = ROW_HEIGHT + 'px';
-
-    // append to containers
-    mainContent.appendChild(mainRow);
-    frozenContent.appendChild(frozenRow);
-    poolMain.push(mainRow);
-    poolFrozen.push(frozenRow);
-  }
-
-  // initial paint and scroll binding
-  mainLayer.onscroll = () => {
-    const first = Math.max(0, Math.floor(mainLayer.scrollTop / ROW_HEIGHT) - BUFFER);
-    paintRange(first);
-  };
-  // paint first window
-  paintRange(0);
-}
-
-// paint a window starting at firstIndex
-function paintRange(firstIndex){
-  lastFirstIndex = firstIndex;
-  const poolLen = poolMain.length;
-  for(let i=0;i<poolLen;i++){
-    const idx = firstIndex + i;
-    const mainRow = poolMain[i];
-    const frozenRow = poolFrozen[i];
-    if(idx >= totalItems){
-      mainRow.style.display = 'none';
-      frozenRow.style.display = 'none';
-      continue;
-    }
-    const it = items[idx];
-    mainRow.style.display = '';
-    frozenRow.style.display = '';
-    mainRow.style.top = (idx * ROW_HEIGHT) + 'px';
-    frozenRow.style.top = (idx * ROW_HEIGHT) + 'px';
-
-    // render frozen cells for this item (state,depot possibly subtotal/total labels)
-    frozenRow.innerHTML = '';
-    const frozenCols = ['state','depot'].filter(c=> document.querySelector(`.col-toggle[data-col="${c}"]`).checked );
-    frozenCols.forEach(col=>{
-      const cell = el('div','cell frozen-cell');
-      cell.dataset.col = col;
-      cell.style.width = (colWidths[col] || DEFAULT_WIDTHS[col]) + 'px';
-      cell.style.minWidth = cell.style.width;
-      cell.style.boxSizing = 'border-box';
-      cell.style.overflow='hidden'; cell.style.textOverflow='ellipsis';
-      if(it.type === 'row'){
-        cell.textContent = it.data[col] || '';
-      } else if(it.type === 'subtotal'){
-        // subtotal label only on first frozen column
-        if(col === frozenCols[0]) {
-          const label = it.data.labelDate instanceof Date ? formatDateDDMMYYYYUTC(it.data.labelDate) : (it.data.labelDate || '');
-          cell.textContent = `subtotal of Date (${label})`;
-          cell.classList.add('subtotal-row');
-        } else {
-          cell.textContent = '';
-        }
-      } else if(it.type === 'depotTotal'){
-        if(col === frozenCols[0]) { cell.textContent = `GRAND TOTAL OF ${it.depot || ''}`; cell.classList.add('depot-total'); } else cell.textContent = '';
-      } else if(it.type === 'stateTotal'){
-        if(col === frozenCols[0]) { cell.textContent = `GRAND TOTAL OF ${it.state || ''}`; cell.classList.add('state-total'); } else cell.textContent = '';
-      } else if(it.type === 'overall'){
-        if(col === frozenCols[0]) { cell.textContent = `OVERALL GRAND TOTAL`; cell.classList.add('overall-total'); } else cell.textContent = '';
-      }
-      frozenRow.appendChild(cell);
+    // UI events: filters + toggles
+    document.getElementById('toggleFiltersBtn').addEventListener('click', ()=> {
+      const el = document.getElementById('stockFilterPanel') || document.getElementById('stockFilterPanel');
+      const panel = document.getElementById('stockFilterPanel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
     });
 
-    // render main cells
-    mainRow.innerHTML = '';
-    const mainCols = ['date','sku_name','opening','qty_recd','qty_sale','closing'].filter(c => {
-      const chk = document.querySelector(`.col-toggle[data-col="${c}"]`);
-      return !chk || chk.checked;
-    });
-    mainCols.forEach(col=>{
-      const cell = el('div','cell');
-      cell.dataset.col = col;
-      cell.style.width = (colWidths[col] || DEFAULT_WIDTHS[col]) + 'px';
-      cell.style.minWidth = cell.style.width;
-      cell.style.boxSizing = 'border-box';
-      cell.style.overflow='hidden'; cell.style.textOverflow='ellipsis';
-      if(it.type === 'row'){
-        const d = it.data;
-        if(col === 'date') cell.textContent = d._parsed_date ? formatDateDDMMYYYYUTC(d._parsed_date) : (d.date || '');
-        else if(col === 'sku_name') { cell.textContent = d.sku_name || ''; cell.style.textAlign='left'; }
-        else cell.textContent = fmt(d[col]);
-        if(NUMERIC_COLS.includes(col)) cell.style.textAlign = 'right';
-        else cell.style.textAlign = 'center';
-      } else if(it.type === 'subtotal'){
-        if(col === 'date') { const label = it.data.labelDate instanceof Date ? formatDateDDMMYYYYUTC(it.data.labelDate) : (it.data.labelDate || ''); cell.textContent = `subtotal of Date (${label})`; cell.classList.add('subtotal-row'); cell.style.textAlign='center'; }
-        else if(col === 'opening') cell.textContent = fmt(it.data.sub.open);
-        else if(col === 'qty_recd') cell.textContent = fmt(it.data.sub.rec);
-        else if(col === 'qty_sale') cell.textContent = fmt(it.data.sub.sale);
-        else if(col === 'closing') cell.textContent = fmt(it.data.sub.close);
-        else cell.textContent = '';
-      } else if(it.type === 'depotTotal' || it.type === 'stateTotal' || it.type === 'overall'){
-        if(col === 'opening') cell.textContent = fmt(it.data.open);
-        else if(col === 'qty_recd') cell.textContent = fmt(it.data.rec);
-        else if(col === 'qty_sale') cell.textContent = fmt(it.data.sale);
-        else if(col === 'closing') cell.textContent = fmt(it.data.close);
-        else cell.textContent = '';
-        // style
-        if(it.type === 'depotTotal') cell.classList.add('depot-total');
-        if(it.type === 'stateTotal') cell.classList.add('state-total');
-        if(it.type === 'overall') cell.classList.add('overall-total');
-        cell.style.textAlign = 'right';
-      }
-      mainRow.appendChild(cell);
-    });
-  }
-}
-
-// Build item list for normal mode (date-wise)
-function buildItemsNormal(){
-  const rows = FILTERED.slice().sort((a,b)=>{
-    if(a.state !== b.state) return a.state.localeCompare(b.state);
-    if(a.depot !== b.depot) return a.depot.localeCompare(b.depot);
-    const da = a._parsed_date ? a._parsed_date.getTime() : 0;
-    const db = b._parsed_date ? b._parsed_date.getTime() : 0;
-    if(da !== db) return da - db;
-    return a.sku_name.localeCompare(b.sku_name);
-  });
-
-  const out = [];
-  let i=0;
-  while(i<rows.length){
-    const ST = rows[i].state, DP = rows[i].depot;
-    // collect block for depot
-    const block = [];
-    let j=i;
-    while(j<rows.length && rows[j].state===ST && rows[j].depot===DP){ block.push(rows[j]); j++; }
-
-    // within block, group by date
-    let k=0;
-    while(k<block.length){
-      const dateVal = block[k].date;
-      const group = [];
-      let m=k;
-      while(m<block.length && block[m].date===dateVal){ group.push(block[m]); m++; }
-      group.forEach(r => out.push({ type:'row', data:r }));
-      // subtotal for this date
-      const sub = group.reduce((acc,r)=>{ acc.open += r.opening; acc.rec += r.qty_recd; acc.sale += r.qty_sale; acc.close += r.closing; return acc; }, { open:0, rec:0, sale:0, close:0 });
-      out.push({ type:'subtotal', data:{ labelDate: group[0]._parsed_date || group[0].date, sub } });
-      k = m;
-    }
-
-    // depot total
-    const depotAcc = block.reduce((acc,r)=>{ acc.open += r.opening; acc.rec += r.qty_recd; acc.sale += r.qty_sale; acc.close += r.closing; return acc; }, { open:0, rec:0, sale:0, close:0 });
-    out.push({ type:'depotTotal', data: depotAcc, depot: DP });
-
-    // state total if end or next state different
-    if(j>=rows.length || rows[j].state !== ST){
-      const stateAcc = rows.filter(x=>x.state===ST).reduce((acc,r)=>{ acc.open += r.opening; acc.rec += r.qty_recd; acc.sale += r.qty_sale; acc.close += r.closing; return acc; }, { open:0, rec:0, sale:0, close:0 });
-      out.push({ type:'stateTotal', data: stateAcc, state: ST });
-    }
-    i = j;
-  }
-
-  // overall total
-  const overall = out.reduce((acc,it)=>{
-    if(it.type === 'row') { acc.open += it.data.opening; acc.rec += it.data.qty_recd; acc.sale += it.data.qty_sale; acc.close += it.data.closing; }
-    else if(it.type === 'subtotal') { acc.open += it.data.sub.open; acc.rec += it.data.sub.rec; acc.sale += it.data.sub.sale; acc.close += it.data.sub.close; }
-    else if(it.type === 'depotTotal' || it.type === 'stateTotal') { acc.open += it.data.open; acc.rec += it.data.rec; acc.sale += it.data.sale; acc.close += it.data.close; }
-    return acc;
-  }, { open:0, rec:0, sale:0, close:0 });
-
-  out.push({ type:'overall', data: overall });
-  return out;
-}
-
-// Month summary mode
-function buildItemsMonthSummary(){
-  // group by state+depot+sku_name and compute opening as earliest opening in month
-  const map = new Map();
-  FILTERED.forEach(r=>{
-    const key = `${r.state}||${r.depot}||${r.sku_name}`;
-    if(!map.has(key)) map.set(key, { state:r.state, depot:r.depot, sku_name:r.sku_name, openings:[{d:r._parsed_date,o:r.opening}], rec:r.qty_recd, sale:r.qty_sale });
-    else {
-      const g = map.get(key);
-      if(r._parsed_date) g.openings.push({ d:r._parsed_date, o:r.opening });
-      g.rec += r.qty_recd; g.sale += r.qty_sale;
-    }
-  });
-
-  const rows = Array.from(map.values()).map(g=>{
-    const opens = g.openings.filter(x=>x.d).sort((a,b)=>a.d - b.d);
-    const opening = opens.length ? opens[0].o : 0;
-    const rec = g.rec || 0, sale = g.sale || 0;
-    const closing = opening + rec - sale;
-    return { state:g.state, depot:g.depot, sku_name:g.sku_name, opening, qty_recd:rec, qty_sale:sale, closing };
-  });
-
-  rows.sort((a,b)=>{
-    if(a.state !== b.state) return a.state.localeCompare(b.state);
-    if(a.depot !== b.depot) return a.depot.localeCompare(b.depot);
-    return a.sku_name.localeCompare(b.sku_name);
-  });
-
-  // build items similar to month mode (no subtotals by date)
-  const out = [];
-  let i=0;
-  while(i<rows.length){
-    const ST = rows[i].state, DP = rows[i].depot;
-    const block = [];
-    let j=i;
-    while(j<rows.length && rows[j].state===ST && rows[j].depot===DP){ block.push(rows[j]); j++; }
-    block.forEach(r=> out.push({ type:'row', data:r }));
-    const depotAcc = block.reduce((acc,t)=>{ acc.open += t.opening; acc.rec += t.qty_recd; acc.sale += t.qty_sale; acc.close += t.closing; return acc; }, { open:0, rec:0, sale:0, close:0 });
-    out.push({ type:'depotTotal', data: depotAcc, depot: DP });
-    if(j>=rows.length || rows[j].state !== ST){
-      const stateAcc = rows.filter(x=>x.state===ST).reduce((acc,t)=>{ acc.open += t.opening; acc.rec += t.qty_recd; acc.sale += t.qty_sale; acc.close += t.closing; return acc; }, { open:0, rec:0, sale:0, close:0 });
-      out.push({ type:'stateTotal', data: stateAcc, state: ST });
-    }
-    i = j;
-  }
-
-  const overall = out.reduce((acc,it)=>{ if(it.type==='row'){ acc.open += it.data.opening; acc.rec += it.data.qty_recd; acc.sale += it.data.qty_sale; acc.close += it.data.closing; } else if(it.type==='depotTotal' || it.type==='stateTotal'){ acc.open += it.data.open; acc.rec += it.data.rec; acc.sale += it.data.sale; acc.close += it.data.close; } return acc; }, { open:0, rec:0, sale:0, close:0 });
-  out.push({ type:'overall', data: overall });
-  return out;
-}
-
-// Decide render mode and virtualize
-function renderSmart(){
-  const monthSelected = !!filterMonth.value;
-  const dateVisible = dateColCheckbox.checked;
-  const summaryMode = monthSelected || !dateVisible;
-  let newItems = summaryMode ? buildItemsMonthSummary() : buildItemsNormal();
-  virtualRender(newItems);
-  reapplyVisibility();
-  // if no data, show a no-data placeholder
-  if(newItems.length === 0){
-    mainContent.innerHTML = '';
-    frozenContent.innerHTML = '';
-    const noD = el('div','no-data'); noD.textContent = 'No data for selected filters.';
-    mainContent.appendChild(noD);
-  }
-}
-
-// Filters wiring
-function populateFilters(){
-  const months = Array.from(new Set(MERGED.map(r=>r._month_key).filter(Boolean))).sort();
-  filterMonth.innerHTML = '<option value="">All</option>' + months.map(m=>{ const [y,mm]=m.split('-'); const dt=new Date(Date.UTC(y,mm-1,1)); return `<option value="${m}">${dt.toLocaleString(undefined,{month:'long'})} ${y}</option>`; }).join('');
-  const states = Array.from(new Set(MERGED.map(r=>r.state).filter(Boolean))).sort();
-  filterState.innerHTML = '<option value="">All</option>' + states.map(s=>`<option>${s}</option>`).join('');
-  const depots = Array.from(new Set(MERGED.map(r=>r.depot).filter(Boolean))).sort();
-  filterDepot.innerHTML = '<option value="">All</option>' + depots.map(d=>`<option>${d}</option>`).join('');
-  const skus = Array.from(new Set(MERGED.map(r=>r.sku_name).filter(Boolean))).sort();
-  document.getElementById('skuList').innerHTML = skus.map(s=>`<option value="${s}">`).join('');
-}
-
-function applyFilters(){
-  const m = filterMonth.value;
-  const s = filterState.value;
-  const d = filterDepot.value;
-  const skuQ = (filterSKU.value || '').toLowerCase().trim();
-  const from = filterFrom.value ? new Date(filterFrom.value) : null;
-  const to = filterTo.value ? new Date(filterTo.value) : null;
-
-  FILTERED = MERGED.filter(r=>{
-    if(m && r._month_key !== m) return false;
-    if(s && r.state !== s) return false;
-    if(d && r.depot !== d) return false;
-    if(skuQ && !r.sku_name.toLowerCase().includes(skuQ)) return false;
-    if(from && (!r._parsed_date || r._parsed_date < from)) return false;
-    if(to && (!r._parsed_date || r._parsed_date > to)) return false;
-    return true;
-  });
-  renderSmart();
-}
-
-// Worker for merging to keep UI responsive
-function createWorker(){
-  const code = `
-    self.onmessage = function(ev){
-      try{
-        const rows = ev.data.rows;
-        const map = new Map();
-        for(const r of rows){
-          const o = {};
-          for(const k in r) o[String(k).trim().toLowerCase()] = r[k];
-          const state = (o.state||'').toString().trim();
-          const depot = (o.depot||'').toString().trim();
-          const date = (o.date||'').toString().trim();
-          const sku = (o.sku_name||'').toString().trim();
-          const opening = Number(o.opening)||0;
-          const qty_recd = Number(o.qty_recd)||0;
-          const qty_sale = Number(o.qty_sale)||0;
-          const closing = Number(o.closing)||0;
-          const key = state + '||' + depot + '||' + date + '||' + sku;
-          if(!map.has(key)) map.set(key, { state, depot, date, sku_name:sku, opening, qty_recd, qty_sale, closing });
-          else {
-            const g = map.get(key);
-            g.opening += opening; g.qty_recd += qty_recd; g.qty_sale += qty_sale; g.closing += closing;
-          }
-        }
-        self.postMessage({ ok:true, merged: Array.from(map.values()) });
-      }catch(err){
-        self.postMessage({ ok:false, error:String(err) });
-      }
-    };
-  `;
-  const blob = new Blob([code], { type: 'application/javascript' });
-  return new Worker(URL.createObjectURL(blob));
-}
-
-// Fetch & process pipeline
-function fetchAndProcess(){
-  mainContent.innerHTML = '<div style="padding:18px;color:var(--muted)">Loading... preparing view</div>';
-  fetch('/api/get_stock_data').then(r => r.json()).then(rows => {
-    RAW = rows.map(r=>{
-      const o = {};
-      for(const k in r) o[String(k).trim().toLowerCase()] = r[k];
-      const state = (o.state||'').toString().trim();
-      const depot = (o.depot||'').toString().trim();
-      const date = (o.date||'').toString().trim();
-      const sku = (o.sku_name||'').toString().trim();
-      const opening = Number(o.opening)||0;
-      const qty_recd = Number(o.qty_recd)||0;
-      const qty_sale = Number(o.qty_sale)||0;
-      const closing = Number(o.closing)||0;
-      const _parsed_date = parseDMYtoUTC(date);
-      const _month_key = _parsed_date ? `${_parsed_date.getUTCFullYear()}-${pad2(_parsed_date.getUTCMonth()+1)}` : '';
-      return { state, depot, date, sku_name:sku, opening, qty_recd, qty_sale, closing, _parsed_date, _month_key };
+    document.getElementById('yesterdayBtn').addEventListener('click', ()=> {
+      const d = new Date(); d.setDate(d.getDate()-1);
+      const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      document.getElementById('stockFilterFrom').value = val;
+      document.getElementById('stockFilterTo').value = val;
+      // trigger page filters by refreshing F1: simpler to call F1.refresh()
+      F1.refresh();
     });
 
-    // merge via worker if available
-    try {
-      const w = createWorker();
-      w.onmessage = (ev) => {
-        if(ev.data && ev.data.ok){
-          MERGED = ev.data.merged.map(r => {
-            r._parsed_date = parseDMYtoUTC(r.date);
-            r._month_key = r._parsed_date ? `${r._parsed_date.getUTCFullYear()}-${pad2(r._parsed_date.getUTCMonth()+1)}` : '';
-            return r;
-          });
-          populateFilters();
-          buildHeaders();
-          initResize();
-          reapplyVisibility();
-          applyFilters();
-          w.terminate();
-        } else {
-          // fallback to sync merge
-          MERGED = (function(rows){ const map = new Map(); rows.forEach(r=>{ const key = `${r.state}||${r.depot}||${r.date}||${r.sku_name}`; if(!map.has(key)) map.set(key, {...r}); else { const g = map.get(key); g.opening += r.opening; g.qty_recd += r.qty_recd; g.qty_sale += r.qty_sale; g.closing += r.closing; } }); return Array.from(map.values()); })(RAW);
-          MERGED.forEach(r => { r._parsed_date = parseDMYtoUTC(r.date); r._month_key = r._parsed_date ? `${r._parsed_date.getUTCFullYear()}-${pad2(r._parsed_date.getUTCMonth()+1)}` : ''; });
-          populateFilters(); buildHeaders(); initResize(); reapplyVisibility(); applyFilters();
-        }
-      };
-      w.postMessage({ rows: RAW });
-    } catch(err) {
-      // no worker - do sync merge
-      MERGED = (function(rows){ const map = new Map(); rows.forEach(r=>{ const key = `${r.state}||${r.depot}||${r.date}||${r.sku_name}`; if(!map.has(key)) map.set(key,{...r}); else { const g = map.get(key); g.opening += r.opening; g.qty_recd += r.qty_recd; g.qty_sale += r.qty_sale; g.closing += r.closing; } }); return Array.from(map.values()); })(RAW);
-      MERGED.forEach(r => { r._parsed_date = parseDMYtoUTC(r.date); r._month_key = r._parsed_date ? `${r._parsed_date.getUTCFullYear()}-${pad2(r._parsed_date.getUTCMonth()+1)}` : ''; });
-      populateFilters(); buildHeaders(); initResize(); reapplyVisibility(); applyFilters();
-    }
-  }).catch(err => {
-    mainContent.innerHTML = `<div class="no-data">Failed to fetch data: ${escapeHtml(String(err))}</div>`;
-    console.error(err);
+    // column toggles (checkboxes)
+    document.querySelectorAll('#stockColToggle .col-toggle-checkbox').forEach(ch=>{
+      ch.addEventListener('change', ()=> {
+        // toggle header cell visibility directly
+        const col = ch.dataset.col;
+        document.querySelectorAll(`[data-col="${col}"]`).forEach(el=>{
+          el.style.display = ch.checked ? '' : 'none';
+        });
+        // re-init to compute virtualization with new visible columns (F1.reinit not available, so just refresh)
+        F1.refresh();
+      });
+    });
+
+    document.getElementById('exportStockBtn').addEventListener('click', ()=> {
+      F1.export(`stock_export_${new Date().toISOString().slice(0,10)}.xlsx`);
+    });
+
+    // Reset filters
+    document.getElementById('stockClearFilters').addEventListener('click', ()=>{
+      document.getElementById('stockFilterMonth').value=''; document.getElementById('stockFilterState').value=''; document.getElementById('stockFilterDepot').value=''; document.getElementById('stockFilterSKU').value=''; document.getElementById('stockFilterFrom').value=''; document.getElementById('stockFilterTo').value='';
+      F1.refresh();
+    });
+
   });
-}
-
-// Column toggles and UI wiring
-toggleFiltersBtn.addEventListener('click', ()=>{ filterPanel.style.display = filterPanel.style.display === 'none' ? 'block' : 'none'; });
-clearFilters.addEventListener('click', ()=>{ filterMonth.value=''; filterState.value=''; filterDepot.value=''; filterSKU.value=''; filterFrom.value=''; filterTo.value=''; applyFilters(); });
-yesterdayBtn.addEventListener('click', ()=>{ const now=new Date(); const y=new Date(now.getFullYear(), now.getMonth(), now.getDate()-1); filterFrom.value = `${y.getFullYear()}-${pad2(y.getMonth()+1)}-${pad2(y.getDate())}`; filterTo.value = filterFrom.value; applyFilters(); });
-
-[filterMonth, filterState, filterDepot, filterFrom, filterTo].forEach(el=>el.addEventListener('change', applyFilters));
-filterSKU.addEventListener('input', applyFilters);
-
-// Column toggles
-colToggleInputs.forEach(inp => inp.addEventListener('change', ()=>{ reapplyVisibility(); renderSmart(); }));
-
-// Export to Excel (uses XLSX loaded in head)
-exportBtn.addEventListener('click', ()=>{
-  if(typeof XLSX === 'undefined'){ alert('Export library not loaded yet — please try again a moment.'); return; }
-  const hdr = ['State','Depot','Date','SKU Name','Opening','Received','Sales','Closing'];
-  const rowsOut = [];
-  // iterate current items (full items array)
-  const itms = items || [];
-  itms.forEach(it=>{
-    if(it.type === 'row'){
-      const d = it.data;
-      rowsOut.push([d.state, d.depot, d._parsed_date ? formatDateDDMMYYYYUTC(d._parsed_date) : d.date, d.sku_name, d.opening, d.qty_recd, d.qty_sale, d.closing]);
-    } else if(it.type === 'subtotal'){
-      const label = it.data.labelDate instanceof Date ? formatDateDDMMYYYYUTC(it.data.labelDate) : (it.data.labelDate || '');
-      rowsOut.push([`Subtotal (${label})`, '', '', '', it.data.sub.open, it.data.sub.rec, it.data.sub.sale, it.data.sub.close]);
-    } else if(it.type === 'depotTotal'){
-      rowsOut.push([`GRAND TOTAL OF ${it.depot||''}`, '', '', '', it.data.open, it.data.rec, it.data.sale, it.data.close]);
-    } else if(it.type === 'stateTotal'){
-      rowsOut.push([`GRAND TOTAL OF ${it.state||''}`, '', '', '', it.data.open, it.data.rec, it.data.sale, it.data.close]);
-    } else if(it.type === 'overall'){
-      rowsOut.push([`OVERALL GRAND TOTAL`, '', '', '', it.data.open, it.data.rec, it.data.sale, it.data.close]);
-    }
-  });
-  const aoa = [hdr].concat(rowsOut);
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  XLSX.utils.book_append_sheet(wb, ws, 'Stock');
-  XLSX.writeFile(wb, `stock_export_${new Date().toISOString().slice(0,10)}.xlsx`);
-});
-
-// Initial boot
-buildHeaders();
-initResize();
-reapplyVisibility();
-fetchAndProcess();
-
-</script>
-<!-- Fallback Worker Blob (Required for some browsers) -->
-<script>
-(function ensureWorkerBlob(){
-  const blobEl = document.getElementById("workerBlob");
-  if(!blobEl) return;
-
-  const workerCode = `
-    self.onmessage = function(ev){
-      try{
-        const rows = ev.data.rows;
-        const map = new Map();
-        for(const r of rows){
-          const o = {};
-          for(const k in r) o[String(k).trim().toLowerCase()] = r[k];
-          const state = (o.state||'').toString().trim();
-          const depot = (o.depot||'').toString().trim();
-          const date = (o.date||'').toString().trim();
-          const sku = (o.sku_name||'').toString().trim();
-          const opening = Number(o.opening)||0;
-          const qty_recd = Number(o.qty_recd)||0;
-          const qty_sale = Number(o.qty_sale)||0;
-          const closing = Number(o.closing)||0;
-          const key = state + '||' + depot + '||' + date + '||' + sku;
-          if(!map.has(key)){ 
-            map.set(key, { state,depot,date,sku_name:sku,opening,qty_recd,qty_sale,closing }); 
-          }
-          else{
-            const g = map.get(key);
-            g.opening += opening;
-            g.qty_recd += qty_recd;
-            g.qty_sale += qty_sale;
-            g.closing += closing;
-          }
-        }
-        self.postMessage({ ok:true, merged:Array.from(map.values()) });
-      }catch(err){
-        self.postMessage({ ok:false, error:String(err) });
-      }
-    };
-  `.trim();
-
-  const blob = new Blob([workerCode], {type:"application/javascript"});
-  const url = URL.createObjectURL(blob);
-  blobEl.dataset.url = url;
-})();
-</script>
-
+  </script>
 </body>
 </html>

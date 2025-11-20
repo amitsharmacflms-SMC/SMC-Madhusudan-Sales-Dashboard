@@ -1,0 +1,138 @@
+/* f1-style.css — Unified F1 styling (SMC Blue theme) */
+/* Place: /static/css/f1-style.css */
+
+:root{
+  --smc-blue: #0d6efd;
+  --soft-blue: #e7f0ff;
+  --muted: #6b7280;
+  --border: #9fb1c8;
+  --card-bg: #ffffff;
+  --row-height: 46px;
+  --frozen-z: 50;
+  --ui-radius: 10px;
+  --shadow-soft: 0 8px 30px rgba(2,6,23,0.05);
+}
+
+/* Page */
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  background: linear-gradient(180deg,#f6fbff,#f2f6fb 60%);
+  color: #0b3b66;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* Header block */
+.f1-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px;
+}
+.f1-logo {
+  display:flex; align-items:center; gap:12px;
+  background: linear-gradient(90deg, #0d6efd22, #0d6efd11);
+  border-left:6px solid var(--smc-blue);
+  padding:8px 12px; border-radius: var(--ui-radius);
+  box-shadow: var(--shadow-soft);
+}
+.f1-logo img { height:44px; }
+.f1-logo h1 { font-size:1.1rem; margin:0; font-weight:800; color:#073763; }
+
+/* Controls */
+.f1-controls { display:flex; gap:8px; align-items:center; }
+
+/* Filter panel */
+.f1-filter {
+  display:none;
+  background: #ffffffd9;
+  padding:12px; border-radius: var(--ui-radius);
+  box-shadow: var(--shadow-soft);
+  margin: 10px 14px;
+}
+
+/* Table container */
+.f1-table-wrap {
+  margin: 12px 14px;
+  border-radius: var(--ui-radius);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-soft);
+  border: 2px solid var(--border);
+  overflow: hidden;
+}
+
+/* header row */
+.f1-table-head {
+  background: linear-gradient(90deg,#f0f8ff,#ffffff);
+  padding: 8px 12px;
+  display:flex;
+  align-items:center;
+  gap:0;
+  border-bottom:2px solid var(--border);
+}
+
+/* core table elements (virtualized rows are flex children) */
+.f1-thead th {
+  font-weight: 800;
+  color: #0b3b66;
+  padding: 10px;
+  text-align:center;
+  white-space:nowrap;
+  border-right:2px solid var(--border);
+}
+
+/* Row container (virtual list parent) */
+.f1-body {
+  height: calc(72vh - 20px);
+  overflow:auto;
+  position:relative;
+}
+
+/* Row item */
+.f1-row {
+  display:flex;
+  align-items:center;
+  height: var(--row-height);
+  border-bottom: 2px solid var(--border);
+  width: max-content; /* horizontal scroll allowed */
+}
+
+/* Cell */
+.f1-cell {
+  padding: 0 12px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  display:flex;
+  align-items:center;
+  border-right:2px solid var(--border);
+  box-sizing:border-box;
+}
+
+/* Frozen cell visual */
+.f1-frozen {
+  position: sticky;
+  left: 0;
+  z-index: var(--frozen-z);
+  background: white;
+  box-shadow: 3px 0 6px rgba(0,0,0,0.06);
+}
+
+/* Totals styles */
+.f1-subtotal { background: #e6f0ff; font-weight:700; text-align:center; }
+.f1-depot-total { background: #e0ecff; font-weight:800; text-align:center; }
+.f1-state-total { background: #d4e7ff; font-weight:900; text-align:center; }
+.f1-overall-total { background: linear-gradient(90deg,#cfe4ff,#bfe0ff); font-weight:1000; color:#05284a; text-align:center; }
+
+/* Resize handle (invisible until hover) */
+.f1-resize {
+  position:absolute; right:0; top:0; width:8px; height:100%; cursor:col-resize;
+}
+.f1-resize:hover { background: rgba(13,110,253,0.06); }
+
+/* Responsive adjustments */
+@media (max-width:900px){
+  :root{ --row-height:42px; }
+  .f1-body { height: calc(60vh - 20px); }
+}
