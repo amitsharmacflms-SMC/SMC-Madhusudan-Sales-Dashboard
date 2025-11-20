@@ -598,8 +598,21 @@
     XLSX.writeFile(wb, `stock_export_${new Date().toISOString().slice(0,10)}.xlsx`);
   });
 
-  // Start
-  fetchAndProcess();
+function showSkeleton(on) {
+    const sk = document.getElementById('skeleton');
+    if (!sk) return;
+
+    if (on) {
+        sk.style.display = 'flex';
+        vbody.style.display = 'none';
+    } else {
+        sk.style.display = 'none';
+        vbody.style.display = 'block';
+    }
+}
+
+// Start
+fetchAndProcess();
   </script>
 </body>
 </html>
