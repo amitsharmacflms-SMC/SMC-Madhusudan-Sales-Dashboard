@@ -7,65 +7,110 @@
 
   <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
   <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
     :root{
       --smc-blue:#0d6efd;
-      --soft-blue:#e7f1ff;
+      --soft-blue:#e7f0ff;
       --muted:#6b7280;
       --border:#9fb1c8;
       --card-bg:#ffffff;
     }
+
     body{
       background: linear-gradient(180deg,#f6fbff,#f2f6fb 60%);
       font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
       padding:20px;
     }
 
-    /* Header */
-    .top-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
-    .logo-title{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#0d6efd22,#0d6efd11);
-      border-radius:10px;padding:10px 14px;border-left:6px solid var(--smc-blue);box-shadow:0 6px 18px rgba(13,110,253,0.06)}
+    .top-row{
+      display:flex;justify-content:space-between;align-items:center;
+      gap:12px;margin-bottom:14px
+    }
+
+    .logo-title{
+      display:flex;align-items:center;gap:12px;
+      background:linear-gradient(90deg,#0d6efd22,#0d6efd11);
+      border-radius:10px;padding:10px 14px;
+      border-left:6px solid var(--smc-blue);
+      box-shadow:0 6px 18px rgba(13,110,253,0.06)
+    }
     .logo-title img{height:46px}
     .logo-title h1{margin:0;font-size:1.1rem;color:#073763;font-weight:800}
 
-    /* Controls */
     .controls{display:flex;gap:8px;align-items:center}
     .btn-pill{border-radius:999px;padding:8px 14px}
 
-    /* Filter panel */
-    .filter-panel{background:linear-gradient(180deg,#ffffffb8,#ffffffb0);border-radius:10px;padding:14px;
-      box-shadow:0 6px 18px rgba(2,6,23,0.06);margin-bottom:12px;transition:all .28s ease}
+    /* Filter Panel */
+    .filter-panel{
+      background:linear-gradient(180deg,#ffffffd8,#ffffffcc);
+      border-radius:10px;padding:14px;
+      box-shadow:0 6px 18px rgba(2,6,23,0.06);
+      margin-bottom:12px;transition:all .28s ease
+    }
+
     .filter-row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
     .filter-row .form-label{font-weight:600;color:var(--muted);font-size:.9rem}
 
     /* Table */
-    .table-wrap{border-radius:10px;overflow:auto;background:var(--card-bg);box-shadow:0 8px 30px rgba(2,6,23,0.05);
-      border:2px solid var(--border);max-height:68vh}
+    .table-wrap{
+      border-radius:10px;overflow:auto;background:var(--card-bg);
+      box-shadow:0 8px 30px rgba(2,6,23,0.05);
+      border:2px solid var(--border);max-height:68vh
+    }
+
     table{width:100%;border-collapse:collapse;min-width:1100px}
     table,th,td{border:2px solid var(--border)}
-    thead th{position:sticky;top:0;z-index:6;background:linear-gradient(90deg,#f0f8ff,#ffffff);padding:12px;text-align:center;
-      font-weight:800;color:#0b3b66;box-shadow:inset 0 -1px 0 rgba(0,0,0,0.02)}
+
+    thead th{
+      position:sticky;top:0;z-index:6;
+      background:linear-gradient(90deg,#f0f8ff,#ffffff);
+      padding:12px;text-align:center;
+      font-weight:800;color:#0b3b66
+    }
+
     tbody td{padding:10px 12px;vertical-align:middle}
     td.center{text-align:center}
     td.left{text-align:left}
 
     tr:hover td{background:#fbfdff}
 
-    .subtotal-row td{background:#f3f8ff;font-weight:700;text-align:center}
-    .depot-grand-row td{background:#dceeff;font-weight:800;text-align:center}
-    .state-grand-row td{background:#c6e0ff;font-weight:900;text-align:center}
-    .overall-grand-row td{background:linear-gradient(90deg,#cfe4ff,#bfe0ff);font-weight:900;text-align:center;color:#05284a}
+    /* Light Blue Totals */
+    .subtotal-row td{
+      background:#e6f0ff !important;
+      font-weight:700;text-align:center
+    }
+    .depot-grand-row td{
+      background:#e0ecff !important;
+      font-weight:800;text-align:center
+    }
+    .state-grand-row td{
+      background:#d4e7ff !important;
+      font-weight:900;text-align:center
+    }
+    .overall-grand-row td{
+      background:linear-gradient(90deg,#cfe4ff,#bfe0ff) !important;
+      font-weight:900;text-align:center;color:#05284a
+    }
 
-    .col-toggle{max-height:260px;overflow:auto;padding:10px;width:240px}
+    .col-toggle{
+      max-height:260px;overflow:auto;padding:10px;width:240px
+    }
 
-    @media (max-width:900px){.filter-row{display:block}.top-row{flex-direction:column;align-items:flex-start;gap:8px}}
+    @media (max-width:900px){
+      .filter-row{display:block}
+      .top-row{flex-direction:column;align-items:flex-start;gap:8px}
+    }
   </style>
 </head>
 <body>
+
   <div class="container-fluid">
+
+    <!-- Header -->
     <div class="top-row">
       <div class="logo-title">
         <img src="/static/onlylogo.png" alt="SMC" onerror="this.style.display='none'">
@@ -79,17 +124,51 @@
         <button id="toggleFiltersBtn" class="btn btn-light btn-pill">Filters</button>
         <button id="yesterdayBtn" class="btn btn-info btn-pill text-white">Yesterday</button>
 
+        <!-- Column Toggle -->
         <div class="dropdown">
-          <button class="btn btn-outline-dark btn-sm dropdown-toggle" id="colToggleBtn" data-bs-toggle="dropdown">Columns</button>
-          <div class="dropdown-menu dropdown-menu-end col-toggle" aria-labelledby="colToggleBtn">
-            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="state" type="checkbox" checked> <label class="form-check-label">State</label></div>
-            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="depot" type="checkbox" checked> <label class="form-check-label">Depot</label></div>
-            <div class="form-check"><input class="form-check-input col-toggle-checkbox" id="dateColCheckbox" data-col="date" type="checkbox" checked> <label class="form-check-label">Date</label></div>
-            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="sku_name" type="checkbox" checked> <label class="form-check-label">SKU Name</label></div>
-            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="opening" type="checkbox" checked> <label class="form-check-label">Opening</label></div>
-            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="qty_recd" type="checkbox" checked> <label class="form-check-label">Received</label></div>
-            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="qty_sale" type="checkbox" checked> <label class="form-check-label">Sales</label></div>
-            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="closing" type="checkbox" checked> <label class="form-check-label">Closing</label></div>
+          <button class="btn btn-outline-dark btn-sm dropdown-toggle" data-bs-toggle="dropdown">Columns</button>
+          <div class="dropdown-menu dropdown-menu-end col-toggle">
+
+            <div class="form-check">
+              <input class="form-check-input col-toggle-checkbox" data-col="state" type="checkbox" checked>
+              <label class="form-check-label">State</label>
+            </div>
+
+            <div class="form-check">
+              <input class="form-check-input col-toggle-checkbox" data-col="depot" type="checkbox" checked>
+              <label class="form-check-label">Depot</label>
+            </div>
+
+            <div class="form-check">
+              <input class="form-check-input col-toggle-checkbox" id="dateColCheckbox" data-col="date" type="checkbox" checked>
+              <label class="form-check-label">Date</label>
+            </div>
+
+            <div class="form-check">
+              <input class="form-check-input col-toggle-checkbox" data-col="sku_name" type="checkbox" checked>
+              <label class="form-check-label">SKU Name</label>
+            </div>
+
+            <div class="form-check">
+              <input class="form-check-input col-toggle-checkbox" data-col="opening" type="checkbox" checked>
+              <label class="form-check-label">Opening</label>
+            </div>
+
+            <div class="form-check">
+              <input class="form-check-input col-toggle-checkbox" data-col="qty_recd" type="checkbox" checked>
+              <label class="form-check-label">Received</label>
+            </div>
+
+            <div class="form-check">
+              <input class="form-check-input col-toggle-checkbox" data-col="qty_sale" type="checkbox" checked>
+              <label class="form-check-label">Sales</label>
+            </div>
+
+            <div class="form-check">
+              <input class="form-check-input col-toggle-checkbox" data-col="closing" type="checkbox" checked>
+              <label class="form-check-label">Closing</label>
+            </div>
+
           </div>
         </div>
 
@@ -97,8 +176,10 @@
       </div>
     </div>
 
+    <!-- Filter Panel -->
     <div id="filterPanel" class="filter-panel" style="display:none;">
       <div class="filter-row">
+
         <div style="flex:1; min-width:180px;">
           <label class="form-label">Month</label>
           <select id="filterMonth" class="form-select"><option value="">All</option></select>
@@ -133,9 +214,11 @@
         <div style="min-width:120px; display:flex; align-items:end;">
           <button id="clearFilters" class="btn btn-outline-secondary w-100">Reset</button>
         </div>
+
       </div>
     </div>
 
+    <!-- Table -->
     <div class="table-wrap">
       <table id="stockTable" class="table table-sm mb-0">
         <thead>
@@ -160,425 +243,538 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-  // Utilities
-  const pad2 = n => String(n).padStart(2,'0');
-  const fmt = v => (v==null || isNaN(+v)) ? '' : Number(v).toLocaleString();
 
-  // Parse dd-mm-yyyy to UTC midnight
-  function parseDMYtoUTC(s){
-    if(!s) return null;
-    const m = String(s).trim().match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
-    if(m){ const d=+m[1], mo=+m[2], y=+m[3]; return new Date(Date.UTC(y,mo-1,d)); }
-    const iso = new Date(s);
-    return isNaN(iso) ? null : new Date(Date.UTC(iso.getUTCFullYear(), iso.getUTCMonth(), iso.getUTCDate()));
-  }
-  function parseInputDateUTC(val){ if(!val) return null; const [y,m,d]=val.split('-').map(Number); return new Date(Date.UTC(y,m-1,d)); }
-  function formatDateDDMMYYYYUTC(d){ if(!d) return ''; return `${pad2(d.getUTCDate())}-${pad2(d.getUTCMonth()+1)}-${d.getUTCFullYear()}`; }
+////////////////////////////////////////////////////////////////////////////////////
+// UTILITIES
+////////////////////////////////////////////////////////////////////////////////////
 
-  // DOM
-  const tbody = document.querySelector('#stockTable tbody');
-  const filterPanel = document.getElementById('filterPanel');
-  const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
-  const yesterdayBtn = document.getElementById('yesterdayBtn');
+const pad2 = n => String(n).padStart(2,'0');
+const fmt = v => (v==null || isNaN(+v)) ? '' : Number(v).toLocaleString();
 
-  const filterMonth = document.getElementById('filterMonth');
-  const filterState = document.getElementById('filterState');
-  const filterDepot = document.getElementById('filterDepot');
-  const filterSKU = document.getElementById('filterSKU');
-  const skuList = document.getElementById('skuList');
-  const filterFrom = document.getElementById('filterFrom');
-  const filterTo = document.getElementById('filterTo');
-  const clearFilters = document.getElementById('clearFilters');
-  const exportBtn = document.getElementById('exportBtn');
-  const colCheckboxes = Array.from(document.querySelectorAll('.col-toggle-checkbox'));
-  const dateColCheckbox = document.getElementById('dateColCheckbox');
+function parseDMYtoUTC(s){
+  if(!s) return null;
+  const m = String(s).trim().match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+  if(m){ return new Date(Date.UTC(+m[3], +m[2]-1, +m[1])); }
+  const iso = new Date(s);
+  return isNaN(iso)?null:new Date(Date.UTC(iso.getUTCFullYear(), iso.getUTCMonth(), iso.getUTCDate()));
+}
+function parseInputDateUTC(val){
+  if(!val) return null;
+  const [y,m,d] = val.split('-').map(Number);
+  return new Date(Date.UTC(y,m-1,d));
+}
+function formatDateDDMMYYYYUTC(d){
+  if(!d) return '';
+  return `${pad2(d.getUTCDate())}-${pad2(d.getUTCMonth()+1)}-${d.getUTCFullYear()}`;
+}
 
-  // App state
-  let RAW = [], MERGED = [], FILTERED = [];
+function escapeHtml(s){
+  if(s==null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
 
-  // Load & normalize & merge-first
-  async function loadData(){
-    try{
-      const res = await fetch('/api/get_stock_data');
-      RAW = await res.json();
-      RAW = RAW.map(r=>{
-        const o={};
-        for(const k in r) o[k.trim().toLowerCase()] = r[k];
-        o.state=(o.state||'').toString().trim();
-        o.depot=(o.depot||'').toString().trim();
-        o.date=(o.date||'').toString().trim();
-        o.sku_name=(o.sku_name||'').toString().trim();
-        o.opening=Number(o.opening)||0;
-        o.qty_recd=Number(o.qty_recd)||0;
-        o.qty_sale=Number(o.qty_sale)||0;
-        o.closing=Number(o.closing)||0;
-        o._parsed_date = parseDMYtoUTC(o.date);
-        o._month_key = o._parsed_date ? `${o._parsed_date.getUTCFullYear()}-${pad2(o._parsed_date.getUTCMonth()+1)}` : '';
-        return o;
-      });
+////////////////////////////////////////////////////////////////////////////////////
+// DOM
+////////////////////////////////////////////////////////////////////////////////////
 
-      MERGED = mergeGroups(RAW);
-      populateFilters();
-      applyFilters();
-    }catch(e){
-      console.error('loadData error', e);
-      tbody.innerHTML = '<tr><td colspan="8" class="text-danger p-3">Failed to load data</td></tr>';
-    }
-  }
+const tbody = document.querySelector('#stockTable tbody');
 
-  // Merge by state|depot|date|sku_name
-  function mergeGroups(rows){
-    const map=new Map();
-    rows.forEach(r=>{
-      const key = `${r.state}||${r.depot}||${r.date}||${r.sku_name}`;
-      if(!map.has(key)) map.set(key, {...r});
-      else {
-        const g = map.get(key);
-        g.opening += r.opening; g.qty_recd += r.qty_recd; g.qty_sale += r.qty_sale; g.closing += r.closing;
-      }
+const filterPanel = document.getElementById('filterPanel');
+const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
+const yesterdayBtn = document.getElementById('yesterdayBtn');
+
+const filterMonth = document.getElementById('filterMonth');
+const filterState = document.getElementById('filterState');
+const filterDepot = document.getElementById('filterDepot');
+const filterSKU = document.getElementById('filterSKU');
+const filterFrom = document.getElementById('filterFrom');
+const filterTo = document.getElementById('filterTo');
+const clearFilters = document.getElementById('clearFilters');
+const skuList = document.getElementById('skuList');
+const exportBtn = document.getElementById('exportBtn');
+
+const colCheckboxes = Array.from(document.querySelectorAll('.col-toggle-checkbox'));
+const dateColCheckbox = document.getElementById('dateColCheckbox');
+
+////////////////////////////////////////////////////////////////////////////////////
+// STATE
+////////////////////////////////////////////////////////////////////////////////////
+
+let RAW = [], MERGED = [], FILTERED = [];
+
+////////////////////////////////////////////////////////////////////////////////////
+// DATA LOADING
+////////////////////////////////////////////////////////////////////////////////////
+
+async function loadData(){
+  try{
+    const res = await fetch('/api/get_stock_data');
+    RAW = await res.json();
+
+    RAW = RAW.map(r=>{
+      const o={};
+      for(const k in r) o[k.trim().toLowerCase()] = r[k];
+
+      o.state = (o.state||'').toString().trim();
+      o.depot = (o.depot||'').toString().trim();
+      o.date = (o.date||'').toString().trim();
+      o.sku_name = (o.sku_name||'').toString().trim();
+
+      o.opening = Number(o.opening)||0;
+      o.qty_recd = Number(o.qty_recd)||0;
+      o.qty_sale = Number(o.qty_sale)||0;
+      o.closing = Number(o.closing)||0;
+
+      o._parsed_date = parseDMYtoUTC(o.date);
+      o._month_key = o._parsed_date ? `${o._parsed_date.getUTCFullYear()}-${pad2(o._parsed_date.getUTCMonth()+1)}` : '';
+
+      return o;
     });
-    return Array.from(map.values());
-  }
 
-  // Populate filters
-  function populateFilters(){
-    const months = Array.from(new Set(MERGED.map(r=>r._month_key).filter(Boolean))).sort();
-    filterMonth.innerHTML = '<option value="">All</option>' + months.map(m=>{
-      const [y,mm]=m.split('-'); const dt=new Date(Date.UTC(y,mm-1,1));
+    MERGED = mergeGroups(RAW);
+    populateFilters();
+    applyFilters();
+
+  }catch(e){
+    console.error('loadData error:', e);
+    tbody.innerHTML='<tr><td colspan="8" class="text-danger p-3">Failed to load data</td></tr>';
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// MERGE FIRST
+////////////////////////////////////////////////////////////////////////////////////
+
+function mergeGroups(rows){
+  const map=new Map();
+  rows.forEach(r=>{
+    const key = `${r.state}||${r.depot}||${r.date}||${r.sku_name}`;
+    if(!map.has(key)){
+      map.set(key,{...r});
+    } else {
+      const g=map.get(key);
+      g.opening += r.opening;
+      g.qty_recd += r.qty_recd;
+      g.qty_sale += r.qty_sale;
+      g.closing += r.closing;
+    }
+  });
+  return Array.from(map.values());
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// FILTER SETUP
+////////////////////////////////////////////////////////////////////////////////////
+
+function populateFilters(){
+  const months = Array.from(new Set(MERGED.map(r=>r._month_key).filter(Boolean))).sort();
+  filterMonth.innerHTML='<option value="">All</option>'+
+    months.map(m=>{
+      const [y,mm]=m.split('-');
+      const dt = new Date(Date.UTC(y,mm-1,1));
       return `<option value="${m}">${dt.toLocaleString(undefined,{month:'long'})} ${y}</option>`;
     }).join('');
 
-    const states = Array.from(new Set(MERGED.map(r=>r.state).filter(Boolean))).sort();
-    filterState.innerHTML = '<option value="">All</option>' + states.map(s=>`<option>${s}</option>`).join('');
+  const states = Array.from(new Set(MERGED.map(r=>r.state).filter(Boolean))).sort();
+  filterState.innerHTML='<option value="">All</option>'+states.map(s=>`<option>${s}</option>`).join('');
 
-    const depots = Array.from(new Set(MERGED.map(r=>r.depot).filter(Boolean))).sort();
-    filterDepot.innerHTML = '<option value="">All</option>' + depots.map(d=>`<option>${d}</option>`).join('');
+  const depots = Array.from(new Set(MERGED.map(r=>r.depot).filter(Boolean))).sort();
+  filterDepot.innerHTML='<option value="">All</option>'+depots.map(d=>`<option>${d}</option>`).join('');
 
-    const skus = Array.from(new Set(MERGED.map(r=>r.sku_name).filter(Boolean))).sort();
-    skuList.innerHTML = skus.map(s=>`<option value="${s}">`).join('');
-  }
+  const skus = Array.from(new Set(MERGED.map(r=>r.sku_name).filter(Boolean))).sort();
+  skuList.innerHTML = skus.map(s=>`<option value="${s}">`).join('');
+}
 
-  // Bindings
-  [filterMonth, filterState, filterDepot, filterFrom, filterTo].forEach(el=>el.addEventListener('change', applyFilters));
-  filterSKU.addEventListener('input', applyFilters);
-  clearFilters.addEventListener('click', ()=>{ filterMonth.value=''; filterState.value=''; filterDepot.value=''; filterSKU.value=''; filterFrom.value=''; filterTo.value=''; applyFilters(); });
+////////////////////////////////////////////////////////////////////////////////////
+// FILTER EVENTS
+////////////////////////////////////////////////////////////////////////////////////
 
-  colCheckboxes.forEach(ch=>ch.addEventListener('change', ()=>{
-    const col = ch.dataset.col; const show = ch.checked;
-    const th = document.querySelector(`thead th[data-col="${col}"]`);
-    if(th) th.style.display = show ? '' : 'none';
-    document.querySelectorAll(`td[data-col="${col}"]`).forEach(td=>td.style.display = show ? '' : 'none');
-    // If date column checkbox was toggled, re-render to switch mode if needed
-    applyFilters();
-  }));
+[filterMonth, filterState, filterDepot, filterFrom, filterTo]
+  .forEach(el=>el.addEventListener('change', applyFilters));
 
-  // Yesterday quick filter
-  yesterdayBtn.addEventListener('click', ()=>{
-    const now = new Date();
-    const y = new Date(now.getFullYear(), now.getMonth(), now.getDate()-1);
-    const val = `${y.getFullYear()}-${pad2(y.getMonth()+1)}-${pad2(y.getDate())}`;
-    filterFrom.value = val; filterTo.value = val; applyFilters();
-    yesterdayBtn.classList.add('btn-success'); setTimeout(()=>yesterdayBtn.classList.remove('btn-success'),900);
+filterSKU.addEventListener('input', applyFilters);
+
+clearFilters.addEventListener('click', ()=>{
+  filterMonth.value=''; filterState.value=''; filterDepot.value='';
+  filterSKU.value=''; filterFrom.value=''; filterTo.value='';
+  applyFilters();
+});
+
+colCheckboxes.forEach(ch=>ch.addEventListener('change', ()=>{
+  applyFilters();  // re-render entire table for dynamic colspan
+}));
+
+yesterdayBtn.addEventListener('click', ()=>{
+  const now = new Date();
+  const y = new Date(now.getFullYear(), now.getMonth(), now.getDate()-1);
+  const val = `${y.getFullYear()}-${pad2(y.getMonth()+1)}-${pad2(y.getDate())}`;
+  filterFrom.value=val;
+  filterTo.value=val;
+  applyFilters();
+  yesterdayBtn.classList.add('btn-success');
+  setTimeout(()=>yesterdayBtn.classList.remove('btn-success'),700);
+});
+
+toggleFiltersBtn.addEventListener('click',()=>{
+  filterPanel.style.display = filterPanel.style.display==='none'?'block':'none';
+});
+
+////////////////////////////////////////////////////////////////////////////////////
+// FILTER CORE LOGIC
+////////////////////////////////////////////////////////////////////////////////////
+
+function applyFilters(){
+  const m = filterMonth.value;
+  const s = filterState.value;
+  const d = filterDepot.value;
+  const skuQ = (filterSKU.value||'').toLowerCase().trim();
+  const from = parseInputDateUTC(filterFrom.value);
+  const to   = parseInputDateUTC(filterTo.value);
+
+  FILTERED = MERGED.filter(r=>{
+    if(m && r._month_key!==m) return false;
+    if(s && r.state!==s) return false;
+    if(d && r.depot!==d) return false;
+    if(skuQ && !r.sku_name.toLowerCase().includes(skuQ)) return false;
+    if(from && (!r._parsed_date || r._parsed_date<from)) return false;
+    if(to && (!r._parsed_date || r._parsed_date>to)) return false;
+    return true;
   });
 
-  // Toggle filters panel
-  toggleFiltersBtn.addEventListener('click', ()=>{
-    if(filterPanel.style.display === 'none' || filterPanel.style.display === '') { filterPanel.style.display='block'; toggleFiltersBtn.classList.add('active'); }
-    else { filterPanel.style.display='none'; toggleFiltersBtn.classList.remove('active'); }
+  renderSmart();
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// SMART RENDER (NORMAL or MONTH SUMMARY)
+////////////////////////////////////////////////////////////////////////////////////
+
+function renderSmart(){
+  const monthSelected = !!filterMonth.value;
+  const dateVisible = dateColCheckbox.checked;
+
+  // ALWAYS use Month Summary Mode if month is selected OR date column hidden
+  const summaryMode = monthSelected || !dateVisible;
+
+  if(summaryMode) renderMonthSummary();
+  else            renderNormalMode();
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// NORMAL MODE (DATE-WISE)
+////////////////////////////////////////////////////////////////////////////////////
+
+function renderNormalMode(){
+  FILTERED.sort((a,b)=>{
+    if(a.state!==b.state) return a.state.localeCompare(b.state);
+    if(a.depot!==b.depot) return a.depot.localeCompare(b.depot);
+    const da = a._parsed_date?a._parsed_date.getTime():0;
+    const db = b._parsed_date?b._parsed_date.getTime():0;
+    if(da!==db) return da-db;
+    return a.sku_name.localeCompare(b.sku_name);
   });
 
-  // Core filters: always applied on MERGED dataset
-  function applyFilters(){
-    const m = filterMonth.value;
-    const s = filterState.value;
-    const d = filterDepot.value;
-    const skuQ = (filterSKU.value||'').toLowerCase().trim();
-    const from = parseInputDateUTC(filterFrom.value);
-    const to = parseInputDateUTC(filterTo.value);
+  const overall = FILTERED.reduce((acc,r)=>{
+    acc.open+=r.opening; acc.rec+=r.qty_recd; acc.sale+=r.qty_sale; acc.close+=r.closing;
+    return acc;
+  },{open:0,rec:0,sale:0,close:0});
 
-    FILTERED = MERGED.filter(r=>{
-      if(m && r._month_key !== m) return false;
-      if(s && r.state !== s) return false;
-      if(d && r.depot !== d) return false;
-      if(skuQ && !r.sku_name.toLowerCase().includes(skuQ)) return false;
-      if(from && (!r._parsed_date || r._parsed_date < from)) return false;
-      if(to && (!r._parsed_date || r._parsed_date > to)) return false;
-      return true;
-    });
+  let html=''; let i=0; let stateAcc=null; let currentState=null;
 
-    renderSmart();
-  }
+  while(i<FILTERED.length){
+    const row=FILTERED[i];
+    const ST=row.state, DP=row.depot;
 
-  // Render either Normal (date-based) or Month Summary mode
-  function renderSmart(){
-    const monthSelected = !!filterMonth.value;
-    const dateColVisible = document.querySelector('input[data-col="date"]').checked; // checkbox
-    // Per your instruction: ALWAYS switch to MONTH SUMMARY MODE when month is selected.
-    const summaryMode = monthSelected || !dateColVisible;
-
-    if(summaryMode) renderMonthSummary();
-    else renderGroupedByDate();
-  }
-
-  // -------- Normal Date-wise rendering (existing behaviour) --------
-  function renderGroupedByDate(){
-    // sort
-    FILTERED.sort((a,b)=>{
-      if(a.state !== b.state) return a.state.localeCompare(b.state);
-      if(a.depot !== b.depot) return a.depot.localeCompare(b.depot);
-      const da = a._parsed_date ? a._parsed_date.getTime() : 0;
-      const db = b._parsed_date ? b._parsed_date.getTime() : 0;
-      if(da !== db) return da - db;
-      return a.sku_name.localeCompare(b.sku_name);
-    });
-
-    const overall = FILTERED.reduce((acc,r)=>{ acc.open+=r.opening; acc.rec+=r.qty_recd; acc.sale+=r.qty_sale; acc.close+=r.closing; return acc; }, {open:0,rec:0,sale:0,close:0});
-    let html=''; let i=0; let currentState=null; let stateAcc=null;
-
-    while(i<FILTERED.length){
-      const row = FILTERED[i];
-      const ST = row.state; const DP = row.depot;
-
-      if(currentState && currentState !== ST){ html += stateGrandRow(stateAcc); stateAcc=null; }
-      if(!stateAcc){ stateAcc={state:ST,open:0,rec:0,sale:0,close:0}; currentState=ST; }
-
-      const depotAcc={depot:DP,open:0,rec:0,sale:0,close:0};
-
-      const depotRows=[]; let j=i;
-      while(j<FILTERED.length && FILTERED[j].state===ST && FILTERED[j].depot===DP){ depotRows.push(FILTERED[j]); j++; }
-
-      let k=0;
-      while(k<depotRows.length){
-        const dateRaw = depotRows[k].date;
-        const dateRows=[]; let m=k;
-        while(m<depotRows.length && depotRows[m].date===dateRaw){ dateRows.push(depotRows[m]); m++; }
-
-        const sub = dateRows.reduce((a,r)=>{ a.open+=r.opening; a.rec+=r.qty_recd; a.sale+=r.qty_sale; a.close+=r.closing; return a; }, {open:0,rec:0,sale:0,close:0});
-        depotAcc.open += sub.open; depotAcc.rec += sub.rec; depotAcc.sale += sub.sale; depotAcc.close += sub.close;
-        stateAcc.open += sub.open; stateAcc.rec += sub.rec; stateAcc.sale += sub.sale; stateAcc.close += sub.close;
-
-        dateRows.forEach(r=>{
-          const d = r._parsed_date; const fdate = d ? formatDateDDMMYYYYUTC(d) : r.date;
-          html += `<tr>
-            <td class="center" data-col="state">${escapeHtml(r.state)}</td>
-            <td class="center" data-col="depot">${escapeHtml(r.depot)}</td>
-            <td class="center" data-col="date">${fdate}</td>
-            <td class="left"   data-col="sku_name">${escapeHtml(r.sku_name)}</td>
-            <td class="center" data-col="opening">${fmt(r.opening)}</td>
-            <td class="center" data-col="qty_recd">${fmt(r.qty_recd)}</td>
-            <td class="center" data-col="qty_sale">${fmt(r.qty_sale)}</td>
-            <td class="center" data-col="closing">${fmt(r.closing)}</td>
-          </tr>`;
-        });
-
-        const d0 = dateRows[0]._parsed_date; const lbl = d0 ? formatDateDDMMYYYYUTC(d0) : dateRaw;
-        html += `<tr class="subtotal-row">
-          <td colspan="4">subtotal of Date (${lbl})</td>
-          <td class="center" data-col="opening">${fmt(sub.open)}</td>
-          <td class="center" data-col="qty_recd">${fmt(sub.rec)}</td>
-          <td class="center" data-col="qty_sale">${fmt(sub.sale)}</td>
-          <td class="center" data-col="closing">${fmt(sub.close)}</td>
-        </tr>`;
-
-        k=m;
-      }
-
-      html += depotGrandRow(depotAcc);
-      i=j;
+    if(currentState && currentState!==ST){
+      html += stateTotalRow(stateAcc);
+      stateAcc = null;
+    }
+    if(!stateAcc){
+      stateAcc={state:ST,open:0,rec:0,sale:0,close:0};
+      currentState=ST;
     }
 
-    if(stateAcc){ html += stateGrandRow(stateAcc); }
-    html += overallGrandRow(overall);
+    const depotAcc={depot:DP,open:0,rec:0,sale:0,close:0};
+    const depotRows=[]; let j=i;
+    while(j<FILTERED.length && FILTERED[j].state===ST && FILTERED[j].depot===DP){
+      depotRows.push(FILTERED[j]); j++;
+    }
 
-    tbody.innerHTML = html;
-
-    // apply column visibility
-    reapplyColumnVisibility();
-
-    // if no raw rows found display message
-    const hasData = FILTERED.length>0;
-    if(!hasData){ tbody.insertAdjacentHTML('afterbegin', `<tr><td colspan="8" class="text-center p-3 text-muted">No data for selected filters.</td></tr>`); }
-  }
-
-  // -------- Month Summary rendering (group by state|depot|sku_name) --------
-  function renderMonthSummary(){
-    // determine selected month key
-    const monthKey = filterMonth.value; // format "YYYY-MM"
-    // if month not selected but summary triggered because date column hidden, derive monthKey from current FILTERED rows (if mixed months, summary will use all filtered rows)
-    const monthSelected = !!monthKey;
-
-    // We'll produce summaryGroups: { state, depot, sku_name, opening, rec, sale, closing }
-    const groups = new Map();
-
-    // Build mapping of merged rows filtered by month (if month selected) or all FILTERED rows (if triggered by date hidden)
-    const sourceRows = FILTERED.slice();
-
-    // If month selected, restrict sourceRows to that month (should already be done by applyFilters) — but ensure safety:
-    const usableRows = monthSelected ? sourceRows.filter(r => r._month_key === monthKey) : sourceRows;
-
-    // For each (state,depot,sku) we need:
-    // - Opening = opening on earliest date within usableRows for that (state,depot,sku)
-    // - Received = sum qty_recd
-    // - Sales = sum qty_sale
-    // then Closing = Opening + Received - Sales
-    usableRows.forEach(r=>{
-      const key = `${r.state}||${r.depot}||${r.sku_name}`;
-      if(!groups.has(key)){
-        groups.set(key, {
-          state: r.state, depot: r.depot, sku_name: r.sku_name,
-          openingCandidates: [{d: r._parsed_date, opening: r.opening}],
-          received: r.qty_recd, sales: r.qty_sale
-        });
-      } else {
-        const g = groups.get(key);
-        g.openingCandidates.push({d: r._parsed_date, opening: r.opening});
-        g.received += r.qty_recd;
-        g.sales += r.qty_sale;
-      }
-    });
-
-    // Compute final group rows
-    const groupRows = Array.from(groups.values()).map(g=>{
-      // pick opening from earliest parsed date in openingCandidates
-      g.openingCandidates = g.openingCandidates.filter(x => x.d); // remove nulls
-      if(g.openingCandidates.length === 0) {
-        var openingVal = 0;
-      } else {
-        g.openingCandidates.sort((a,b)=>a.d.getTime() - b.d.getTime());
-        var openingVal = g.openingCandidates[0].opening;
-      }
-      const receivedVal = g.received || 0;
-      const salesVal = g.sales || 0;
-      const closingVal = openingVal + receivedVal - salesVal; // Option A
-      return {
-        state: g.state, depot: g.depot, sku_name: g.sku_name,
-        opening: openingVal, qty_recd: receivedVal, qty_sale: salesVal, closing: closingVal
-      };
-    });
-
-    // Sort summary rows
-    groupRows.sort((a,b)=>{
-      if(a.state !== b.state) return a.state.localeCompare(b.state);
-      if(a.depot !== b.depot) return a.depot.localeCompare(b.depot);
-      return a.sku_name.localeCompare(b.sku_name);
-    });
-
-    // Now render by state -> depot -> SKU rows and show depot/state totals and overall totals
-    let html=''; let idx=0;
-    let currentState=null; let stateAcc=null;
-    const overall = groupRows.reduce((acc,r)=>{ acc.open+=r.opening; acc.rec+=r.qty_recd; acc.sale+=r.qty_sale; acc.close+=r.closing; return acc; }, {open:0,rec:0,sale:0,close:0});
-
-    while(idx < groupRows.length){
-      const gr = groupRows[idx];
-      const ST = gr.state; const DP = gr.depot;
-      if(currentState && currentState !== ST){ html += stateGrandRow(stateAcc); stateAcc = null; }
-      if(!stateAcc){ stateAcc={state:ST,open:0,rec:0,sale:0,close:0}; currentState = ST; }
-
-      const depotAcc = {depot:DP,open:0,rec:0,sale:0,close:0};
-      // collect all groupRows for this depot
-      const depotGroupRows = [];
-      let j = idx;
-      while(j < groupRows.length && groupRows[j].state === ST && groupRows[j].depot === DP){
-        depotGroupRows.push(groupRows[j]); j++;
+    let k=0;
+    while(k<depotRows.length){
+      const dateRaw = depotRows[k].date;
+      const group=[]; let m=k;
+      while(m<depotRows.length && depotRows[m].date===dateRaw){
+        group.push(depotRows[m]); m++;
       }
 
-      // render each SKU row (summary)
-      depotGroupRows.forEach(r=>{
-        html += `<tr>
+      const sub = group.reduce((acc,r)=>{
+        acc.open+=r.opening;acc.rec+=r.qty_recd;acc.sale+=r.qty_sale;acc.close+=r.closing;
+        return acc;
+      },{open:0,rec:0,sale:0,close:0});
+
+      depotAcc.open+=sub.open; depotAcc.rec+=sub.rec;
+      depotAcc.sale+=sub.sale; depotAcc.close+=sub.close;
+
+      stateAcc.open+=sub.open; stateAcc.rec+=sub.rec;
+      stateAcc.sale+=sub.sale; stateAcc.close+=sub.close;
+
+      group.forEach(r=>{
+        const fdate = r._parsed_date?formatDateDDMMYYYYUTC(r._parsed_date):r.date;
+        html += `
+        <tr>
           <td class="center" data-col="state">${escapeHtml(r.state)}</td>
           <td class="center" data-col="depot">${escapeHtml(r.depot)}</td>
-          <td class="center" data-col="date"></td> <!-- empty date cell in summary -->
+          <td class="center" data-col="date">${fdate}</td>
           <td class="left"   data-col="sku_name">${escapeHtml(r.sku_name)}</td>
           <td class="center" data-col="opening">${fmt(r.opening)}</td>
           <td class="center" data-col="qty_recd">${fmt(r.qty_recd)}</td>
           <td class="center" data-col="qty_sale">${fmt(r.qty_sale)}</td>
           <td class="center" data-col="closing">${fmt(r.closing)}</td>
         </tr>`;
-        depotAcc.open += r.opening; depotAcc.rec += r.qty_recd; depotAcc.sale += r.qty_sale; depotAcc.close += r.closing;
-        stateAcc.open += r.opening; stateAcc.rec += r.qty_recd; stateAcc.sale += r.qty_sale; stateAcc.close += r.closing;
       });
 
-      // depot grand
-      html += depotGrandRow(depotAcc);
-      idx = j;
+      html += subtotalRow(sub, dateRaw, group[0]._parsed_date);
+      k=m;
     }
 
-    if(stateAcc){ html += stateGrandRow(stateAcc); }
-    html += overallGrandRow(overall);
-    tbody.innerHTML = html;
+    html += depotTotalRow(depotAcc);
+    i=j;
+  }
 
-    // apply column visibility
-    reapplyColumnVisibility();
+  if(stateAcc){ html += stateTotalRow(stateAcc); }
+  html += overallTotalRow(overall);
 
-    // message if empty
-    if(groupRows.length === 0){
-      tbody.insertAdjacentHTML('afterbegin', `<tr><td colspan="8" class="text-center p-3 text-muted">No data for selected month/filters.</td></tr>`);
+  tbody.innerHTML=html;
+  reapplyColumnVisibility();
+
+  if(FILTERED.length===0){
+    tbody.insertAdjacentHTML('afterbegin',`
+      <tr><td colspan="8" class="text-center p-3 text-muted">No data for selected filters.</td></tr>
+    `);
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// MONTH SUMMARY MODE
+////////////////////////////////////////////////////////////////////////////////////
+
+function renderMonthSummary(){
+  const monthKey = filterMonth.value;
+  const usableRows = FILTERED.slice();
+  const groups = new Map();
+
+  usableRows.forEach(r=>{
+    const key=`${r.state}||${r.depot}||${r.sku_name}`;
+    if(!groups.has(key)){
+      groups.set(key,{
+        state:r.state,depot:r.depot,sku_name:r.sku_name,
+        openings:[{d:r._parsed_date,opening:r.opening}],
+        rec:r.qty_recd, sale:r.qty_sale
+      });
+    }else{
+      const g=groups.get(key);
+      g.openings.push({d:r._parsed_date, opening:r.opening});
+      g.rec+=r.qty_recd; g.sale+=r.qty_sale;
     }
-  }
-
-  // Reapply column visibility (centralized)
-  function reapplyColumnVisibility(){
-    colCheckboxes.forEach(ch=>{
-      const col = ch.dataset.col;
-      const show = ch.checked;
-      const th = document.querySelector(`thead th[data-col="${col}"]`);
-      if(th) th.style.display = show ? '' : 'none';
-      document.querySelectorAll(`td[data-col="${col}"]`).forEach(td => td.style.display = show ? '' : 'none');
-    });
-  }
-
-  // Helper row renderers
-  function depotGrandRow(acc){
-    return `<tr class="depot-grand-row">
-      <td colspan="4">GRAND TOTAL OF ${escapeHtml(acc.depot)}</td>
-      <td class="center">${fmt(acc.open)}</td>
-      <td class="center">${fmt(acc.rec)}</td>
-      <td class="center">${fmt(acc.sale)}</td>
-      <td class="center">${fmt(acc.close)}</td>
-    </tr>`;
-  }
-  function stateGrandRow(acc){
-    return `<tr class="state-grand-row">
-      <td colspan="4">GRAND TOTAL OF ${escapeHtml(acc.state)}</td>
-      <td class="center">${fmt(acc.open)}</td>
-      <td class="center">${fmt(acc.rec)}</td>
-      <td class="center">${fmt(acc.sale)}</td>
-      <td class="center">${fmt(acc.close)}</td>
-    </tr>`;
-  }
-  function overallGrandRow(acc){
-    return `<tr class="overall-grand-row">
-      <td colspan="4">OVERALL GRAND TOTAL</td>
-      <td class="center">${fmt(acc.open)}</td>
-      <td class="center">${fmt(acc.rec)}</td>
-      <td class="center">${fmt(acc.sale)}</td>
-      <td class="center">${fmt(acc.close)}</td>
-    </tr>`;
-  }
-
-  function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  // Export visible rows (includes summary/subtotal/grand rows as rendered)
-  exportBtn.addEventListener('click', ()=>{
-    const header = ["State","Depot","Date","SKU Name","Opening","Received","Sales","Closing"];
-    const ws = [];
-    ws.push(header);
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    rows.forEach(tr=>{
-      const cells = Array.from(tr.querySelectorAll('td')).map(td=>td.textContent.trim());
-      while(cells.length < 8) cells.push('');
-      ws.push(cells);
-    });
-    const workbook = XLSX.utils.book_new();
-    const wsSheet = XLSX.utils.aoa_to_sheet(ws);
-    XLSX.utils.book_append_sheet(workbook, wsSheet, 'Stock');
-    XLSX.writeFile(workbook, `stock_export_${new Date().toISOString().slice(0,10)}.xlsx`);
   });
 
-  // Init
-  loadData();
+  const rows = Array.from(groups.values()).map(g=>{
+    const opens = g.openings.filter(o=>o.d);
+    let opening = 0;
+    if(opens.length>0){
+      opens.sort((a,b)=>a.d-b.d);
+      opening=opens[0].opening;
+    }
+    const rec=g.rec||0, sale=g.sale||0;
+    const closing = opening + rec - sale;
+    return {state:g.state, depot:g.depot, sku_name:g.sku_name, opening, qty_recd:rec, qty_sale:sale, closing};
+  });
+
+  rows.sort((a,b)=>{
+    if(a.state!==b.state) return a.state.localeCompare(b.state);
+    if(a.depot!==b.depot) return a.depot.localeCompare(b.depot);
+    return a.sku_name.localeCompare(b.sku_name);
+  });
+
+  const overall = rows.reduce((acc,r)=>{
+    acc.open+=r.opening; acc.rec+=r.qty_recd; acc.sale+=r.qty_sale; acc.close+=r.closing;
+    return acc;
+  },{open:0,rec:0,sale:0,close:0});
+
+  let html=''; let idx=0; let currentState=null; let stateAcc=null;
+
+  while(idx<rows.length){
+    const row=rows[idx];
+    const ST=row.state, DP=row.depot;
+
+    if(currentState && currentState!==ST){
+      html += stateTotalRow(stateAcc);
+      stateAcc=null;
+    }
+    if(!stateAcc){
+      stateAcc={state:ST,open:0,rec:0,sale:0,close:0};
+      currentState=ST;
+    }
+
+    const depotAcc={depot:DP,open:0,rec:0,sale:0,close:0};
+
+    const depotRows=[]; let j=idx;
+    while(j<rows.length && rows[j].state===ST && rows[j].depot===DP){
+      depotRows.push(rows[j]); j++;
+    }
+
+    depotRows.forEach(r=>{
+      html+=`
+      <tr>
+        <td class="center" data-col="state">${escapeHtml(r.state)}</td>
+        <td class="center" data-col="depot">${escapeHtml(r.depot)}</td>
+        <td class="center" data-col="date"></td>
+        <td class="left"   data-col="sku_name">${escapeHtml(r.sku_name)}</td>
+        <td class="center" data-col="opening">${fmt(r.opening)}</td>
+        <td class="center" data-col="qty_recd">${fmt(r.qty_recd)}</td>
+        <td class="center" data-col="qty_sale">${fmt(r.qty_sale)}</td>
+        <td class="center" data-col="closing">${fmt(r.closing)}</td>
+      </tr>`;
+
+      depotAcc.open+=r.opening; depotAcc.rec+=r.qty_recd;
+      depotAcc.sale+=r.qty_sale; depotAcc.close+=r.closing;
+
+      stateAcc.open+=r.opening; stateAcc.rec+=r.qty_recd;
+      stateAcc.sale+=r.qty_sale; stateAcc.close+=r.closing;
+    });
+
+    html += depotTotalRow(depotAcc);
+    idx=j;
+  }
+
+  if(stateAcc){ html+=stateTotalRow(stateAcc); }
+  html += overallTotalRow(overall);
+
+  tbody.innerHTML=html;
+  reapplyColumnVisibility();
+
+  if(rows.length===0){
+    tbody.insertAdjacentHTML('afterbegin',`
+      <tr><td colspan="8" class="text-center p-3 text-muted">No data for selected month/filters.</td></tr>
+    `);
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// DYNAMIC COLSPAN HELPERS
+////////////////////////////////////////////////////////////////////////////////////
+
+function getVisibleColumnCount(){
+  const ths = document.querySelectorAll("thead th");
+  return Array.from(ths).filter(th=>th.style.display!=='none').length;
+}
+
+function getDynamicColspan(){
+  const visible = getVisibleColumnCount();
+  return Math.max(1, visible - 4); // 4 numeric cols
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// TOTAL ROW GENERATORS (WITH CENTERED LABELS + LIGHT BLUE SHADING)
+////////////////////////////////////////////////////////////////////////////////////
+
+function subtotalRow(sub, dateRaw, parsed){
+  const span = getDynamicColspan();
+  const label = parsed ? formatDateDDMMYYYYUTC(parsed) : dateRaw;
+  return `
+  <tr class="subtotal-row">
+    <td colspan="${span}" class="center">subtotal of Date (${label})</td>
+    <td class="center">${fmt(sub.open)}</td>
+    <td class="center">${fmt(sub.rec)}</td>
+    <td class="center">${fmt(sub.sale)}</td>
+    <td class="center">${fmt(sub.close)}</td>
+  </tr>`;
+}
+
+function depotTotalRow(acc){
+  const span = getDynamicColspan();
+  return `
+  <tr class="depot-grand-row">
+    <td colspan="${span}" class="center">GRAND TOTAL OF ${escapeHtml(acc.depot)}</td>
+    <td class="center">${fmt(acc.open)}</td>
+    <td class="center">${fmt(acc.rec)}</td>
+    <td class="center">${fmt(acc.sale)}</td>
+    <td class="center">${fmt(acc.close)}</td>
+  </tr>`;
+}
+
+function stateTotalRow(acc){
+  const span = getDynamicColspan();
+  return `
+  <tr class="state-grand-row">
+    <td colspan="${span}" class="center">GRAND TOTAL OF ${escapeHtml(acc.state)}</td>
+    <td class="center">${fmt(acc.open)}</td>
+    <td class="center">${fmt(acc.rec)}</td>
+    <td class="center">${fmt(acc.sale)}</td>
+    <td class="center">${fmt(acc.close)}</td>
+  </tr>`;
+}
+
+function overallTotalRow(acc){
+  const span = getDynamicColspan();
+  return `
+  <tr class="overall-grand-row">
+    <td colspan="${span}" class="center">OVERALL GRAND TOTAL</td>
+    <td class="center">${fmt(acc.open)}</td>
+    <td class="center">${fmt(acc.rec)}</td>
+    <td class="center">${fmt(acc.sale)}</td>
+    <td class="center">${fmt(acc.close)}</td>
+  </tr>`;
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// APPLY COLUMN VISIBILITY
+////////////////////////////////////////////////////////////////////////////////////
+
+function reapplyColumnVisibility(){
+  colCheckboxes.forEach(ch=>{
+    const col = ch.dataset.col;
+    const show = ch.checked;
+
+    const th = document.querySelector(`thead th[data-col="${col}"]`);
+    if(th) th.style.display = show?'':'none';
+
+    document.querySelectorAll(`td[data-col="${col}"]`)
+      .forEach(td=>td.style.display = show?'':'none');
+  });
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// EXCEL EXPORT
+////////////////////////////////////////////////////////////////////////////////////
+
+exportBtn.addEventListener('click', ()=>{
+  const header=["State","Depot","Date","SKU Name","Opening","Received","Sales","Closing"];
+  const ws_data=[header];
+
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.forEach(tr=>{
+    const cells = Array.from(tr.querySelectorAll('td')).map(td=>td.textContent.trim());
+    while(cells.length<8) cells.push('');
+    ws_data.push(cells);
+  });
+
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(ws_data);
+  XLSX.utils.book_append_sheet(wb,ws,'Stock');
+  XLSX.writeFile(wb,`stock_export_${new Date().toISOString().slice(0,10)}.xlsx`);
+});
+
+////////////////////////////////////////////////////////////////////////////////////
+// INIT
+////////////////////////////////////////////////////////////////////////////////////
+
+loadData();
+
   </script>
+
 </body>
 </html>
-
-
