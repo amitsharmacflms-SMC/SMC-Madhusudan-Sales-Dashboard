@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SMC - Stock Position</title>
+  <title>SMC - Stock Position (Optimized)</title>
 
   <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -18,99 +18,52 @@
       --muted:#6b7280;
       --border:#9fb1c8;
       --card-bg:#ffffff;
+      --totals-shade:#e6f0ff;
     }
 
     body{
       background: linear-gradient(180deg,#f6fbff,#f2f6fb 60%);
       font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-      padding:20px;
+      padding:18px;
     }
 
-    .top-row{
-      display:flex;justify-content:space-between;align-items:center;
-      gap:12px;margin-bottom:14px
-    }
-
-    .logo-title{
-      display:flex;align-items:center;gap:12px;
-      background:linear-gradient(90deg,#0d6efd22,#0d6efd11);
-      border-radius:10px;padding:10px 14px;
-      border-left:6px solid var(--smc-blue);
-      box-shadow:0 6px 18px rgba(13,110,253,0.06)
-    }
+    .top-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+    .logo-title{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#0d6efd22,#0d6efd11);border-radius:10px;padding:10px 14px;border-left:6px solid var(--smc-blue);box-shadow:0 6px 18px rgba(13,110,253,0.06)}
     .logo-title img{height:46px}
-    .logo-title h1{margin:0;font-size:1.1rem;color:#073763;font-weight:800}
+    .logo-title h1{margin:0;font-size:1.05rem;color:#073763;font-weight:800}
 
     .controls{display:flex;gap:8px;align-items:center}
     .btn-pill{border-radius:999px;padding:8px 14px}
 
-    /* Filter Panel */
-    .filter-panel{
-      background:linear-gradient(180deg,#ffffffd8,#ffffffcc);
-      border-radius:10px;padding:14px;
-      box-shadow:0 6px 18px rgba(2,6,23,0.06);
-      margin-bottom:12px;transition:all .28s ease
-    }
-
+    .filter-panel{background:linear-gradient(180deg,#ffffffd8,#ffffffcc);border-radius:10px;padding:14px;box-shadow:0 6px 18px rgba(2,6,23,0.06);margin-bottom:12px;transition:all .28s ease}
     .filter-row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
     .filter-row .form-label{font-weight:600;color:var(--muted);font-size:.9rem}
 
-    /* Table */
-    .table-wrap{
-      border-radius:10px;overflow:auto;background:var(--card-bg);
-      box-shadow:0 8px 30px rgba(2,6,23,0.05);
-      border:2px solid var(--border);max-height:68vh
-    }
-
+    .table-wrap{border-radius:10px;overflow:hidden;background:var(--card-bg);box-shadow:0 8px 30px rgba(2,6,23,0.05);border:2px solid var(--border);max-height:72vh;position:relative}
+    .table-viewport{height:calc(72vh - 0px);overflow:auto;will-change:transform}
     table{width:100%;border-collapse:collapse;min-width:1100px}
     table,th,td{border:2px solid var(--border)}
-
-    thead th{
-      position:sticky;top:0;z-index:6;
-      background:linear-gradient(90deg,#f0f8ff,#ffffff);
-      padding:12px;text-align:center;
-      font-weight:800;color:#0b3b66
-    }
-
-    tbody td{padding:10px 12px;vertical-align:middle}
+    thead th{position:sticky;top:0;z-index:6;background:linear-gradient(90deg,#f0f8ff,#ffffff);padding:12px;text-align:center;font-weight:800;color:#0b3b66}
+    tbody td{padding:9px 10px;vertical-align:middle}
     td.center{text-align:center}
     td.left{text-align:left}
-
     tr:hover td{background:#fbfdff}
 
-    /* Light Blue Totals */
-    .subtotal-row td{
-      background:#e6f0ff !important;
-      font-weight:700;text-align:center
-    }
-    .depot-grand-row td{
-      background:#e0ecff !important;
-      font-weight:800;text-align:center
-    }
-    .state-grand-row td{
-      background:#d4e7ff !important;
-      font-weight:900;text-align:center
-    }
-    .overall-grand-row td{
-      background:linear-gradient(90deg,#cfe4ff,#bfe0ff) !important;
-      font-weight:900;text-align:center;color:#05284a
-    }
+    .subtotal-row td{background:var(--totals-shade) !important;font-weight:700;text-align:center}
+    .depot-grand-row td{background:#e0ecff !important;font-weight:800;text-align:center}
+    .state-grand-row td{background:#d4e7ff !important;font-weight:900;text-align:center}
+    .overall-grand-row td{background:linear-gradient(90deg,#cfe4ff,#bfe0ff) !important;font-weight:900;text-align:center;color:#05284a}
 
-    .col-toggle{
-      max-height:260px;overflow:auto;padding:10px;width:240px
-    }
+    .col-toggle{max-height:260px;overflow:auto;padding:10px;width:260px}
 
-    @media (max-width:900px){
-      .filter-row{display:block}
-      .top-row{flex-direction:column;align-items:flex-start;gap:8px}
-    }
+    /* Skeleton */
+    .skeleton{height:220px;border-radius:8px;background:linear-gradient(90deg,#eef7ff,#fff);display:flex;align-items:center;justify-content:center;color:#6b7280;font-weight:600}
+
+    @media (max-width:900px){.filter-row{display:block}.top-row{flex-direction:column;align-items:flex-start;gap:8px}}
   </style>
 </head>
 <body>
-
   <div class="container-fluid">
-
-    <!-- Header -->
     <div class="top-row">
       <div class="logo-title">
         <img src="/static/onlylogo.png" alt="SMC" onerror="this.style.display='none'">
@@ -124,51 +77,17 @@
         <button id="toggleFiltersBtn" class="btn btn-light btn-pill">Filters</button>
         <button id="yesterdayBtn" class="btn btn-info btn-pill text-white">Yesterday</button>
 
-        <!-- Column Toggle -->
         <div class="dropdown">
           <button class="btn btn-outline-dark btn-sm dropdown-toggle" data-bs-toggle="dropdown">Columns</button>
-          <div class="dropdown-menu dropdown-menu-end col-toggle">
-
-            <div class="form-check">
-              <input class="form-check-input col-toggle-checkbox" data-col="state" type="checkbox" checked>
-              <label class="form-check-label">State</label>
-            </div>
-
-            <div class="form-check">
-              <input class="form-check-input col-toggle-checkbox" data-col="depot" type="checkbox" checked>
-              <label class="form-check-label">Depot</label>
-            </div>
-
-            <div class="form-check">
-              <input class="form-check-input col-toggle-checkbox" id="dateColCheckbox" data-col="date" type="checkbox" checked>
-              <label class="form-check-label">Date</label>
-            </div>
-
-            <div class="form-check">
-              <input class="form-check-input col-toggle-checkbox" data-col="sku_name" type="checkbox" checked>
-              <label class="form-check-label">SKU Name</label>
-            </div>
-
-            <div class="form-check">
-              <input class="form-check-input col-toggle-checkbox" data-col="opening" type="checkbox" checked>
-              <label class="form-check-label">Opening</label>
-            </div>
-
-            <div class="form-check">
-              <input class="form-check-input col-toggle-checkbox" data-col="qty_recd" type="checkbox" checked>
-              <label class="form-check-label">Received</label>
-            </div>
-
-            <div class="form-check">
-              <input class="form-check-input col-toggle-checkbox" data-col="qty_sale" type="checkbox" checked>
-              <label class="form-check-label">Sales</label>
-            </div>
-
-            <div class="form-check">
-              <input class="form-check-input col-toggle-checkbox" data-col="closing" type="checkbox" checked>
-              <label class="form-check-label">Closing</label>
-            </div>
-
+          <div class="dropdown-menu dropdown-menu-end col-toggle" id="colToggleMenu">
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="state" type="checkbox" checked> <label class="form-check-label">State</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="depot" type="checkbox" checked> <label class="form-check-label">Depot</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" id="dateColCheckbox" data-col="date" type="checkbox" checked> <label class="form-check-label">Date</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="sku_name" type="checkbox" checked> <label class="form-check-label">SKU Name</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="opening" type="checkbox" checked> <label class="form-check-label">Opening</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="qty_recd" type="checkbox" checked> <label class="form-check-label">Received</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="qty_sale" type="checkbox" checked> <label class="form-check-label">Sales</label></div>
+            <div class="form-check"><input class="form-check-input col-toggle-checkbox" data-col="closing" type="checkbox" checked> <label class="form-check-label">Closing</label></div>
           </div>
         </div>
 
@@ -176,65 +95,38 @@
       </div>
     </div>
 
-    <!-- Filter Panel -->
     <div id="filterPanel" class="filter-panel" style="display:none;">
       <div class="filter-row">
-
-        <div style="flex:1; min-width:180px;">
-          <label class="form-label">Month</label>
-          <select id="filterMonth" class="form-select"><option value="">All</option></select>
-        </div>
-
-        <div style="flex:1; min-width:160px;">
-          <label class="form-label">State</label>
-          <select id="filterState" class="form-select"><option value="">All</option></select>
-        </div>
-
-        <div style="flex:1; min-width:160px;">
-          <label class="form-label">Depot</label>
-          <select id="filterDepot" class="form-select"><option value="">All</option></select>
-        </div>
-
-        <div style="flex:2; min-width:220px;">
-          <label class="form-label">SKU (search)</label>
-          <input id="filterSKU" list="skuList" class="form-control" placeholder="Type or pick SKU">
-          <datalist id="skuList"></datalist>
-        </div>
-
-        <div style="min-width:140px;">
-          <label class="form-label">From</label>
-          <input id="filterFrom" type="date" class="form-control">
-        </div>
-
-        <div style="min-width:140px;">
-          <label class="form-label">To</label>
-          <input id="filterTo" type="date" class="form-control">
-        </div>
-
-        <div style="min-width:120px; display:flex; align-items:end;">
-          <button id="clearFilters" class="btn btn-outline-secondary w-100">Reset</button>
-        </div>
-
+        <div style="flex:1; min-width:160px;"><label class="form-label">Month</label><select id="filterMonth" class="form-select"><option value="">All</option></select></div>
+        <div style="flex:1; min-width:160px;"><label class="form-label">State</label><select id="filterState" class="form-select"><option value="">All</option></select></div>
+        <div style="flex:1; min-width:160px;"><label class="form-label">Depot</label><select id="filterDepot" class="form-select"><option value="">All</option></select></div>
+        <div style="flex:2; min-width:220px;"><label class="form-label">SKU (search)</label><input id="filterSKU" list="skuList" class="form-control" placeholder="Type or pick SKU"><datalist id="skuList"></datalist></div>
+        <div style="min-width:140px;"><label class="form-label">From</label><input id="filterFrom" type="date" class="form-control"></div>
+        <div style="min-width:140px;"><label class="form-label">To</label><input id="filterTo" type="date" class="form-control"></div>
+        <div style="min-width:120px; display:flex; align-items:end;"><button id="clearFilters" class="btn btn-outline-secondary w-100">Reset</button></div>
       </div>
     </div>
 
-    <!-- Table -->
     <div class="table-wrap">
-      <table id="stockTable" class="table table-sm mb-0">
-        <thead>
-          <tr>
-            <th data-col="state" style="min-width:130px;">State</th>
-            <th data-col="depot" style="min-width:150px;">Depot</th>
-            <th data-col="date" style="min-width:110px;">Date</th>
-            <th data-col="sku_name" style="min-width:300px; text-align:left;">SKU Name</th>
-            <th data-col="opening" style="min-width:110px;">Opening</th>
-            <th data-col="qty_recd" style="min-width:110px;">Received</th>
-            <th data-col="qty_sale" style="min-width:110px;">Sales</th>
-            <th data-col="closing" style="min-width:110px;">Closing</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+      <div id="tableSkeleton" class="skeleton">Loading data…</div>
+
+      <div class="table-viewport" id="tableViewport" style="display:none;">
+        <table id="stockTable" class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th data-col="state" style="min-width:130px;">State</th>
+              <th data-col="depot" style="min-width:150px;">Depot</th>
+              <th data-col="date" style="min-width:110px;">Date</th>
+              <th data-col="sku_name" style="min-width:300px; text-align:left;">SKU Name</th>
+              <th data-col="opening" style="min-width:110px;">Opening</th>
+              <th data-col="qty_recd" style="min-width:110px;">Received</th>
+              <th data-col="qty_sale" style="min-width:110px;">Sales</th>
+              <th data-col="closing" style="min-width:110px;">Closing</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
 
   </div>
@@ -243,546 +135,640 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
+  // =================== CONFIG ===================
+  const ROW_HEIGHT = 42;           // px (adjust if you change padding)
+  const BUFFER = 12;               // number of extra rows rendered above and below viewport
+  const NUMERIC_COLUMNS = ['opening','qty_recd','qty_sale','closing'];
 
-////////////////////////////////////////////////////////////////////////////////////
-// UTILITIES
-////////////////////////////////////////////////////////////////////////////////////
+  // =================== UTIL ===================
+  const pad2 = n => String(n).padStart(2,'0');
+  const fmt = v => (v==null || isNaN(+v)) ? '' : Number(v).toLocaleString();
 
-const pad2 = n => String(n).padStart(2,'0');
-const fmt = v => (v==null || isNaN(+v)) ? '' : Number(v).toLocaleString();
-
-function parseDMYtoUTC(s){
-  if(!s) return null;
-  const m = String(s).trim().match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
-  if(m){ return new Date(Date.UTC(+m[3], +m[2]-1, +m[1])); }
-  const iso = new Date(s);
-  return isNaN(iso)?null:new Date(Date.UTC(iso.getUTCFullYear(), iso.getUTCMonth(), iso.getUTCDate()));
-}
-function parseInputDateUTC(val){
-  if(!val) return null;
-  const [y,m,d] = val.split('-').map(Number);
-  return new Date(Date.UTC(y,m-1,d));
-}
-function formatDateDDMMYYYYUTC(d){
-  if(!d) return '';
-  return `${pad2(d.getUTCDate())}-${pad2(d.getUTCMonth()+1)}-${d.getUTCFullYear()}`;
-}
-
-function escapeHtml(s){
-  if(s==null) return '';
-  return String(s)
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;');
-}
-
-////////////////////////////////////////////////////////////////////////////////////
-// DOM
-////////////////////////////////////////////////////////////////////////////////////
-
-const tbody = document.querySelector('#stockTable tbody');
-
-const filterPanel = document.getElementById('filterPanel');
-const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
-const yesterdayBtn = document.getElementById('yesterdayBtn');
-
-const filterMonth = document.getElementById('filterMonth');
-const filterState = document.getElementById('filterState');
-const filterDepot = document.getElementById('filterDepot');
-const filterSKU = document.getElementById('filterSKU');
-const filterFrom = document.getElementById('filterFrom');
-const filterTo = document.getElementById('filterTo');
-const clearFilters = document.getElementById('clearFilters');
-const skuList = document.getElementById('skuList');
-const exportBtn = document.getElementById('exportBtn');
-
-const colCheckboxes = Array.from(document.querySelectorAll('.col-toggle-checkbox'));
-const dateColCheckbox = document.getElementById('dateColCheckbox');
-
-////////////////////////////////////////////////////////////////////////////////////
-// STATE
-////////////////////////////////////////////////////////////////////////////////////
-
-let RAW = [], MERGED = [], FILTERED = [];
-
-////////////////////////////////////////////////////////////////////////////////////
-// DATA LOADING
-////////////////////////////////////////////////////////////////////////////////////
-
-async function loadData(){
-  try{
-    const res = await fetch('/api/get_stock_data');
-    RAW = await res.json();
-
-    RAW = RAW.map(r=>{
-      const o={};
-      for(const k in r) o[k.trim().toLowerCase()] = r[k];
-
-      o.state = (o.state||'').toString().trim();
-      o.depot = (o.depot||'').toString().trim();
-      o.date = (o.date||'').toString().trim();
-      o.sku_name = (o.sku_name||'').toString().trim();
-
-      o.opening = Number(o.opening)||0;
-      o.qty_recd = Number(o.qty_recd)||0;
-      o.qty_sale = Number(o.qty_sale)||0;
-      o.closing = Number(o.closing)||0;
-
-      o._parsed_date = parseDMYtoUTC(o.date);
-      o._month_key = o._parsed_date ? `${o._parsed_date.getUTCFullYear()}-${pad2(o._parsed_date.getUTCMonth()+1)}` : '';
-
-      return o;
-    });
-
-    MERGED = mergeGroups(RAW);
-    populateFilters();
-    applyFilters();
-
-  }catch(e){
-    console.error('loadData error:', e);
-    tbody.innerHTML='<tr><td colspan="8" class="text-danger p-3">Failed to load data</td></tr>';
+  function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function parseDMYtoUTC(s){
+    if(!s) return null;
+    const m = String(s).trim().match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+    if(m) return new Date(Date.UTC(+m[3], +m[2]-1, +m[1]));
+    const iso = new Date(s); return isNaN(iso)?null:new Date(Date.UTC(iso.getUTCFullYear(), iso.getUTCMonth(), iso.getUTCDate()));
   }
-}
+  function parseInputDateUTC(val){ if(!val) return null; const [y,m,d] = val.split('-').map(Number); return new Date(Date.UTC(y,m-1,d)); }
+  function formatDateDDMMYYYYUTC(d){ if(!d) return ''; return `${pad2(d.getUTCDate())}-${pad2(d.getUTCMonth()+1)}-${d.getUTCFullYear()}`; }
 
-////////////////////////////////////////////////////////////////////////////////////
-// MERGE FIRST
-////////////////////////////////////////////////////////////////////////////////////
+  // =================== DOM REFS ===================
+  const tbody = document.querySelector('#stockTable tbody');
+  const tableViewport = document.getElementById('tableViewport');
+  const tableSkeleton = document.getElementById('tableSkeleton');
 
-function mergeGroups(rows){
-  const map=new Map();
-  rows.forEach(r=>{
-    const key = `${r.state}||${r.depot}||${r.date}||${r.sku_name}`;
-    if(!map.has(key)){
-      map.set(key,{...r});
-    } else {
-      const g=map.get(key);
-      g.opening += r.opening;
-      g.qty_recd += r.qty_recd;
-      g.qty_sale += r.qty_sale;
-      g.closing += r.closing;
-    }
-  });
-  return Array.from(map.values());
-}
+  const filterPanel = document.getElementById('filterPanel');
+  const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
+  const yesterdayBtn = document.getElementById('yesterdayBtn');
 
-////////////////////////////////////////////////////////////////////////////////////
-// FILTER SETUP
-////////////////////////////////////////////////////////////////////////////////////
+  const filterMonth = document.getElementById('filterMonth');
+  const filterState = document.getElementById('filterState');
+  const filterDepot = document.getElementById('filterDepot');
+  const filterSKU = document.getElementById('filterSKU');
+  const filterFrom = document.getElementById('filterFrom');
+  const filterTo = document.getElementById('filterTo');
+  const clearFilters = document.getElementById('clearFilters');
+  const skuList = document.getElementById('skuList');
+  const exportBtn = document.getElementById('exportBtn');
 
-function populateFilters(){
-  const months = Array.from(new Set(MERGED.map(r=>r._month_key).filter(Boolean))).sort();
-  filterMonth.innerHTML='<option value="">All</option>'+
-    months.map(m=>{
-      const [y,mm]=m.split('-');
-      const dt = new Date(Date.UTC(y,mm-1,1));
-      return `<option value="${m}">${dt.toLocaleString(undefined,{month:'long'})} ${y}</option>`;
-    }).join('');
+  let colCheckboxes = null;
+  function refreshColCheckboxes(){ colCheckboxes = Array.from(document.querySelectorAll('.col-toggle-checkbox')); }
 
-  const states = Array.from(new Set(MERGED.map(r=>r.state).filter(Boolean))).sort();
-  filterState.innerHTML='<option value="">All</option>'+states.map(s=>`<option>${s}</option>`).join('');
+  const dateColCheckbox = () => document.getElementById('dateColCheckbox');
 
-  const depots = Array.from(new Set(MERGED.map(r=>r.depot).filter(Boolean))).sort();
-  filterDepot.innerHTML='<option value="">All</option>'+depots.map(d=>`<option>${d}</option>`).join('');
+  // =================== APP STATE ===================
+  let RAW = [];          // raw rows from API
+  let MERGED = [];       // merged result from worker (merge-first)
+  let FILTERED = [];     // filtered subset (references MERGED)
+  let VISIBLE_ROWS = []; // rows currently rendered (subset + totals inserted)
 
-  const skus = Array.from(new Set(MERGED.map(r=>r.sku_name).filter(Boolean))).sort();
-  skuList.innerHTML = skus.map(s=>`<option value="${s}">`).join('');
-}
+  // virtualization state
+  let totalRowCount = 0;     // number of "renderable" rows (including subtotal/total rows when visible mode uses them)
+  let renderedStart = 0;
+  let renderedEnd = 0;
 
-////////////////////////////////////////////////////////////////////////////////////
-// FILTER EVENTS
-////////////////////////////////////////////////////////////////////////////////////
+  // worker
+  let mergeWorker = null;
 
-[filterMonth, filterState, filterDepot, filterFrom, filterTo]
-  .forEach(el=>el.addEventListener('change', applyFilters));
+  // =================== Web Worker (inline) ===================
+  const workerCode = `
+  self.addEventListener('message', (ev) => {
+    const { cmd, rows } = ev.data;
+    if(cmd === 'merge'){
+      // Merge-first: group by state||depot||date||sku_name and sum numeric fields
+      const map = new Map();
+      for(const r of rows){
+        const o = {};
+        for(const k in r) o[k.trim().toLowerCase()] = r[k];
+        const state = (o.state||'').toString().trim();
+        const depot = (o.depot||'').toString().trim();
+        const date = (o.date||'').toString().trim();
+        const sku_name = (o.sku_name||o.sku||'').toString().trim();
+        const opening = Number(o.opening)||0;
+        const qty_recd = Number(o.qty_recd)||0;
+        const qty_sale = Number(o.qty_sale)||0;
+        const closing = Number(o.closing)||0;
 
-filterSKU.addEventListener('input', applyFilters);
-
-clearFilters.addEventListener('click', ()=>{
-  filterMonth.value=''; filterState.value=''; filterDepot.value='';
-  filterSKU.value=''; filterFrom.value=''; filterTo.value='';
-  applyFilters();
-});
-
-colCheckboxes.forEach(ch=>ch.addEventListener('change', ()=>{
-  applyFilters();  // re-render entire table for dynamic colspan
-}));
-
-yesterdayBtn.addEventListener('click', ()=>{
-  const now = new Date();
-  const y = new Date(now.getFullYear(), now.getMonth(), now.getDate()-1);
-  const val = `${y.getFullYear()}-${pad2(y.getMonth()+1)}-${pad2(y.getDate())}`;
-  filterFrom.value=val;
-  filterTo.value=val;
-  applyFilters();
-  yesterdayBtn.classList.add('btn-success');
-  setTimeout(()=>yesterdayBtn.classList.remove('btn-success'),700);
-});
-
-toggleFiltersBtn.addEventListener('click',()=>{
-  filterPanel.style.display = filterPanel.style.display==='none'?'block':'none';
-});
-
-////////////////////////////////////////////////////////////////////////////////////
-// FILTER CORE LOGIC
-////////////////////////////////////////////////////////////////////////////////////
-
-function applyFilters(){
-  const m = filterMonth.value;
-  const s = filterState.value;
-  const d = filterDepot.value;
-  const skuQ = (filterSKU.value||'').toLowerCase().trim();
-  const from = parseInputDateUTC(filterFrom.value);
-  const to   = parseInputDateUTC(filterTo.value);
-
-  FILTERED = MERGED.filter(r=>{
-    if(m && r._month_key!==m) return false;
-    if(s && r.state!==s) return false;
-    if(d && r.depot!==d) return false;
-    if(skuQ && !r.sku_name.toLowerCase().includes(skuQ)) return false;
-    if(from && (!r._parsed_date || r._parsed_date<from)) return false;
-    if(to && (!r._parsed_date || r._parsed_date>to)) return false;
-    return true;
-  });
-
-  renderSmart();
-}
-
-////////////////////////////////////////////////////////////////////////////////////
-// SMART RENDER (NORMAL or MONTH SUMMARY)
-////////////////////////////////////////////////////////////////////////////////////
-
-function renderSmart(){
-  const monthSelected = !!filterMonth.value;
-  const dateVisible = dateColCheckbox.checked;
-
-  // ALWAYS use Month Summary Mode if month is selected OR date column hidden
-  const summaryMode = monthSelected || !dateVisible;
-
-  if(summaryMode) renderMonthSummary();
-  else            renderNormalMode();
-}
-
-////////////////////////////////////////////////////////////////////////////////////
-// NORMAL MODE (DATE-WISE)
-////////////////////////////////////////////////////////////////////////////////////
-
-function renderNormalMode(){
-  FILTERED.sort((a,b)=>{
-    if(a.state!==b.state) return a.state.localeCompare(b.state);
-    if(a.depot!==b.depot) return a.depot.localeCompare(b.depot);
-    const da = a._parsed_date?a._parsed_date.getTime():0;
-    const db = b._parsed_date?b._parsed_date.getTime():0;
-    if(da!==db) return da-db;
-    return a.sku_name.localeCompare(b.sku_name);
-  });
-
-  const overall = FILTERED.reduce((acc,r)=>{
-    acc.open+=r.opening; acc.rec+=r.qty_recd; acc.sale+=r.qty_sale; acc.close+=r.closing;
-    return acc;
-  },{open:0,rec:0,sale:0,close:0});
-
-  let html=''; let i=0; let stateAcc=null; let currentState=null;
-
-  while(i<FILTERED.length){
-    const row=FILTERED[i];
-    const ST=row.state, DP=row.depot;
-
-    if(currentState && currentState!==ST){
-      html += stateTotalRow(stateAcc);
-      stateAcc = null;
-    }
-    if(!stateAcc){
-      stateAcc={state:ST,open:0,rec:0,sale:0,close:0};
-      currentState=ST;
-    }
-
-    const depotAcc={depot:DP,open:0,rec:0,sale:0,close:0};
-    const depotRows=[]; let j=i;
-    while(j<FILTERED.length && FILTERED[j].state===ST && FILTERED[j].depot===DP){
-      depotRows.push(FILTERED[j]); j++;
-    }
-
-    let k=0;
-    while(k<depotRows.length){
-      const dateRaw = depotRows[k].date;
-      const group=[]; let m=k;
-      while(m<depotRows.length && depotRows[m].date===dateRaw){
-        group.push(depotRows[m]); m++;
+        const key = state+'||'+depot+'||'+date+'||'+sku_name;
+        if(!map.has(key)){
+          map.set(key,{
+            state, depot, date, sku_name, opening, qty_recd, qty_sale, closing
+          });
+        } else {
+          const g = map.get(key);
+          g.opening += opening;
+          g.qty_recd += qty_recd;
+          g.qty_sale += qty_sale;
+          g.closing += closing;
+        }
       }
 
-      const sub = group.reduce((acc,r)=>{
-        acc.open+=r.opening;acc.rec+=r.qty_recd;acc.sale+=r.qty_sale;acc.close+=r.closing;
-        return acc;
-      },{open:0,rec:0,sale:0,close:0});
+      // produce array
+      const out = [];
+      for(const v of map.values()) out.push(v);
 
-      depotAcc.open+=sub.open; depotAcc.rec+=sub.rec;
-      depotAcc.sale+=sub.sale; depotAcc.close+=sub.close;
+      // create month keys and unique values metadata to help UI populate filters
+      const months = new Set(), states = new Set(), depots = new Set(), skus = new Set();
+      for(const r of out){
+        // parse dd-mm-yyyy if possible to produce month key
+        const mm = (r.date||'').toString().trim().match(/(\\d{1,2})[-\\/](\\d{1,2})[-\\/](\\d{4})/);
+        let monthKey = '';
+        if(mm){ monthKey = mm[3] + '-' + (mm[2].padStart(2,'0')); }
+        else {
+          // try ISO parse
+          const d = new Date(r.date);
+          if(!isNaN(d)) monthKey = d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0');
+        }
+        if(monthKey) months.add(monthKey);
+        if(r.state) states.add(r.state);
+        if(r.depot) depots.add(r.depot);
+        if(r.sku_name) skus.add(r.sku_name);
+      }
 
-      stateAcc.open+=sub.open; stateAcc.rec+=sub.rec;
-      stateAcc.sale+=sub.sale; stateAcc.close+=sub.close;
-
-      group.forEach(r=>{
-        const fdate = r._parsed_date?formatDateDDMMYYYYUTC(r._parsed_date):r.date;
-        html += `
-        <tr>
-          <td class="center" data-col="state">${escapeHtml(r.state)}</td>
-          <td class="center" data-col="depot">${escapeHtml(r.depot)}</td>
-          <td class="center" data-col="date">${fdate}</td>
-          <td class="left"   data-col="sku_name">${escapeHtml(r.sku_name)}</td>
-          <td class="center" data-col="opening">${fmt(r.opening)}</td>
-          <td class="center" data-col="qty_recd">${fmt(r.qty_recd)}</td>
-          <td class="center" data-col="qty_sale">${fmt(r.qty_sale)}</td>
-          <td class="center" data-col="closing">${fmt(r.closing)}</td>
-        </tr>`;
-      });
-
-      html += subtotalRow(sub, dateRaw, group[0]._parsed_date);
-      k=m;
+      self.postMessage({ cmd:'merged', merged: out, meta: {
+        months: Array.from(months).sort(),
+        states: Array.from(states).sort(),
+        depots: Array.from(depots).sort(),
+        skus: Array.from(skus).sort()
+      } });
     }
-
-    html += depotTotalRow(depotAcc);
-    i=j;
+  });
+  `;
+  function initWorker(){
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    mergeWorker = new Worker(url);
+    mergeWorker.onmessage = (ev) => {
+      const data = ev.data;
+      if(data.cmd === 'merged'){
+        MERGED = data.merged.map(r=>{
+          // normalize: compute parsed date and month key on main thread (stable)
+          const o = Object.assign({}, r);
+          o._parsed_date = parseDMYtoUTC(o.date);
+          o._month_key = o._parsed_date ? (o._parsed_date.getUTCFullYear() + '-' + pad2(o._parsed_date.getUTCMonth()+1)) : '';
+          return o;
+        });
+        populateFiltersFromMeta(data.meta);
+        finishLoad();
+      }
+    };
   }
 
-  if(stateAcc){ html += stateTotalRow(stateAcc); }
-  html += overallTotalRow(overall);
+  // =================== Load data ===================
+  async function loadData(){
+    try{
+      tableSkeleton.style.display = '';
+      tableViewport.style.display = 'none';
+      initWorker();
 
-  tbody.innerHTML=html;
-  reapplyColumnVisibility();
+      const res = await fetch('/api/get_stock_data');
+      const raw = await res.json();
+      RAW = raw; // keep original
 
-  if(FILTERED.length===0){
-    tbody.insertAdjacentHTML('afterbegin',`
-      <tr><td colspan="8" class="text-center p-3 text-muted">No data for selected filters.</td></tr>
-    `);
+      // send to worker for heavy merge
+      mergeWorker.postMessage({ cmd:'merge', rows: RAW });
+
+    }catch(err){
+      console.error('loadData error', err);
+      tableSkeleton.textContent = 'Failed to load data';
+    }
   }
-}
 
-////////////////////////////////////////////////////////////////////////////////////
-// MONTH SUMMARY MODE
-////////////////////////////////////////////////////////////////////////////////////
+  function populateFiltersFromMeta(meta){
+    // months, states, depots, skus from worker
+    const months = meta.months || [];
+    filterMonth.innerHTML = '<option value="">All</option>' + months.map(m=>{
+      const [y,mm] = m.split('-'); const d = new Date(Date.UTC(y, Number(mm)-1, 1));
+      return `<option value="${m}">${d.toLocaleString(undefined,{month:'long'})} ${y}</option>`;
+    }).join('');
 
-function renderMonthSummary(){
-  const monthKey = filterMonth.value;
-  const usableRows = FILTERED.slice();
-  const groups = new Map();
+    filterState.innerHTML = '<option value="">All</option>' + (meta.states||[]).map(s=>`<option>${s}</option>`).join('');
+    filterDepot.innerHTML = '<option value="">All</option>' + (meta.depots||[]).map(d=>`<option>${d}</option>`).join('');
+    skuList.innerHTML = (meta.skus||[]).map(s=>`<option value="${s}">`).join('');
+    refreshColCheckboxes();
+  }
 
-  usableRows.forEach(r=>{
-    const key=`${r.state}||${r.depot}||${r.sku_name}`;
-    if(!groups.has(key)){
-      groups.set(key,{
-        state:r.state,depot:r.depot,sku_name:r.sku_name,
-        openings:[{d:r._parsed_date,opening:r.opening}],
-        rec:r.qty_recd, sale:r.qty_sale
-      });
-    }else{
-      const g=groups.get(key);
-      g.openings.push({d:r._parsed_date, opening:r.opening});
-      g.rec+=r.qty_recd; g.sale+=r.qty_sale;
+  // called after MERGED is ready
+  function finishLoad(){
+    // hide skeleton and show viewport
+    tableSkeleton.style.display = 'none';
+    tableViewport.style.display = '';
+    // initial filter (none)
+    applyFilters();
+    // attach scroll handler for virtualization
+    tableViewport.addEventListener('scroll', onScroll, { passive: true });
+  }
+
+  // =================== Filter / events ===================
+  [filterMonth, filterState, filterDepot, filterFrom, filterTo].forEach(el=>el.addEventListener('change', applyFilters));
+  filterSKU.addEventListener('input', applyFilters);
+  clearFilters.addEventListener('click', ()=>{ filterMonth.value=''; filterState.value=''; filterDepot.value=''; filterSKU.value=''; filterFrom.value=''; filterTo.value=''; applyFilters(); });
+
+  // column toggle events
+  document.getElementById('colToggleMenu').addEventListener('change', (ev) => {
+    if(ev.target && ev.target.classList.contains('col-toggle-checkbox')){
+      reapplyColumnVisibility(); renderSmart(); // re-render
     }
   });
 
-  const rows = Array.from(groups.values()).map(g=>{
-    const opens = g.openings.filter(o=>o.d);
-    let opening = 0;
-    if(opens.length>0){
-      opens.sort((a,b)=>a.d-b.d);
-      opening=opens[0].opening;
-    }
-    const rec=g.rec||0, sale=g.sale||0;
-    const closing = opening + rec - sale;
-    return {state:g.state, depot:g.depot, sku_name:g.sku_name, opening, qty_recd:rec, qty_sale:sale, closing};
+  yesterdayBtn.addEventListener('click', ()=>{
+    const now = new Date();
+    const y = new Date(now.getFullYear(), now.getMonth(), now.getDate()-1);
+    filterFrom.value = `${y.getFullYear()}-${pad2(y.getMonth()+1)}-${pad2(y.getDate())}`;
+    filterTo.value = filterFrom.value;
+    applyFilters();
+    yesterdayBtn.classList.add('btn-success');
+    setTimeout(()=>yesterdayBtn.classList.remove('btn-success'), 700);
   });
 
-  rows.sort((a,b)=>{
-    if(a.state!==b.state) return a.state.localeCompare(b.state);
-    if(a.depot!==b.depot) return a.depot.localeCompare(b.depot);
-    return a.sku_name.localeCompare(b.sku_name);
-  });
+  toggleFiltersBtn.addEventListener('click', ()=>{ filterPanel.style.display = filterPanel.style.display==='none' ? 'block' : 'none'; });
 
-  const overall = rows.reduce((acc,r)=>{
-    acc.open+=r.opening; acc.rec+=r.qty_recd; acc.sale+=r.qty_sale; acc.close+=r.closing;
-    return acc;
-  },{open:0,rec:0,sale:0,close:0});
+  // =================== APPLY FILTERS ===================
+  function applyFilters(){
+    if(!MERGED) MERGED = [];
+    const m = filterMonth.value;
+    const s = filterState.value;
+    const d = filterDepot.value;
+    const skuQ = (filterSKU.value||'').toLowerCase().trim();
+    const from = parseInputDateUTC(filterFrom.value);
+    const to   = parseInputDateUTC(filterTo.value);
 
-  let html=''; let idx=0; let currentState=null; let stateAcc=null;
-
-  while(idx<rows.length){
-    const row=rows[idx];
-    const ST=row.state, DP=row.depot;
-
-    if(currentState && currentState!==ST){
-      html += stateTotalRow(stateAcc);
-      stateAcc=null;
-    }
-    if(!stateAcc){
-      stateAcc={state:ST,open:0,rec:0,sale:0,close:0};
-      currentState=ST;
-    }
-
-    const depotAcc={depot:DP,open:0,rec:0,sale:0,close:0};
-
-    const depotRows=[]; let j=idx;
-    while(j<rows.length && rows[j].state===ST && rows[j].depot===DP){
-      depotRows.push(rows[j]); j++;
-    }
-
-    depotRows.forEach(r=>{
-      html+=`
-      <tr>
-        <td class="center" data-col="state">${escapeHtml(r.state)}</td>
-        <td class="center" data-col="depot">${escapeHtml(r.depot)}</td>
-        <td class="center" data-col="date"></td>
-        <td class="left"   data-col="sku_name">${escapeHtml(r.sku_name)}</td>
-        <td class="center" data-col="opening">${fmt(r.opening)}</td>
-        <td class="center" data-col="qty_recd">${fmt(r.qty_recd)}</td>
-        <td class="center" data-col="qty_sale">${fmt(r.qty_sale)}</td>
-        <td class="center" data-col="closing">${fmt(r.closing)}</td>
-      </tr>`;
-
-      depotAcc.open+=r.opening; depotAcc.rec+=r.qty_recd;
-      depotAcc.sale+=r.qty_sale; depotAcc.close+=r.closing;
-
-      stateAcc.open+=r.opening; stateAcc.rec+=r.qty_recd;
-      stateAcc.sale+=r.qty_sale; stateAcc.close+=r.closing;
+    FILTERED = MERGED.filter(r=>{
+      if(m && r._month_key !== m) return false;
+      if(s && r.state !== s) return false;
+      if(d && r.depot !== d) return false;
+      if(skuQ && !r.sku_name.toLowerCase().includes(skuQ)) return false;
+      if(from && (!r._parsed_date || r._parsed_date < from)) return false;
+      if(to && (!r._parsed_date || r._parsed_date > to)) return false;
+      return true;
     });
 
-    html += depotTotalRow(depotAcc);
-    idx=j;
+    renderSmart();
   }
 
-  if(stateAcc){ html+=stateTotalRow(stateAcc); }
-  html += overallTotalRow(overall);
-
-  tbody.innerHTML=html;
-  reapplyColumnVisibility();
-
-  if(rows.length===0){
-    tbody.insertAdjacentHTML('afterbegin',`
-      <tr><td colspan="8" class="text-center p-3 text-muted">No data for selected month/filters.</td></tr>
-    `);
+  // =================== SMART RENDER DECISION ===================
+  function renderSmart(){
+    const monthSelected = !!filterMonth.value;
+    const dateVisible = (dateColCheckbox() && dateColCheckbox().checked);
+    const summaryMode = monthSelected || !dateVisible;
+    if(summaryMode) renderMonthSummary();
+    else renderNormalMode();
   }
-}
 
-////////////////////////////////////////////////////////////////////////////////////
-// DYNAMIC COLSPAN HELPERS
-////////////////////////////////////////////////////////////////////////////////////
+  // =================== Virtualization helpers ===================
+  function getVisibleColumnsOrder(){
+    const ths = Array.from(document.querySelectorAll('thead th'));
+    return ths.filter(th => th.style.display !== 'none').map(th => th.dataset.col);
+  }
 
-function getVisibleColumnCount(){
-  const ths = document.querySelectorAll("thead th");
-  return Array.from(ths).filter(th=>th.style.display!=='none').length;
-}
+  function renderTotalsRow(label, values = {}, extraClass='state-grand-row'){
+    // column-aware totals: left columns = visible non-numeric, numericVisible = visible numeric columns in header order
+    const visible = getVisibleColumnsOrder();
+    const leftCols = visible.filter(c => !NUMERIC_COLUMNS.includes(c));
+    const numericVisible = visible.filter(c => NUMERIC_COLUMNS.includes(c));
+    const colspan = Math.max(1, leftCols.length);
+    let html = `<tr class="${extraClass}">`;
+    html += `<td colspan="${colspan}" class="center">${escapeHtml(label)}</td>`;
+    numericVisible.forEach(col => {
+      const v = values[col] != null ? values[col] : '';
+      html += `<td class="center" data-col="${col}">${fmt(v)}</td>`;
+    });
+    html += `</tr>`;
+    return html;
+  }
 
-function getDynamicColspan() {
-  // Non-numeric columns
-  const nonNumericCols = ["state", "depot", "date", "sku_name"];
+  function getVisibleColumnCount(){
+    const ths = document.querySelectorAll("thead th");
+    return Array.from(ths).filter(th=>th.style.display!=='none').length;
+  }
 
-  let count = 0;
-  nonNumericCols.forEach(col => {
-    const th = document.querySelector(`thead th[data-col="${col}"]`);
-    if (th && th.style.display !== "none") count++;
+  function reapplyColumnVisibility(){
+    refreshColCheckboxes();
+    colCheckboxes.forEach(ch=>{
+      const col = ch.dataset.col;
+      const show = ch.checked;
+      const th = document.querySelector(`thead th[data-col="${col}"]`);
+      if(th) th.style.display = show ? '' : 'none';
+      document.querySelectorAll(`td[data-col="${col}"]`).forEach(td => td.style.display = show ? '' : 'none');
+    });
+  }
+
+  // =================== NORMAL MODE (virtualized) ===================
+  // In normal mode we keep MERGED rows, sorted by state,depot,date,sku_name
+  function renderNormalMode(){
+    // sort (lightweight)
+    FILTERED.sort((a,b)=>{
+      if(a.state!==b.state) return a.state.localeCompare(b.state);
+      if(a.depot!==b.depot) return a.depot.localeCompare(b.depot);
+      const da = a._parsed_date ? a._parsed_date.getTime() : 0;
+      const db = b._parsed_date ? b._parsed_date.getTime() : 0;
+      if(da !== db) return da - db;
+      return a.sku_name.localeCompare(b.sku_name);
+    });
+
+    // We'll create a flat "render list" that includes rows and subtotal/depot/state/overall markers.
+    // But we will not create DOM for all — virtualization will render only visible slice.
+    const list = []; // each item: { type: 'row'|'subtotal'|'depot_total'|'state_total'|'overall', data: ... }
+
+    // accumulate
+    let i=0;
+    let overallAcc = { open:0, rec:0, sale:0, close:0 };
+    while(i < FILTERED.length){
+      const r = FILTERED[i];
+      const ST = r.state, DP = r.depot;
+      // gather depot block
+      let j=i;
+      const depotBlock = [];
+      while(j < FILTERED.length && FILTERED[j].state === ST && FILTERED[j].depot === DP){
+        depotBlock.push(FILTERED[j]); j++;
+      }
+      // within depotBlock, group by date
+      let k=0;
+      while(k < depotBlock.length){
+        const dateVal = depotBlock[k].date;
+        const group = [];
+        let m = k;
+        while(m < depotBlock.length && depotBlock[m].date === dateVal){
+          group.push(depotBlock[m]); m++;
+        }
+        // push each merged row
+        for(const row of group){
+          list.push({ type:'row', data: row });
+        }
+        // push subtotal
+        const sub = group.reduce((acc, rr)=>{ acc.open += rr.opening; acc.rec += rr.qty_recd; acc.sale += rr.qty_sale; acc.close += rr.closing; return acc; }, {open:0,rec:0,sale:0,close:0});
+        list.push({ type:'subtotal', data: sub, labelDate: (group[0] && group[0]._parsed_date) ? group[0]._parsed_date : group[0].date });
+        k = m;
+      }
+      // depot totals: sum all rows in depotBlock
+      const depotAcc = depotBlock.reduce((acc, rr)=>{ acc.open += rr.opening; acc.rec += rr.qty_recd; acc.sale += rr.qty_sale; acc.close += rr.closing; return acc; }, {depot:DP, open:0, rec:0, sale:0, close:0});
+      list.push({ type:'depot_total', data: depotAcc });
+      // add to overall
+      overallAcc.open += depotAcc.open; overallAcc.rec += depotAcc.rec; overallAcc.sale += depotAcc.sale; overallAcc.close += depotAcc.close;
+      i = j;
+      // check state boundary: if next row is different state or end, push state_total
+      const next = FILTERED[i];
+      if(!next || next.state !== ST){
+        // compute state totals: sum previous depot totals of that state
+        // We can compute by scanning back until previous state boundary (cheap, number of depots small)
+        let stateOpen=0,stateRec=0,stateSale=0,stateClose=0;
+        for(const item of list){
+          if(item.type === 'depot_total' && item.data && item.data.depot){
+            // but we may include depots from previous states; to be safe calculate from FILTERED subset
+          }
+        }
+        // simpler: compute from FILTERED slice for this state
+        const stateRows = FILTERED.filter(rr => rr.state === ST);
+        const stateAcc = stateRows.reduce((a, rr)=>{ a.open+=rr.opening; a.rec+=rr.qty_recd; a.sale+=rr.qty_sale; a.close+=rr.closing; return a; }, {state:ST, open:0, rec:0, sale:0, close:0});
+        list.push({ type:'state_total', data: stateAcc });
+      }
+    } // end while
+
+    // overall
+    list.push({ type:'overall', data: overallAcc });
+
+    // Now we have list; set it as VISIBLE_ROWS and virtualize drawing
+    VISIBLE_ROWS = list;
+    totalRowCount = VISIBLE_ROWS.length;
+    // Set inner scroll container spacer heights
+    updateViewportHeight();
+    renderVirtualSlice(); // initial render
+  }
+
+  // =================== MONTH SUMMARY (virtualized) ===================
+  function renderMonthSummary(){
+    // group by state||depot||sku_name -> opening = earliest opening, rec=sum, sale=sum, closing = opening + rec - sale
+    const groups = new Map();
+    for(const r of FILTERED){
+      const key = `${r.state}||${r.depot}||${r.sku_name}`;
+      if(!groups.has(key)){
+        groups.set(key, { state: r.state, depot: r.depot, sku_name: r.sku_name, openings: [{d: r._parsed_date, opening: r.opening}], rec: r.qty_recd||0, sale: r.qty_sale||0 });
+      } else {
+        const g = groups.get(key);
+        g.openings.push({ d: r._parsed_date, opening: r.opening });
+        g.rec += r.qty_recd||0;
+        g.sale += r.qty_sale||0;
+      }
+    }
+    const rows = [];
+    for(const g of groups.values()){
+      const opens = g.openings.filter(o=>o.d);
+      let opening = 0;
+      if(opens.length>0){ opens.sort((a,b)=>a.d - b.d); opening = opens[0].opening; }
+      const rec = g.rec||0, sale = g.sale||0;
+      const closing = opening + rec - sale;
+      rows.push({ state: g.state, depot: g.depot, sku_name: g.sku_name, opening, qty_recd: rec, qty_sale: sale, closing });
+    }
+
+    rows.sort((a,b)=>{
+      if(a.state !== b.state) return a.state.localeCompare(b.state);
+      if(a.depot !== b.depot) return a.depot.localeCompare(b.depot);
+      return a.sku_name.localeCompare(b.sku_name);
+    });
+
+    // create virtual list: rows, depot_total, state_total, overall
+    const list = [];
+    let idx = 0;
+    let overall = { open:0, rec:0, sale:0, close:0 };
+    while(idx < rows.length){
+      const r = rows[idx];
+      const ST = r.state, DP = r.depot;
+      // depot block
+      let j = idx; const block = [];
+      while(j < rows.length && rows[j].state === ST && rows[j].depot === DP){ block.push(rows[j]); j++; }
+      for(const row of block){
+        list.push({ type:'row_summary', data: row });
+      }
+      const depotAcc = block.reduce((a, rr)=>{ a.open += rr.opening; a.rec += rr.qty_recd; a.sale += rr.qty_sale; a.close += rr.closing; return a; }, {depot: DP, open:0, rec:0, sale:0, close:0});
+      list.push({ type:'depot_total', data: depotAcc });
+      overall.open += depotAcc.open; overall.rec += depotAcc.rec; overall.sale += depotAcc.sale; overall.close += depotAcc.close;
+      // state_total
+      const next = rows[j];
+      if(!next || next.state !== ST){
+        const stateAcc = rows.filter(rr=>rr.state===ST).reduce((a,rr)=>{ a.open+=rr.opening; a.rec+=rr.qty_recd; a.sale+=rr.qty_sale; a.close+=rr.closing; return a; }, {state: ST, open:0, rec:0, sale:0, close:0});
+        list.push({ type:'state_total', data: stateAcc });
+      }
+      idx = j;
+    }
+    list.push({ type:'overall', data: overall });
+
+    VISIBLE_ROWS = list;
+    totalRowCount = VISIBLE_ROWS.length;
+    updateViewportHeight();
+    renderVirtualSlice();
+  }
+
+  // =================== Virtual render core ===================
+  function updateViewportHeight(){
+    // total pixel height = totalRowCount * ROW_HEIGHT
+    const contentHeight = totalRowCount * ROW_HEIGHT;
+    // We'll use top/bottom spacer rows inside tbody to simulate scroll offset.
+    // Create or update spacer rows
+    // Ensure tbody has exactly: topSpacer (tr) + visible rows + bottomSpacer (tr)
+    // We'll build contents in renderVirtualSlice()
+  }
+
+  function onScroll(){
+    // debounced via requestAnimationFrame to avoid floods
+    if(typeof onScroll._raf === 'number') cancelAnimationFrame(onScroll._raf);
+    onScroll._raf = requestAnimationFrame(renderVirtualSlice);
+  }
+
+  function renderVirtualSlice(){
+    const viewport = tableViewport;
+    const scrollTop = viewport.scrollTop;
+    const viewportHeight = viewport.clientHeight;
+    const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT);
+    const total = totalRowCount;
+
+    let start = Math.floor(scrollTop / ROW_HEIGHT) - BUFFER;
+    start = Math.max(0, start);
+    let end = start + visibleCount + 2*BUFFER;
+    end = Math.min(total, end);
+
+    // create HTML for slice
+    const topSpacerHeight = start * ROW_HEIGHT;
+    const bottomSpacerHeight = Math.max(0, (total - end) * ROW_HEIGHT);
+
+    let html = '';
+    // top spacer
+    html += `<tr class="spacer" data-spacer="top" style="height:${topSpacerHeight}px;background:transparent;border:none"><td colspan="${getVisibleColumnCount()}" style="padding:0;border:none;height:${topSpacerHeight}px"></td></tr>`;
+
+    // render slice rows
+    for(let idx = start; idx < end; idx++){
+      const item = VISIBLE_ROWS[idx];
+      if(!item) continue;
+      if(item.type === 'row' || item.type === 'row_summary'){
+        const r = item.data;
+        // depending on type, columns differ slightly (summary uses no date)
+        const dateVal = r._parsed_date ? formatDateDDMMYYYYUTC(r._parsed_date) : (r.date || '');
+        // build row cells in header order to support column reordering in future
+        const visibleCols = getVisibleColumnsOrder();
+        let rowHtml = '<tr>';
+        for(const col of visibleCols){
+          if(col === 'state') rowHtml += `<td class="center" data-col="state">${escapeHtml(r.state||'')}</td>`;
+          else if(col === 'depot') rowHtml += `<td class="center" data-col="depot">${escapeHtml(r.depot||'')}</td>`;
+          else if(col === 'date') rowHtml += `<td class="center" data-col="date">${item.type==='row' ? escapeHtml(dateVal) : ''}</td>`;
+          else if(col === 'sku_name') rowHtml += `<td class="left" data-col="sku_name">${escapeHtml(r.sku_name||'')}</td>`;
+          else if(col === 'opening') rowHtml += `<td class="center" data-col="opening">${fmt(item.type==='row' ? r.opening : r.opening)}</td>`;
+          else if(col === 'qty_recd') rowHtml += `<td class="center" data-col="qty_recd">${fmt(r.qty_recd||0)}</td>`;
+          else if(col === 'qty_sale') rowHtml += `<td class="center" data-col="qty_sale">${fmt(r.qty_sale||0)}</td>`;
+          else if(col === 'closing') rowHtml += `<td class="center" data-col="closing">${fmt(r.closing||0)}</td>`;
+          else rowHtml += `<td data-col="${col}"></td>`;
+        }
+        rowHtml += '</tr>';
+        html += rowHtml;
+      } else if(item.type === 'subtotal'){
+        const labelDate = item.labelDate;
+        const label = (labelDate && labelDate instanceof Date) ? formatDateDDMMYYYYUTC(labelDate) : labelDate;
+        html += renderTotalsRow(`subtotal of Date (${label})`, { opening: item.data.open, qty_recd: item.data.rec, qty_sale: item.data.sale, closing: item.data.close }, 'subtotal-row');
+      } else if(item.type === 'depot_total'){
+        html += renderTotalsRow(`GRAND TOTAL OF ${escapeHtml(item.data.depot)}`, { opening: item.data.open, qty_recd: item.data.rec, qty_sale: item.data.sale, closing: item.data.close }, 'depot-grand-row');
+      } else if(item.type === 'state_total'){
+        html += renderTotalsRow(`GRAND TOTAL OF ${escapeHtml(item.data.state)}`, { opening: item.data.open, qty_recd: item.data.rec, qty_sale: item.data.sale, closing: item.data.close }, 'state-grand-row');
+      } else if(item.type === 'overall'){
+        html += renderTotalsRow(`OVERALL GRAND TOTAL`, { opening: item.data.open, qty_recd: item.data.rec, qty_sale: item.data.sale, closing: item.data.close }, 'overall-grand-row');
+      }
+    }
+
+    // bottom spacer
+    html += `<tr class="spacer" data-spacer="bottom" style="height:${bottomSpacerHeight}px;background:transparent;border:none"><td colspan="${getVisibleColumnCount()}" style="padding:0;border:none;height:${bottomSpacerHeight}px"></td></tr>`;
+
+    // write to DOM (replace tbody innerHTML)
+    tbody.innerHTML = html;
+
+    // ensure column visibility applies
+    reapplyColumnVisibility();
+  }
+
+  // =================== EXPORT ===================
+  exportBtn.addEventListener('click', ()=>{
+    // We'll export the current FILTERED view in the same order as VISIBLE_ROWS (but fully materialized)
+    // Build flat array of rows including subtotal/total markers to preserve report structure
+    const rows = [];
+    // To avoid re-running grouping on main thread, we will materialize VISIBLE_ROWS entirely (not virtual), since export is occasional and user-triggered
+    // Build list similarly to renderNormalMode or renderMonthSummary but materialized
+    const monthSelected = !!filterMonth.value;
+    const dateVisible = (dateColCheckbox() && dateColCheckbox().checked);
+    const summaryMode = monthSelected || !dateVisible;
+    if(summaryMode){
+      // reconstruct month summary materialized (same as renderMonthSummary but fully)
+      const groups = new Map();
+      for(const r of FILTERED){
+        const key = `${r.state}||${r.depot}||${r.sku_name}`;
+        if(!groups.has(key)){
+          groups.set(key, { state: r.state, depot: r.depot, sku_name: r.sku_name, openings:[{d:r._parsed_date, opening:r.opening}], rec:r.qty_recd||0, sale:r.qty_sale||0 });
+        } else {
+          const g = groups.get(key);
+          g.openings.push({ d: r._parsed_date, opening: r.opening });
+          g.rec += r.qty_recd||0; g.sale += r.qty_sale||0;
+        }
+      }
+      const rowsArr = [];
+      for(const g of groups.values()){
+        const opens = g.openings.filter(o=>o.d);
+        let opening = 0;
+        if(opens.length>0){ opens.sort((a,b)=>a.d-b.d); opening = opens[0].opening; }
+        const rec = g.rec||0, sale = g.sale||0, closing = opening + rec - sale;
+        rowsArr.push({ state: g.state, depot: g.depot, date:'', sku_name: g.sku_name, opening, qty_recd: rec, qty_sale: sale, closing });
+      }
+      rowsArr.sort((a,b)=>{ if(a.state!==b.state) return a.state.localeCompare(b.state); if(a.depot!==b.depot) return a.depot.localeCompare(b.depot); return a.sku_name.localeCompare(b.sku_name); });
+      // build final export rows with totals
+      let idx=0;
+      let overall = {open:0,rec:0,sale:0,close:0};
+      while(idx < rowsArr.length){
+        const r = rowsArr[idx]; const ST=r.state; const DP=r.depot;
+        let j = idx; const block=[];
+        while(j<rowsArr.length && rowsArr[j].state===ST && rowsArr[j].depot===DP){ block.push(rowsArr[j]); j++; }
+        for(const rr of block){
+          rows.push([rr.state, rr.depot, '', rr.sku_name, rr.opening, rr.qty_recd, rr.qty_sale, rr.closing]);
+          overall.open += rr.opening; overall.rec += rr.qty_recd; overall.sale += rr.qty_sale; overall.close += rr.closing;
+        }
+        // depot total
+        const depotAcc = block.reduce((a,rr)=>{ a.open+=rr.opening; a.rec+=rr.qty_recd; a.sale+=rr.qty_sale; a.close+=rr.closing; return a; }, {open:0,rec:0,sale:0,close:0});
+        rows.push([`GRAND TOTAL OF ${DP}`, '', '', '', depotAcc.open, depotAcc.rec, depotAcc.sale, depotAcc.close]);
+        idx = j;
+        if(!rowsArr[idx] || rowsArr[idx].state !== ST){
+          // state total
+          const stateAcc = rowsArr.filter(rr=>rr.state===ST).reduce((a,rr)=>{ a.open+=rr.opening; a.rec+=rr.qty_recd; a.sale+=rr.qty_sale; a.close+=rr.closing; return a; }, {open:0,rec:0,sale:0,close:0});
+          rows.push([`GRAND TOTAL OF ${ST}`, '', '', '', stateAcc.open, stateAcc.rec, stateAcc.sale, stateAcc.close]);
+        }
+      }
+      // overall
+      rows.push(['OVERALL GRAND TOTAL', '', '', '', overall.open, overall.rec, overall.sale, overall.close]);
+
+    } else {
+      // Normal mode export: use MERGED sorted and subtotal markers
+      const arr = FILTERED.slice().sort((a,b)=>{ if(a.state!==b.state) return a.state.localeCompare(b.state); if(a.depot!==b.depot) return a.depot.localeCompare(b.depot); const da=a._parsed_date?a._parsed_date.getTime():0; const db=b._parsed_date?b._parsed_date.getTime():0; if(da!==db) return da-db; return a.sku_name.localeCompare(b.sku_name); });
+      let i=0;
+      let overall = {open:0,rec:0,sale:0,close:0};
+      while(i < arr.length){
+        const r = arr[i];
+        const ST = r.state, DP = r.depot;
+        // depot block
+        let j=i; const depotBlock=[];
+        while(j < arr.length && arr[j].state===ST && arr[j].depot===DP){ depotBlock.push(arr[j]); j++; }
+        let k=0;
+        while(k < depotBlock.length){
+          const dateVal = depotBlock[k].date;
+          const group=[]; let m=k;
+          while(m < depotBlock.length && depotBlock[m].date === dateVal){ group.push(depotBlock[m]); m++; }
+          for(const rr of group){
+            rows.push([rr.state, rr.depot, rr.date, rr.sku_name, rr.opening, rr.qty_recd, rr.qty_sale, rr.closing]);
+          }
+          const sub = group.reduce((a,rr)=>{ a.open+=rr.opening; a.rec+=rr.qty_recd; a.sale+=rr.qty_sale; a.close+=rr.closing; return a; }, {open:0,rec:0,sale:0,close:0});
+          rows.push([`subtotal of Date (${group[0]._parsed_date ? formatDateDDMMYYYYUTC(group[0]._parsed_date) : group[0].date})`, '', '', '', sub.open, sub.rec, sub.sale, sub.close]);
+          k = m;
+        }
+        const depotAcc = depotBlock.reduce((a,rr)=>{ a.open+=rr.opening; a.rec+=rr.qty_recd; a.sale+=rr.qty_sale; a.close+=rr.closing; return a; }, {open:0,rec:0,sale:0,close:0});
+        rows.push([`GRAND TOTAL OF ${DP}`, '', '', '', depotAcc.open, depotAcc.rec, depotAcc.sale, depotAcc.close]);
+        overall.open += depotAcc.open; overall.rec += depotAcc.rec; overall.sale += depotAcc.sale; overall.close += depotAcc.close;
+        i = j;
+        if(!arr[i] || arr[i].state !== ST){
+          const stateAcc = arr.filter(rr=>rr.state===ST).reduce((a,rr)=>{ a.open+=rr.opening; a.rec+=rr.qty_recd; a.sale+=rr.qty_sale; a.close+=rr.closing; return a; }, {open:0,rec:0,sale:0,close:0});
+          rows.push([`GRAND TOTAL OF ${ST}`, '', '', '', stateAcc.open, stateAcc.rec, stateAcc.sale, stateAcc.close]);
+        }
+      }
+      rows.push(['OVERALL GRAND TOTAL', '', '', '', overall.open, overall.rec, overall.sale, overall.close]);
+    }
+
+    // Build worksheet and download
+    const header = ["State","Depot","Date","SKU Name","Opening","Received","Sales","Closing"];
+    const wsData = [header, ...rows];
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Stock');
+    XLSX.writeFile(wb, `stock_export_${new Date().toISOString().slice(0,10)}.xlsx`);
   });
 
-  return Math.max(1, count);
-}
+  // =================== Render helpers ===================
+  function renderTotalsRow(label, values = {}, extraClass='state-grand-row'){
+    // same function exposed earlier (kept for readability)
+    const visible = getVisibleColumnsOrder();
+    const leftCols = visible.filter(c => !NUMERIC_COLUMNS.includes(c));
+    const numericVisible = visible.filter(c => NUMERIC_COLUMNS.includes(c));
+    const colspan = Math.max(1, leftCols.length);
+    let html = `<tr class="${extraClass}">`;
+    html += `<td colspan="${colspan}" class="center">${escapeHtml(label)}</td>`;
+    numericVisible.forEach(col => {
+      const v = values[col] != null ? values[col] : '';
+      html += `<td class="center" data-col="${col}">${fmt(v)}</td>`;
+    });
+    html += `</tr>`;
+    return html;
+  }
 
-////////////////////////////////////////////////////////////////////////////////////
-// TOTAL ROW GENERATORS (WITH CENTERED LABELS + LIGHT BLUE SHADING)
-////////////////////////////////////////////////////////////////////////////////////
+  // =================== Initialization ===================
+  // show skeleton, load data
+  loadData();
 
-function subtotalRow(sub, dateRaw, parsed){
-  const span = getDynamicColspan();
-  const label = parsed ? formatDateDDMMYYYYUTC(parsed) : dateRaw;
-  return `
-  <tr class="subtotal-row">
-    <td colspan="${span}" class="center">subtotal of Date (${label})</td>
-    <td class="center">${fmt(sub.open)}</td>
-    <td class="center">${fmt(sub.rec)}</td>
-    <td class="center">${fmt(sub.sale)}</td>
-    <td class="center">${fmt(sub.close)}</td>
-  </tr>`;
-}
-
-function depotTotalRow(acc){
-  const span = getDynamicColspan();
-  return `
-  <tr class="depot-grand-row">
-    <td colspan="${span}" class="center">GRAND TOTAL OF ${escapeHtml(acc.depot)}</td>
-    <td class="center">${fmt(acc.open)}</td>
-    <td class="center">${fmt(acc.rec)}</td>
-    <td class="center">${fmt(acc.sale)}</td>
-    <td class="center">${fmt(acc.close)}</td>
-  </tr>`;
-}
-
-function stateTotalRow(acc){
-  const span = getDynamicColspan();
-  return `
-  <tr class="state-grand-row">
-    <td colspan="${span}" class="center">GRAND TOTAL OF ${escapeHtml(acc.state)}</td>
-    <td class="center">${fmt(acc.open)}</td>
-    <td class="center">${fmt(acc.rec)}</td>
-    <td class="center">${fmt(acc.sale)}</td>
-    <td class="center">${fmt(acc.close)}</td>
-  </tr>`;
-}
-
-function overallTotalRow(acc){
-  const span = getDynamicColspan();
-  return `
-  <tr class="overall-grand-row">
-    <td colspan="${span}" class="center">OVERALL GRAND TOTAL</td>
-    <td class="center">${fmt(acc.open)}</td>
-    <td class="center">${fmt(acc.rec)}</td>
-    <td class="center">${fmt(acc.sale)}</td>
-    <td class="center">${fmt(acc.close)}</td>
-  </tr>`;
-}
-
-////////////////////////////////////////////////////////////////////////////////////
-// APPLY COLUMN VISIBILITY
-////////////////////////////////////////////////////////////////////////////////////
-
-function reapplyColumnVisibility(){
-  colCheckboxes.forEach(ch=>{
-    const col = ch.dataset.col;
-    const show = ch.checked;
-
-    const th = document.querySelector(`thead th[data-col="${col}"]`);
-    if(th) th.style.display = show?'':'none';
-
-    document.querySelectorAll(`td[data-col="${col}"]`)
-      .forEach(td=>td.style.display = show?'':'none');
+  // small accessibility: allow toggling filters via 'f' key
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'f' || e.key === 'F'){ toggleFiltersBtn.click(); }
   });
-}
-
-////////////////////////////////////////////////////////////////////////////////////
-// EXCEL EXPORT
-////////////////////////////////////////////////////////////////////////////////////
-
-exportBtn.addEventListener('click', ()=>{
-  const header=["State","Depot","Date","SKU Name","Opening","Received","Sales","Closing"];
-  const ws_data=[header];
-
-  const rows = Array.from(tbody.querySelectorAll('tr'));
-  rows.forEach(tr=>{
-    const cells = Array.from(tr.querySelectorAll('td')).map(td=>td.textContent.trim());
-    while(cells.length<8) cells.push('');
-    ws_data.push(cells);
-  });
-
-  const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.aoa_to_sheet(ws_data);
-  XLSX.utils.book_append_sheet(wb,ws,'Stock');
-  XLSX.writeFile(wb,`stock_export_${new Date().toISOString().slice(0,10)}.xlsx`);
-});
-
-////////////////////////////////////////////////////////////////////////////////////
-// INIT
-////////////////////////////////////////////////////////////////////////////////////
-
-loadData();
 
   </script>
-
 </body>
 </html>
