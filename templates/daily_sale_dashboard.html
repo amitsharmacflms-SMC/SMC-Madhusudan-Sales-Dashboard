@@ -24,12 +24,6 @@
       padding:18px;
     }
 
-      /* Auto-width enhancement */  
-      table#saleTable {table-layout: auto !important; width: 100%;}
-      #saleTable th, #saleTable td {white-space: nowrap;}
-
-
-
     .top-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
     .logo-title{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#0d6efd22,#0d6efd11);
       border-radius:10px;padding:10px 14px;border-left:6px solid var(--smc-blue);box-shadow:0 6px 18px rgba(13,110,253,0.06)}
@@ -376,6 +370,7 @@
     html += overallGrandRow({open:0, rec:0, sale:0, close:0, qty: overall});
 
     tbody.innerHTML = html;
+computeColumnWidthsFromStrings('#saleTable',['state','date','party_name','district','sku','quantity'], MERGED.length?MERGED:RAW);
 
     reapplyColumnVisibility();
 
@@ -448,6 +443,7 @@
     html += overallGrandRow({ qty: overall });
 
     tbody.innerHTML = html;
+computeColumnWidthsFromStrings('#saleTable',['state','date','party_name','district','sku','quantity'], MERGED.length?MERGED:RAW);
 
     reapplyColumnVisibility();
 
@@ -523,5 +519,20 @@
   // ---------- Init ----------
   loadData();
   </script>
+
+<script>
+function computeColumnWidthsFromStrings(tableSelector, columns, rowsOfObjects, sampleLimit=500){
+ const canvas=document.createElement('canvas');const ctx=canvas.getContext('2d');
+ const tableEl=document.querySelector(tableSelector)||document.body;
+ const font=window.getComputedStyle(tableEl).font||"600 14px Inter";ctx.font=font;
+ const thEls=[...document.querySelectorAll(tableSelector+' thead th')];
+ const headerWidths={};thEls.forEach(th=>{const c=th.dataset.col;headerWidths[c]=ctx.measureText(th.textContent.trim()).width+24;});
+ const maxW={...headerWidths};const sample=rowsOfObjects.slice(0,sampleLimit);
+ sample.forEach(r=>{columns.forEach(c=>{const w=ctx.measureText(String(r[c]||'')).width+24;if(w>maxW[c])maxW[c]=w;});});
+ const MIN=40,MAX=900;
+ thEls.forEach(th=>{const c=th.dataset.col;const w=Math.max(MIN,Math.min(MAX,maxW[c]||MIN));th.style.width=w+'px';});
+}
+</script>
+
 </body>
 </html>
