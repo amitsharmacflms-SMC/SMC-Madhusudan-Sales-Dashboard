@@ -24,6 +24,9 @@
       padding:18px;
     }
 
+      #saleTable th, #saleTable td { 
+      white-space: nowrap;}
+
     .top-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
     .logo-title{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#0d6efd22,#0d6efd11);
       border-radius:10px;padding:10px 14px;border-left:6px solid var(--smc-blue);box-shadow:0 6px 18px rgba(13,110,253,0.06)}
@@ -124,9 +127,9 @@
           <tr>
             <th data-col="state" style="min-width:120px;">State</th>
             <th data-col="date" style="min-width:120px;">Date</th>
-            <th data-col="party_name" style="min-width:320px; text-align:left;">Party Name</th>
-            <th data-col="district" style="min-width:160px;">District</th>
-            <th data-col="sku" style="min-width:220px;">SKU</th>
+            <th data-col="party_name">
+            <th data-col="district">
+            <th data-col="sku">
             <th data-col="quantity" style="min-width:120px;">Quantity</th>
           </tr>
         </thead>
@@ -277,7 +280,8 @@
   function renderSmart(){
     const monthSelected = !!filterMonth.value;
     const dateColVisible = document.querySelector('input[data-col="date"]').checked;
-    const summaryMode = monthSelected || !dateColVisible; // always switch to summary if month selected OR date hidden
+    const summaryMode = monthSelected; // ONLY month filter triggers summary mode
+
 
     if(summaryMode) renderMonthSummary();
     else renderDateMode();

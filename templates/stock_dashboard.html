@@ -325,16 +325,22 @@
 
   // called after MERGED is ready
   function finishLoad(){
-    // autosize after first render
-    setTimeout(()=>computeColumnWidthsFromStrings('#stockTable',['state','depot','date','sku_name','opening','qty_recd','qty_sale','closing'], MERGED),300);
-    // hide skeleton and show viewport
     tableSkeleton.style.display = 'none';
     tableViewport.style.display = '';
-    // initial filter (none)
+
     applyFilters();
-    // attach scroll handler for virtualization
+
+    setTimeout(()=>{
+        computeColumnWidthsFromStrings(
+            '#stockTable',
+            ['state','depot','date','sku_name','opening','qty_recd','qty_sale','closing'],
+            MERGED
+        );
+    }, 50);
+
     tableViewport.addEventListener('scroll', onScroll, { passive: true });
-  }
+}
+
 
   // =================== Filter / events ===================
   [filterMonth, filterState, filterDepot, filterFrom, filterTo].forEach(el=>el.addEventListener('change', applyFilters));
