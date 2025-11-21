@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SMC - Stock Position (Optimized)</title>
+  <title>SMC - Stock Position (Patched)</title>
 
   <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -21,24 +21,15 @@
       --totals-shade:#e6f0ff;
     }
 
-
-
-
     body{
       background: linear-gradient(180deg,#f6fbff,#f2f6fb 60%);
       font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
       padding:18px;
     }
 
-     table#saleTable {
-     table-layout: auto !important;
-     width: 100%;
-    }
-    #saleTable th, #saleTable td {
-    white-space: nowrap;
-    }
-
-
+    /* ensure table can expand to natural width while still being responsive */
+    table#stockTable { table-layout: auto !important; width:100%; }
+    #stockTable th, #stockTable td { white-space: nowrap; }
 
     .top-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
     .logo-title{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#0d6efd22,#0d6efd11);border-radius:10px;padding:10px 14px;border-left:6px solid var(--smc-blue);box-shadow:0 6px 18px rgba(13,110,253,0.06)}
@@ -124,7 +115,7 @@
       <div id="tableSkeleton" class="skeleton">Loading data…</div>
 
       <div class="table-viewport" id="tableViewport" style="display:none;">
-        <table id="stockTable" class="table table-sm mb-0">
+        <table id="stockTable" class="table table-sm mb-0" role="grid" aria-describedby="stockTable">
           <thead>
             <tr>
               <th data-col="state" style="min-width:130px;">State</th>
@@ -186,7 +177,7 @@
   const skuList = document.getElementById('skuList');
   const exportBtn = document.getElementById('exportBtn');
 
-  let colCheckboxes = null;
+  let colCheckboxes = [];
   function refreshColCheckboxes(){ colCheckboxes = Array.from(document.querySelectorAll('.col-toggle-checkbox')); }
 
   const dateColCheckbox = () => document.getElementById('dateColCheckbox');
@@ -270,23 +261,28 @@
   });
   `;
   function initWorker(){
-    const blob = new Blob([workerCode], { type: 'application/javascript' });
-    const url = URL.createObjectURL(blob);
-    mergeWorker = new Worker(url);
-    mergeWorker.onmessage = (ev) => {
-      const data = ev.data;
-      if(data.cmd === 'merged'){
-        MERGED = data.merged.map(r=>{
-          // normalize: compute parsed date and month key on main thread (stable)
-          const o = Object.assign({}, r);
-          o._parsed_date = parseDMYtoUTC(o.date);
-          o._month_key = o._parsed_date ? (o._parsed_date.getUTCFullYear() + '-' + pad2(o._parsed_date.getUTCMonth()+1)) : '';
-          return o;
-        });
-        populateFiltersFromMeta(data.meta);
-        finishLoad();
-      }
-    };
+    try{
+      const blob = new Blob([workerCode], { type: 'application/javascript' });
+      const url = URL.createObjectURL(blob);
+      mergeWorker = new Worker(url);
+      mergeWorker.onmessage = (ev) => {
+        const data = ev.data;
+        if(data.cmd === 'merged'){
+          MERGED = data.merged.map(r=>{
+            // normalize: compute parsed date and month key on main thread (stable)
+            const o = Object.assign({}, r);
+            o._parsed_date = parseDMYtoUTC(o.date);
+            o._month_key = o._parsed_date ? (o._parsed_date.getUTCFullYear() + '-' + pad2(o._parsed_date.getUTCMonth()+1)) : '';
+            return o;
+          });
+          populateFiltersFromMeta(data.meta);
+          finishLoad();
+        }
+      };
+    }catch(err){
+      console.error('Worker init failed', err);
+      mergeWorker = null;
+    }
   }
 
   // =================== Load data ===================
@@ -300,9 +296,59 @@
       const raw = await res.json();
       RAW = raw; // keep original
 
-      // send to worker for heavy merge
-      mergeWorker.postMessage({ cmd:'merge', rows: RAW });
+      // send to worker for heavy merge (if worker available) otherwise merge on main thread
+      if(mergeWorker){
+        mergeWorker.postMessage({ cmd:'merge', rows: RAW });
+      } else {
+        // fallback merge on main thread
+        const meta = { months:[], states:[], depots:[], skus:[] };
+        const map = new Map();
+        for(const r of RAW){
+          const o = {};
+          for(const k in r) o[k.trim().toLowerCase()] = r[k];
+          const state = (o.state||'').toString().trim();
+          const depot = (o.depot||'').toString().trim();
+          const date = (o.date||'').toString().trim();
+          const sku_name = (o.sku_name||o.sku||'').toString().trim();
+          const opening = Number(o.opening)||0;
+          const qty_recd = Number(o.qty_recd)||0;
+          const qty_sale = Number(o.qty_sale)||0;
+          const closing = Number(o.closing)||0;
+          const key = state+'||'+depot+'||'+date+'||'+sku_name;
+          if(!map.has(key)){
+            map.set(key,{ state, depot, date, sku_name, opening, qty_recd, qty_sale, closing });
+          } else {
+            const g = map.get(key);
+            g.opening += opening; g.qty_recd += qty_recd; g.qty_sale += qty_sale; g.closing += closing;
+          }
+        }
+        const out = Array.from(map.values());
+        // meta
+        for(const r of out){
+          const mm = (r.date||'').toString().trim().match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+          let monthKey = '';
+          if(mm) monthKey = mm[3] + '-' + (mm[2].padStart(2,'0'));
+          else { const d = new Date(r.date); if(!isNaN(d)) monthKey = d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0'); }
+          if(monthKey) meta.months.push(monthKey);
+          if(r.state) meta.states.push(r.state);
+          if(r.depot) meta.depots.push(r.depot);
+          if(r.sku_name) meta.skus.push(r.sku_name);
+        }
+        // unique & sort
+        meta.months = Array.from(new Set(meta.months)).sort();
+        meta.states = Array.from(new Set(meta.states)).sort();
+        meta.depots = Array.from(new Set(meta.depots)).sort();
+        meta.skus = Array.from(new Set(meta.skus)).sort();
 
+        MERGED = out.map(r=>{
+          const o = Object.assign({}, r);
+          o._parsed_date = parseDMYtoUTC(o.date);
+          o._month_key = o._parsed_date ? (o._parsed_date.getUTCFullYear() + '-' + pad2(o._parsed_date.getUTCMonth()+1)) : '';
+          return o;
+        });
+        populateFiltersFromMeta(meta);
+        finishLoad();
+      }
     }catch(err){
       console.error('loadData error', err);
       tableSkeleton.textContent = 'Failed to load data';
@@ -310,7 +356,6 @@
   }
 
   function populateFiltersFromMeta(meta){
-    // months, states, depots, skus from worker
     const months = meta.months || [];
     filterMonth.innerHTML = '<option value="">All</option>' + months.map(m=>{
       const [y,mm] = m.split('-'); const d = new Date(Date.UTC(y, Number(mm)-1, 1));
@@ -327,39 +372,47 @@
   function finishLoad(){
     tableSkeleton.style.display = 'none';
     tableViewport.style.display = '';
-
+    // ensure checkboxes are refreshed
+    refreshColCheckboxes();
     applyFilters();
 
+    // compute column widths (light heuristic)
     setTimeout(()=>{
-        computeColumnWidthsFromStrings(
-            '#stockTable',
-            ['state','depot','date','sku_name','opening','qty_recd','qty_sale','closing'],
-            MERGED
-        );
-    }, 50);
+        try{
+            computeColumnWidthsFromStrings(
+                '#stockTable',
+                ['state','depot','date','sku_name','opening','qty_recd','qty_sale','closing'],
+                MERGED
+            );
+        }catch(e){/* ignore width calc errors */ }
+    }, 40);
 
     tableViewport.addEventListener('scroll', onScroll, { passive: true });
-}
-
+  }
 
   // =================== Filter / events ===================
-  [filterMonth, filterState, filterDepot, filterFrom, filterTo].forEach(el=>el.addEventListener('change', applyFilters));
+  [filterMonth, filterState, filterDepot, filterFrom, filterTo].forEach(el=>el.addEventListener('change', ()=>{
+    applyFilters();
+    cascadeSKUOptions();
+  }));
   filterSKU.addEventListener('input', applyFilters);
-  clearFilters.addEventListener('click', ()=>{ filterMonth.value=''; filterState.value=''; filterDepot.value=''; filterSKU.value=''; filterFrom.value=''; filterTo.value=''; applyFilters(); });
+  clearFilters.addEventListener('click', ()=>{ filterMonth.value=''; filterState.value=''; filterDepot.value=''; filterSKU.value=''; filterFrom.value=''; filterTo.value=''; applyFilters(); cascadeSKUOptions(); });
 
   // column toggle events
   document.getElementById('colToggleMenu').addEventListener('change', (ev) => {
     if(ev.target && ev.target.classList.contains('col-toggle-checkbox')){
-      reapplyColumnVisibility(); renderSmart(); // re-render
+      reapplyColumnVisibility(); renderSmart();
     }
   });
 
   yesterdayBtn.addEventListener('click', ()=>{
     const now = new Date();
     const y = new Date(now.getFullYear(), now.getMonth(), now.getDate()-1);
-    filterFrom.value = `${y.getFullYear()}-${pad2(y.getMonth()+1)}-${pad2(y.getDate())}`;
-    filterTo.value = filterFrom.value;
+    const v = `${y.getFullYear()}-${pad2(y.getMonth()+1)}-${pad2(y.getDate())}`;
+    filterFrom.value = v;
+    filterTo.value = v;
     applyFilters();
+    cascadeSKUOptions();
     yesterdayBtn.classList.add('btn-success');
     setTimeout(()=>yesterdayBtn.classList.remove('btn-success'), 700);
   });
@@ -389,6 +442,27 @@
     renderSmart();
   }
 
+  // cascade SKU options to keep irrelevant SKUs greyed/available but prioritize relevant ones
+  function cascadeSKUOptions(){
+    const s = filterState.value;
+    const d = filterDepot.value;
+    // collect skus present under selected state/depot (from MERGED)
+    const skus = new Set();
+    MERGED.forEach(r=>{
+      if(s && r.state !== s) return;
+      if(d && r.depot !== d) return;
+      if(r.sku_name) skus.add(r.sku_name);
+    });
+
+    // create datalist but keep all SKUs visible — relevant ones first
+    const allSkus = Array.from(new Set(MERGED.map(r=>r.sku_name).filter(Boolean))).sort();
+    // build prioritized list
+    const prioritized = [];
+    skus.forEach(x => { if(x) prioritized.push(x); });
+    const rest = allSkus.filter(x => !skus.has(x));
+    skuList.innerHTML = prioritized.concat(rest).map(s=>`<option value="${s}">`).join('');
+  }
+
   // =================== SMART RENDER DECISION ===================
   function renderSmart(){
     const monthSelected = !!filterMonth.value;
@@ -405,7 +479,6 @@
   }
 
   function renderTotalsRow(label, values = {}, extraClass='state-grand-row'){
-    // column-aware totals: left columns = visible non-numeric, numericVisible = visible numeric columns in header order
     const visible = getVisibleColumnsOrder();
     const leftCols = visible.filter(c => !NUMERIC_COLUMNS.includes(c));
     const numericVisible = visible.filter(c => NUMERIC_COLUMNS.includes(c));
@@ -449,11 +522,8 @@
       return a.sku_name.localeCompare(b.sku_name);
     });
 
-    // We'll create a flat "render list" that includes rows and subtotal/depot/state/overall markers.
-    // But we will not create DOM for all — virtualization will render only visible slice.
     const list = []; // each item: { type: 'row'|'subtotal'|'depot_total'|'state_total'|'overall', data: ... }
 
-    // accumulate
     let i=0;
     let overallAcc = { open:0, rec:0, sale:0, close:0 };
     while(i < FILTERED.length){
@@ -486,21 +556,10 @@
       // depot totals: sum all rows in depotBlock
       const depotAcc = depotBlock.reduce((acc, rr)=>{ acc.open += rr.opening; acc.rec += rr.qty_recd; acc.sale += rr.qty_sale; acc.close += rr.closing; return acc; }, {depot:DP, open:0, rec:0, sale:0, close:0});
       list.push({ type:'depot_total', data: depotAcc });
-      // add to overall
       overallAcc.open += depotAcc.open; overallAcc.rec += depotAcc.rec; overallAcc.sale += depotAcc.sale; overallAcc.close += depotAcc.close;
       i = j;
-      // check state boundary: if next row is different state or end, push state_total
       const next = FILTERED[i];
       if(!next || next.state !== ST){
-        // compute state totals: sum previous depot totals of that state
-        // We can compute by scanning back until previous state boundary (cheap, number of depots small)
-        let stateOpen=0,stateRec=0,stateSale=0,stateClose=0;
-        for(const item of list){
-          if(item.type === 'depot_total' && item.data && item.data.depot){
-            // but we may include depots from previous states; to be safe calculate from FILTERED subset
-          }
-        }
-        // simpler: compute from FILTERED slice for this state
         const stateRows = FILTERED.filter(rr => rr.state === ST);
         const stateAcc = stateRows.reduce((a, rr)=>{ a.open+=rr.opening; a.rec+=rr.qty_recd; a.sale+=rr.qty_sale; a.close+=rr.closing; return a; }, {state:ST, open:0, rec:0, sale:0, close:0});
         list.push({ type:'state_total', data: stateAcc });
@@ -513,14 +572,12 @@
     // Now we have list; set it as VISIBLE_ROWS and virtualize drawing
     VISIBLE_ROWS = list;
     totalRowCount = VISIBLE_ROWS.length;
-    // Set inner scroll container spacer heights
     updateViewportHeight();
     renderVirtualSlice(); // initial render
   }
 
   // =================== MONTH SUMMARY (virtualized) ===================
   function renderMonthSummary(){
-    // group by state||depot||sku_name -> opening = earliest opening, rec=sum, sale=sum, closing = opening + rec - sale
     const groups = new Map();
     for(const r of FILTERED){
       const key = `${r.state}||${r.depot}||${r.sku_name}`;
@@ -549,23 +606,18 @@
       return a.sku_name.localeCompare(b.sku_name);
     });
 
-    // create virtual list: rows, depot_total, state_total, overall
     const list = [];
     let idx = 0;
     let overall = { open:0, rec:0, sale:0, close:0 };
     while(idx < rows.length){
       const r = rows[idx];
       const ST = r.state, DP = r.depot;
-      // depot block
       let j = idx; const block = [];
       while(j < rows.length && rows[j].state === ST && rows[j].depot === DP){ block.push(rows[j]); j++; }
-      for(const row of block){
-        list.push({ type:'row_summary', data: row });
-      }
+      for(const row of block){ list.push({ type:'row_summary', data: row }); }
       const depotAcc = block.reduce((a, rr)=>{ a.open += rr.opening; a.rec += rr.qty_recd; a.sale += rr.qty_sale; a.close += rr.closing; return a; }, {depot: DP, open:0, rec:0, sale:0, close:0});
       list.push({ type:'depot_total', data: depotAcc });
       overall.open += depotAcc.open; overall.rec += depotAcc.rec; overall.sale += depotAcc.sale; overall.close += depotAcc.close;
-      // state_total
       const next = rows[j];
       if(!next || next.state !== ST){
         const stateAcc = rows.filter(rr=>rr.state===ST).reduce((a,rr)=>{ a.open+=rr.opening; a.rec+=rr.qty_recd; a.sale+=rr.qty_sale; a.close+=rr.closing; return a; }, {state: ST, open:0, rec:0, sale:0, close:0});
@@ -583,16 +635,14 @@
 
   // =================== Virtual render core ===================
   function updateViewportHeight(){
-    // total pixel height = totalRowCount * ROW_HEIGHT
-    const contentHeight = totalRowCount * ROW_HEIGHT;
-    // We'll use top/bottom spacer rows inside tbody to simulate scroll offset.
-    // Create or update spacer rows
-    // Ensure tbody has exactly: topSpacer (tr) + visible rows + bottomSpacer (tr)
-    // We'll build contents in renderVirtualSlice()
+    // no DOM changes required here — renderVirtualSlice handles spacers — but keep this hook to recalc if needed
+    // optionally, ensure the tableViewport scrollTop remains within bounds
+    if(!tableViewport) return;
+    const maxScroll = Math.max(0, totalRowCount * ROW_HEIGHT - tableViewport.clientHeight);
+    if(tableViewport.scrollTop > maxScroll) tableViewport.scrollTop = maxScroll;
   }
 
   function onScroll(){
-    // debounced via requestAnimationFrame to avoid floods
     if(typeof onScroll._raf === 'number') cancelAnimationFrame(onScroll._raf);
     onScroll._raf = requestAnimationFrame(renderVirtualSlice);
   }
@@ -602,14 +652,13 @@
     const scrollTop = viewport.scrollTop;
     const viewportHeight = viewport.clientHeight;
     const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT);
-    const total = totalRowCount;
+    const total = Math.max(0, totalRowCount);
 
     let start = Math.floor(scrollTop / ROW_HEIGHT) - BUFFER;
     start = Math.max(0, start);
     let end = start + visibleCount + 2*BUFFER;
     end = Math.min(total, end);
 
-    // create HTML for slice
     const topSpacerHeight = start * ROW_HEIGHT;
     const bottomSpacerHeight = Math.max(0, (total - end) * ROW_HEIGHT);
 
@@ -623,9 +672,7 @@
       if(!item) continue;
       if(item.type === 'row' || item.type === 'row_summary'){
         const r = item.data;
-        // depending on type, columns differ slightly (summary uses no date)
         const dateVal = r._parsed_date ? formatDateDDMMYYYYUTC(r._parsed_date) : (r.date || '');
-        // build row cells in header order to support column reordering in future
         const visibleCols = getVisibleColumnsOrder();
         let rowHtml = '<tr>';
         for(const col of visibleCols){
@@ -633,7 +680,7 @@
           else if(col === 'depot') rowHtml += `<td class="center" data-col="depot">${escapeHtml(r.depot||'')}</td>`;
           else if(col === 'date') rowHtml += `<td class="center" data-col="date">${item.type==='row' ? escapeHtml(dateVal) : ''}</td>`;
           else if(col === 'sku_name') rowHtml += `<td class="left" data-col="sku_name">${escapeHtml(r.sku_name||'')}</td>`;
-          else if(col === 'opening') rowHtml += `<td class="center" data-col="opening">${fmt(item.type==='row' ? r.opening : r.opening)}</td>`;
+          else if(col === 'opening') rowHtml += `<td class="center" data-col="opening">${fmt(r.opening||0)}</td>`;
           else if(col === 'qty_recd') rowHtml += `<td class="center" data-col="qty_recd">${fmt(r.qty_recd||0)}</td>`;
           else if(col === 'qty_sale') rowHtml += `<td class="center" data-col="qty_sale">${fmt(r.qty_sale||0)}</td>`;
           else if(col === 'closing') rowHtml += `<td class="center" data-col="closing">${fmt(r.closing||0)}</td>`;
@@ -666,16 +713,12 @@
 
   // =================== EXPORT ===================
   exportBtn.addEventListener('click', ()=>{
-    // We'll export the current FILTERED view in the same order as VISIBLE_ROWS (but fully materialized)
-    // Build flat array of rows including subtotal/total markers to preserve report structure
     const rows = [];
-    // To avoid re-running grouping on main thread, we will materialize VISIBLE_ROWS entirely (not virtual), since export is occasional and user-triggered
-    // Build list similarly to renderNormalMode or renderMonthSummary but materialized
     const monthSelected = !!filterMonth.value;
     const dateVisible = (dateColCheckbox() && dateColCheckbox().checked);
     const summaryMode = monthSelected || !dateVisible;
     if(summaryMode){
-      // reconstruct month summary materialized (same as renderMonthSummary but fully)
+      // materialize month summary
       const groups = new Map();
       for(const r of FILTERED){
         const key = `${r.state}||${r.depot}||${r.sku_name}`;
@@ -696,7 +739,6 @@
         rowsArr.push({ state: g.state, depot: g.depot, date:'', sku_name: g.sku_name, opening, qty_recd: rec, qty_sale: sale, closing });
       }
       rowsArr.sort((a,b)=>{ if(a.state!==b.state) return a.state.localeCompare(b.state); if(a.depot!==b.depot) return a.depot.localeCompare(b.depot); return a.sku_name.localeCompare(b.sku_name); });
-      // build final export rows with totals
       let idx=0;
       let overall = {open:0,rec:0,sale:0,close:0};
       while(idx < rowsArr.length){
@@ -707,28 +749,24 @@
           rows.push([rr.state, rr.depot, '', rr.sku_name, rr.opening, rr.qty_recd, rr.qty_sale, rr.closing]);
           overall.open += rr.opening; overall.rec += rr.qty_recd; overall.sale += rr.qty_sale; overall.close += rr.closing;
         }
-        // depot total
         const depotAcc = block.reduce((a,rr)=>{ a.open+=rr.opening; a.rec+=rr.qty_recd; a.sale+=rr.qty_sale; a.close+=rr.closing; return a; }, {open:0,rec:0,sale:0,close:0});
         rows.push([`GRAND TOTAL OF ${DP}`, '', '', '', depotAcc.open, depotAcc.rec, depotAcc.sale, depotAcc.close]);
         idx = j;
         if(!rowsArr[idx] || rowsArr[idx].state !== ST){
-          // state total
           const stateAcc = rowsArr.filter(rr=>rr.state===ST).reduce((a,rr)=>{ a.open+=rr.opening; a.rec+=rr.qty_recd; a.sale+=rr.qty_sale; a.close+=rr.closing; return a; }, {open:0,rec:0,sale:0,close:0});
           rows.push([`GRAND TOTAL OF ${ST}`, '', '', '', stateAcc.open, stateAcc.rec, stateAcc.sale, stateAcc.close]);
         }
       }
-      // overall
       rows.push(['OVERALL GRAND TOTAL', '', '', '', overall.open, overall.rec, overall.sale, overall.close]);
 
     } else {
-      // Normal mode export: use MERGED sorted and subtotal markers
+      // Normal mode export
       const arr = FILTERED.slice().sort((a,b)=>{ if(a.state!==b.state) return a.state.localeCompare(b.state); if(a.depot!==b.depot) return a.depot.localeCompare(b.depot); const da=a._parsed_date?a._parsed_date.getTime():0; const db=b._parsed_date?b._parsed_date.getTime():0; if(da!==db) return da-db; return a.sku_name.localeCompare(b.sku_name); });
       let i=0;
       let overall = {open:0,rec:0,sale:0,close:0};
       while(i < arr.length){
         const r = arr[i];
         const ST = r.state, DP = r.depot;
-        // depot block
         let j=i; const depotBlock=[];
         while(j < arr.length && arr[j].state===ST && arr[j].depot===DP){ depotBlock.push(arr[j]); j++; }
         let k=0;
@@ -755,7 +793,6 @@
       rows.push(['OVERALL GRAND TOTAL', '', '', '', overall.open, overall.rec, overall.sale, overall.close]);
     }
 
-    // Build worksheet and download
     const header = ["State","Depot","Date","SKU Name","Opening","Received","Sales","Closing"];
     const wsData = [header, ...rows];
     const wb = XLSX.utils.book_new();
@@ -766,7 +803,6 @@
 
   // =================== Render helpers ===================
   function renderTotalsRow(label, values = {}, extraClass='state-grand-row'){
-    // same function exposed earlier (kept for readability)
     const visible = getVisibleColumnsOrder();
     const leftCols = visible.filter(c => !NUMERIC_COLUMNS.includes(c));
     const numericVisible = visible.filter(c => NUMERIC_COLUMNS.includes(c));

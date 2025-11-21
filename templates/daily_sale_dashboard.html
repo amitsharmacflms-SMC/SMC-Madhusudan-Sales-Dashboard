@@ -24,8 +24,43 @@
       padding:18px;
     }
 
-      #saleTable th, #saleTable td { 
-      white-space: nowrap;}
+      /* AUTO-WIDTH FIX — allow wrapping in some columns */
+/* Allow header wrapping for long header titles */
+/* AUTO-WIDTH FIX — allow wrapping in wide-text columns */
+/* AUTO-WIDTH FIX — allow wrapping in wide-text columns (headers + cells) */
+#saleTable th[data-col="party_name"],
+#saleTable th[data-col="sku"],
+#saleTable td[data-col="party_name"],
+#saleTable td[data-col="sku"] {
+    white-space: normal !important;
+}
+
+/* Keep technical columns single-line */
+#saleTable th[data-col="state"],
+#saleTable th[data-col="date"],
+#saleTable th[data-col="district"],
+#saleTable th[data-col="quantity"],
+#saleTable td[data-col="state"],
+#saleTable td[data-col="date"],
+#saleTable td[data-col="district"],
+#saleTable td[data-col="quantity"] {
+    white-space: nowrap !important;
+}
+
+/* FINAL AUTO-WIDTH FIX */
+#saleTable {
+    table-layout: auto !important;
+}
+
+/* Allow browser to calculate natural width from content */
+/* OVERRIDE BOOTSTRAP table-sm (critical for auto-width) */
+#saleTable.table-sm th,
+#saleTable.table-sm td {
+    padding: 8px 12px !important;
+}
+
+
+
 
     .top-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
     .logo-title{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#0d6efd22,#0d6efd11);
@@ -43,7 +78,7 @@
 
     .table-wrap{border-radius:10px;overflow:auto;background:var(--card-bg);box-shadow:0 8px 30px rgba(2,6,23,0.05);
       border:2px solid var(--border);max-height:68vh}
-    table{width:100%;border-collapse:collapse;min-width:1000px}
+    table{width:100%;border-collapse:collapse;}
     table,th,td{border:2px solid var(--border)}
     thead th{position:sticky;top:0;z-index:6;background:linear-gradient(90deg,#f0f8ff,#ffffff);padding:12px;text-align:center;
       font-weight:800;color:#0b3b66;box-shadow:inset 0 -1px 0 rgba(0,0,0,0.02)}
@@ -124,15 +159,16 @@
     <div class="table-wrap">
       <table id="saleTable" class="table table-sm mb-0">
         <thead>
-          <tr>
-            <th data-col="state" style="min-width:120px;">State</th>
-            <th data-col="date" style="min-width:120px;">Date</th>
-            <th data-col="party_name">
-            <th data-col="district">
-            <th data-col="sku">
-            <th data-col="quantity" style="min-width:120px;">Quantity</th>
-          </tr>
-        </thead>
+  <tr>
+    <th data-col="state">State</th>
+    <th data-col="date">Date</th>
+    <th data-col="party_name">Party Name</th>
+    <th data-col="district">District</th>
+    <th data-col="sku">SKU</th>
+    <th data-col="quantity">Quantity</th>
+  </tr>
+</thead>
+
         <tbody></tbody>
       </table>
     </div>
@@ -374,7 +410,13 @@
     html += overallGrandRow({open:0, rec:0, sale:0, close:0, qty: overall});
 
     tbody.innerHTML = html;
-computeColumnWidthsFromStrings('#saleTable',['state','date','party_name','district','sku','quantity'], MERGED.length?MERGED:RAW);
+    computeColumnWidthsFromStrings(
+  '#saleTable',
+  ['state','date','party_name','district','sku','quantity'],
+  MERGED.length ? MERGED : RAW
+);
+
+
 
     reapplyColumnVisibility();
 
@@ -447,7 +489,12 @@ computeColumnWidthsFromStrings('#saleTable',['state','date','party_name','distri
     html += overallGrandRow({ qty: overall });
 
     tbody.innerHTML = html;
-computeColumnWidthsFromStrings('#saleTable',['state','date','party_name','district','sku','quantity'], MERGED.length?MERGED:RAW);
+    computeColumnWidthsFromStrings(
+  '#saleTable',
+  ['state','date','party_name','district','sku','quantity'],
+  MERGED.length ? MERGED : RAW
+);
+
 
     reapplyColumnVisibility();
 
