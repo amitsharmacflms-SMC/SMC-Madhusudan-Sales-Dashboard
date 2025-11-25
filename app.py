@@ -264,7 +264,7 @@ def get_data(view_type):
 
     try:
         engine = get_engine()
-        if view_type not in ["product", "sku", "lighthouse_sales"stock_data", "daily_sale"]:
+        if view_type not in ["product", "sku", "lighthouse_sales" ,"stock_data", "daily_sale"]:
             return jsonify({"error": "Invalid table name"}), 400
 
         base_query = f"SELECT * FROM {view_type}"
