@@ -3,14 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SMC - Daily Sale (Patched)</title>
+  <title>SMC - Daily Sale (Patched - Option 2)</title>
 
-  <!-- Bootstrap & SheetJS & jQuery & Select2 -->
+  <!-- Bootstrap & SheetJS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-  <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
@@ -20,7 +16,7 @@
       --muted:#6b7280;
       --border:#9fb1c8;
       --card-bg:#ffffff;
-      --totals-shade:#e6f0ff; /* light blue Option A */
+      --totals-shade:#e6f0ff;
     }
     body{
       background: linear-gradient(180deg,#f6fbff,#f2f6fb 60%);
@@ -28,36 +24,15 @@
       padding:18px;
     }
 
-    /* AUTO-WIDTH FIX — allow wrapping in some columns */
+    /* Auto width and wrap for long columns */
     #saleTable th[data-col="party_name"],
     #saleTable th[data-col="sku"],
     #saleTable td[data-col="party_name"],
-    #saleTable td[data-col="sku"] {
-        white-space: normal !important;
-    }
-
-    /* Keep technical columns single-line */
-    #saleTable th[data-col="state"],
-    #saleTable th[data-col="date"],
-    #saleTable th[data-col="district"],
-    #saleTable th[data-col="quantity"],
-    #saleTable td[data-col="state"],
-    #saleTable td[data-col="date"],
-    #saleTable td[data-col="district"],
-    #saleTable td[data-col="quantity"] {
-        white-space: nowrap !important;
-    }
-
-    /* FINAL AUTO-WIDTH FIX */
-    #saleTable {
-        table-layout: auto !important;
-    }
-
-    /* OVERRIDE BOOTSTRAP table-sm (critical for auto-width) */
-    #saleTable.table-sm th,
-    #saleTable.table-sm td {
-        padding: 8px 12px !important;
-    }
+    #saleTable td[data-col="sku"] { white-space: normal !important; }
+    #saleTable th[data-col="state"], #saleTable th[data-col="date"], #saleTable th[data-col="district"], #saleTable th[data-col="quantity"],
+    #saleTable td[data-col="state"], #saleTable td[data-col="date"], #saleTable td[data-col="district"], #saleTable td[data-col="quantity"] { white-space: nowrap !important; }
+    #saleTable { table-layout: auto !important; }
+    #saleTable.table-sm th, #saleTable.table-sm td { padding: 8px 12px !important; }
 
     .top-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
     .logo-title{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#0d6efd22,#0d6efd11);
@@ -91,11 +66,8 @@
 
     .col-toggle{max-height:260px;overflow:auto;padding:10px;width:260px}
 
-    .sort-indicator{font-size:0.8rem; margin-left:6px; opacity:0.8}
+    .sort-indicator{ font-size:0.85rem; margin-left:6px; color:#0b3b66; opacity:0.7; }
 
-    @media (max-width:1200px){
-      .filter-row .select2-container { width: 100% !important; }
-    }
     @media (max-width:900px){.filter-row{display:block}.top-row{flex-direction:column;align-items:flex-start;gap:8px}}
   </style>
 </head>
@@ -129,27 +101,28 @@
       </div>
     </div>
 
-    <!-- FILTER ROW (as requested - Order: Month | State | District | Party Name | SKU search | From date | Reset) -->
-    <div id="filterPanel" class="filter-panel">
+    <div id="filterPanel" class="filter-panel" style="display:none;">
       <div class="filter-row">
-        <div style="min-width:160px; flex:0 0 160px;">
+        <div style="flex:1; min-width:160px;">
           <label class="form-label">Month</label>
           <select id="filterMonth" class="form-select"><option value="">All</option></select>
         </div>
 
-        <div style="min-width:160px; flex:0 0 160px;">
+        <div style="flex:1; min-width:160px;">
           <label class="form-label">State</label>
           <select id="filterState" class="form-select"><option value="">All</option></select>
         </div>
 
-        <div style="min-width:200px; flex:0 0 200px;">
+        <div style="flex:1; min-width:160px;">
           <label class="form-label">District</label>
-          <select id="filterDistrict" class="form-select" style="width:100%"><option value="">All</option></select>
+          <input id="filterDistrict" list="districtList" class="form-control" placeholder="Type or pick District">
+          <datalist id="districtList"></datalist>
         </div>
 
-        <div style="min-width:220px; flex:0 0 220px;">
+        <div style="flex:1; min-width:220px;">
           <label class="form-label">Party Name</label>
-          <select id="filterParty" class="form-select" style="width:100%"><option value="">All</option></select>
+          <input id="filterParty" list="partyList" class="form-control" placeholder="Type or pick Party">
+          <datalist id="partyList"></datalist>
         </div>
 
         <div style="flex:2; min-width:220px;">
@@ -173,15 +146,14 @@
       <table id="saleTable" class="table table-sm mb-0">
         <thead>
           <tr>
-            <th data-col="state" data-sortable="true">State <span class="sort-indicator"></span></th>
-            <th data-col="date" data-sortable="true">Date <span class="sort-indicator"></span></th>
-            <th data-col="party_name" data-sortable="true">Party Name <span class="sort-indicator"></span></th>
-            <th data-col="district" data-sortable="true">District <span class="sort-indicator"></span></th>
-            <th data-col="sku" data-sortable="true">SKU <span class="sort-indicator"></span></th>
-            <th data-col="quantity" data-sortable="true" data-type="number">Quantity <span class="sort-indicator"></span></th>
+            <th data-col="state">State <span class="sort-indicator" data-col="state"></span></th>
+            <th data-col="date">Date <span class="sort-indicator" data-col="date"></span></th>
+            <th data-col="party_name">Party Name <span class="sort-indicator" data-col="party_name"></span></th>
+            <th data-col="district">District <span class="sort-indicator" data-col="district"></span></th>
+            <th data-col="sku">SKU <span class="sort-indicator" data-col="sku"></span></th>
+            <th data-col="quantity">Quantity <span class="sort-indicator" data-col="quantity"></span></th>
           </tr>
         </thead>
-
         <tbody></tbody>
       </table>
     </div>
@@ -195,7 +167,8 @@
   const pad2 = n => String(n).padStart(2,'0');
   const fmt = v => (v == null || isNaN(+v)) ? '' : Number(v).toLocaleString();
 
-  // Parse dd-mm-yyyy (or d/m/yyyy) into UTC midnight (to avoid timezone shifts)
+  function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
   function parseDMYtoUTC(s){
     if(!s) return null;
     const m = String(s).trim().match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
@@ -203,7 +176,6 @@
       const day = +m[1], mon = +m[2], year = +m[3];
       return new Date(Date.UTC(year, mon-1, day));
     }
-    // fallback ISO
     const iso = new Date(s);
     return isNaN(iso) ? null : new Date(Date.UTC(iso.getUTCFullYear(), iso.getUTCMonth(), iso.getUTCDate()));
   }
@@ -222,17 +194,17 @@
   const filterParty = document.getElementById('filterParty');
   const filterSKU = document.getElementById('filterSKU');
   const skuList = document.getElementById('skuList');
+  const districtList = document.getElementById('districtList');
+  const partyList = document.getElementById('partyList');
   const filterFrom = document.getElementById('filterFrom');
   const clearFilters = document.getElementById('clearFilters');
   const exportBtn = document.getElementById('exportBtn');
   const colCheckboxes = Array.from(document.querySelectorAll('.col-toggle-checkbox'));
-
-  // Sorting state
-  let SORT_COL = null; // col name
-  let SORT_DIR = 1; // 1 = asc, -1 = desc
+  const dateColCheckbox = document.getElementById('dateColCheckbox');
 
   // ---------- App state ----------
   let RAW = [], MERGED = [], FILTERED = [];
+  let currentSort = { col: null, dir: 1 }; // dir: 1 ascending, -1 descending
 
   // ---------- Load data ----------
   async function loadData(){
@@ -240,6 +212,7 @@
       const res = await fetch('/api/get_daily_sale');
       RAW = await res.json();
 
+      // normalize fields, compute parsed date and month key
       RAW = RAW.map(r=>{
         const o={};
         for(const k in r) o[k.trim().toLowerCase()] = r[k];
@@ -254,17 +227,19 @@
         return o;
       });
 
-      // dedupe exact duplicates (state,date,party_name,district,sku,quantity)
-      const seen = new Set();
-      MERGED = RAW.filter(r=>{
-        const key = JSON.stringify([r.state, r.date, r.party_name, r.district, r.sku, r.quantity]);
-        if(seen.has(key)) return false;
-        seen.add(key); return true;
+      // MERGE duplicates using the FULL key (STATE|DATE|PARTY|DISTRICT|SKU) — this handles normal/day mode merge
+      const map = new Map();
+      RAW.forEach(r=>{
+        const key = `${r.state}||${r.date}||${r.party_name}||${r.district}||${r.sku}`;
+        if(!map.has(key)){
+          map.set(key, Object.assign({}, r));
+        } else {
+          map.get(key).quantity += r.quantity || 0;
+        }
       });
+      MERGED = Array.from(map.values());
 
       populateFilters();
-      initSelect2();
-      bindHeaderSorting();
       applyFilters();
     }catch(err){
       console.error('Failed to load daily sale', err);
@@ -284,98 +259,53 @@
     filterState.innerHTML = '<option value="">All</option>' + states.map(s=>`<option>${s}</option>`).join('');
 
     const districts = Array.from(new Set(MERGED.map(r=>r.district).filter(Boolean))).sort();
-    filterDistrict.innerHTML = '<option value="">All</option>' + districts.map(d=>`<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
-
+    districtList.innerHTML = districts.map(d=>`<option value="${d}">`).join('');
     const parties = Array.from(new Set(MERGED.map(r=>r.party_name).filter(Boolean))).sort();
-    filterParty.innerHTML = '<option value="">All</option>' + parties.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
-
+    partyList.innerHTML = parties.map(p=>`<option value="${p}">`).join('');
     const skus = Array.from(new Set(MERGED.map(r=>r.sku).filter(Boolean))).sort();
     skuList.innerHTML = skus.map(s=>`<option value="${s}">`).join('');
   }
 
-  // ---------- Select2 init ----------
-  function initSelect2(){
-    // initialize Select2 on district and party selects (Bootstrap 5 theme)
-    $(filterDistrict).select2({ theme: 'bootstrap-5', placeholder: 'All', allowClear: true, width: 'resolve' });
-    $(filterParty).select2({ theme: 'bootstrap-5', placeholder: 'All', allowClear: true, width: 'resolve' });
-
-    // ensure when select2 value changes, we trigger applyFilters
-    $(filterDistrict).on('change', applyFilters);
-    $(filterParty).on('change', applyFilters);
-  }
-
-  // ---------- Bind header sorting ----------
-  function bindHeaderSorting(){
-    document.querySelectorAll('#saleTable thead th').forEach(th=>{
-      if(th.dataset.sortable === "true"){
-        th.addEventListener('click', ()=> {
-          const col = th.dataset.col;
-          // toggle sort
-          if(SORT_COL === col) SORT_DIR = -SORT_DIR;
-          else { SORT_COL = col; SORT_DIR = 1; }
-          updateSortIndicators();
-          applyFilters(); // re-render with sort
-        });
-      }
-    });
-  }
-
-  function updateSortIndicators(){
-    document.querySelectorAll('#saleTable thead th').forEach(th=>{
-      const span = th.querySelector('.sort-indicator');
-      if(!span) return;
-      if(th.dataset.col === SORT_COL){
-        span.textContent = SORT_DIR === 1 ? '▲' : '▼';
-      } else span.textContent = '';
-    });
-  }
-
-  // ---------- Bind events ----------
-  [filterMonth, filterState, filterFrom].forEach(el => el.addEventListener('change', applyFilters));
+  // ---------- Events ----------
+  [filterMonth, filterState, filterDistrict, filterParty, filterFrom].forEach(el => el.addEventListener('change', applyFilters));
   filterSKU.addEventListener('input', applyFilters);
-  clearFilters.addEventListener('click', ()=>{ 
-    filterMonth.value=''; filterState.value=''; filterDistrict.value=''; 
-    $(filterDistrict).val('').trigger('change');
-    filterParty.value=''; $(filterParty).val('').trigger('change');
-    filterSKU.value=''; filterFrom.value=''; applyFilters(); 
-  });
+  clearFilters.addEventListener('click', ()=>{ filterMonth.value=''; filterState.value=''; filterDistrict.value=''; filterParty.value=''; filterSKU.value=''; filterFrom.value=''; applyFilters(); });
 
-  colCheckboxes.forEach(ch => ch.addEventListener('change', ()=>{
-    const col = ch.dataset.col; const show = ch.checked;
-    const th = document.querySelector(`thead th[data-col="${col}"]`);
-    if(th) th.style.display = show ? '' : 'none';
-    document.querySelectorAll(`td[data-col="${col}"]`).forEach(td => td.style.display = show ? '' : 'none');
-    applyFilters(); // re-render (summary mode may change)
-  }));
+  colCheckboxes.forEach(ch => ch.addEventListener('change', ()=>{ reapplyColumnVisibility(); renderSmart(); }));
 
-  yesterdayBtn.addEventListener('click', ()=>{
-    const now = new Date();
-    const y = new Date(now.getFullYear(), now.getMonth(), now.getDate()-1);
-    const val = `${y.getFullYear()}-${pad2(y.getMonth()+1)}-${pad2(y.getDate())}`;
-    filterFrom.value = val; applyFilters();
-    yesterdayBtn.classList.add('btn-success'); setTimeout(()=>yesterdayBtn.classList.remove('btn-success'),900);
-  });
+  yesterdayBtn.addEventListener('click', ()=>{ const now=new Date(); const y=new Date(now.getFullYear(), now.getMonth(), now.getDate()-1); filterFrom.value = `${y.getFullYear()}-${pad2(y.getMonth()+1)}-${pad2(y.getDate())}`; applyFilters(); yesterdayBtn.classList.add('btn-success'); setTimeout(()=>yesterdayBtn.classList.remove('btn-success'),900); });
 
-  // toggle filter panel
-  toggleFiltersBtn.addEventListener('click', ()=> {
-    if(filterPanel.style.display === 'none' || filterPanel.style.display === '') { filterPanel.style.display='block'; toggleFiltersBtn.classList.add('active'); }
-    else { filterPanel.style.display='none'; toggleFiltersBtn.classList.remove('active'); }
+  toggleFiltersBtn.addEventListener('click', ()=> { filterPanel.style.display = (filterPanel.style.display === 'none' || filterPanel.style.display === '') ? 'block' : 'none'; });
+
+  // header sort click:
+  document.querySelectorAll('#saleTable thead th').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const col = th.dataset.col;
+      if(!col) return;
+      if(currentSort.col === col) currentSort.dir *= -1;
+      else { currentSort.col = col; currentSort.dir = 1; }
+      // update indicators
+      document.querySelectorAll('.sort-indicator').forEach(el=> el.textContent = '');
+      const ind = document.querySelector(`.sort-indicator[data-col="${col}"]`);
+      if(ind) ind.textContent = currentSort.dir === 1 ? '▲' : '▼';
+      applyFilters(); // sorting runs during render
+    });
   });
 
   // ---------- Apply filters ----------
   function applyFilters(){
     const m = filterMonth.value;
     const s = filterState.value;
-    const districtQ = (filterDistrict.value||'').toString().toLowerCase().trim();
-    const partyQ = (filterParty.value||'').toString().toLowerCase().trim();
+    const d = (filterDistrict.value||'').trim();
+    const p = (filterParty.value||'').trim();
     const skuQ = (filterSKU.value||'').toLowerCase().trim();
     const from = parseInputDateUTC(filterFrom.value);
 
     FILTERED = MERGED.filter(r=>{
       if(m && r._month_key !== m) return false;
       if(s && r.state !== s) return false;
-      if(districtQ && r.district.toLowerCase().indexOf(districtQ) === -1) return false;
-      if(partyQ && r.party_name.toLowerCase().indexOf(partyQ) === -1) return false;
+      if(d && r.district !== d) return false;
+      if(p && r.party_name !== p) return false;
       if(skuQ && !r.sku.toLowerCase().includes(skuQ)) return false;
       if(from && (!r._parsed_date || r._parsed_date < from)) return false;
       return true;
@@ -384,91 +314,67 @@
     renderSmart();
   }
 
-  // ---------- Smart render: date-mode or month-summary ----------
+  // ---------- Smart render decision ----------
+  // Option 2: Month summary ignores DATE -> group by state + party + district + sku
   function renderSmart(){
     const monthSelected = !!filterMonth.value;
-    const dateColVisible = document.querySelector('input[data-col="date"]').checked;
-    const summaryMode = monthSelected; // ONLY month filter triggers summary mode
-
+    const dateVisible = (dateColCheckbox && dateColCheckbox.checked);
+    const summaryMode = monthSelected || !dateVisible; // if month selected OR date column hidden -> summary
     if(summaryMode) renderMonthSummary();
     else renderDateMode();
   }
 
-  // ---------- Sorting helper ----------
-  function applySort(arr){
-    if(!SORT_COL) return arr;
-    const col = SORT_COL;
-    const dir = SORT_DIR;
-    const num = (el) => {
-      const v = el[col];
-      if(v == null) return -Infinity;
-      return Number(v) || -Infinity;
-    };
-    const str = (el) => {
-      const v = el[col];
-      if(v == null) return '';
-      return String(v).toLowerCase();
-    };
+  // ---------- Date mode (group by full key; each group -> 1 row) ----------
+  function renderDateMode(){
+    // FILTERED is already deduped by MERGED merging step (state|date|party|district|sku)
+    const rows = FILTERED.slice();
 
-    return arr.sort((a,b)=>{
-      // special-case date
-      if(col === 'date'){
+    // apply sort if set
+    if(currentSort.col){
+      rows.sort((a,b)=>{
+        const c = currentSort.col;
+        let va = (a[c] ?? ''), vb = (b[c] ?? '');
+        // handle dates and numeric
+        if(c === 'date'){ const da = a._parsed_date ? a._parsed_date.getTime() : 0; const db = b._parsed_date ? b._parsed_date.getTime() : 0; return (da - db) * currentSort.dir; }
+        if(c === 'quantity'){ return ((Number(va)||0) - (Number(vb)||0)) * currentSort.dir; }
+        va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
+        return va.localeCompare(vb) * currentSort.dir;
+      });
+    } else {
+      // default stable sort: state, date, sku
+      rows.sort((a,b)=>{
+        if(a.state !== b.state) return a.state.localeCompare(b.state);
         const da = a._parsed_date ? a._parsed_date.getTime() : 0;
         const db = b._parsed_date ? b._parsed_date.getTime() : 0;
-        return (da - db) * dir;
-      }
-      // numeric
-      const th = document.querySelector(`thead th[data-col="${col}"]`);
-      const type = th && th.dataset.type === 'number';
-      if(type){
-        return (Number(a[col]||0) - Number(b[col]||0)) * dir;
-      }
-      // string
-      const sa = str(a), sb = str(b);
-      if(sa < sb) return -1 * dir;
-      if(sa > sb) return 1 * dir;
-      return 0;
-    });
-  }
+        if(da !== db) return da - db;
+        if(a.sku !== b.sku) return a.sku.localeCompare(b.sku);
+        return 0;
+      });
+    }
 
-  // ---------- Date mode (normal) ----------
-  function renderDateMode(){
-    // apply sorting first on a copy (so we don't mutate MERGED)
-    let rows = FILTERED.slice();
-    rows = applySort(rows);
-
-    rows.sort((a,b)=>{
-      if(a.state !== b.state) return a.state.localeCompare(b.state);
-      const da = a._parsed_date ? a._parsed_date.getTime() : 0;
-      const db = b._parsed_date ? b._parsed_date.getTime() : 0;
-      if(da !== db) return da - db;
-      if(a.sku !== b.sku) return a.sku.localeCompare(b.sku);
-      return 0;
-    });
-
+    // build HTML
     let html = '';
-    let overall = 0;
-    let i = 0;
+    let i=0;
     let currentState = null;
     let stateAcc = null;
+    let overall = 0;
 
     while(i < rows.length){
-      const row = rows[i];
-      const ST = row.state;
-
+      const r = rows[i];
+      const ST = r.state;
       if(currentState && currentState !== ST){
-        // render state grand
         html += stateGrandRow(stateAcc);
         stateAcc = null;
       }
-      if(!stateAcc){ stateAcc = {state: ST, qty:0}; currentState = ST; }
+      if(!stateAcc){ stateAcc = { state: ST, qty: 0 }; currentState = ST; }
 
-      // collect rows for same state -> date -> sku -> party_name grouping (we will show each transaction row)
+      // group by date inside state
+      // gather all rows for this state
       const stateRows = [];
       let j = i;
       while(j < rows.length && rows[j].state === ST){ stateRows.push(rows[j]); j++; }
 
-      // within state, group by date
+      // now group by date inside that
       let k = 0;
       while(k < stateRows.length){
         const dateRaw = stateRows[k].date;
@@ -479,47 +385,38 @@
           m++;
         }
 
-        // render individual transaction rows
-        dateRows.forEach(r=>{
-          const fdate = r._parsed_date ? formatDateDDMMYYYYUTC(r._parsed_date) : r.date;
+        // render each grouped row (already merged earlier so each is one group)
+        dateRows.forEach(rr=>{
+          const fdate = rr._parsed_date ? formatDateDDMMYYYYUTC(rr._parsed_date) : rr.date;
           html += `<tr>
-            <td class="center" data-col="state">${escapeHtml(r.state)}</td>
+            <td class="center" data-col="state">${escapeHtml(rr.state)}</td>
             <td class="center" data-col="date">${fdate}</td>
-            <td class="left" data-col="party_name">${escapeHtml(r.party_name)}</td>
-            <td class="center" data-col="district">${escapeHtml(r.district)}</td>
-            <td class="left" data-col="sku">${escapeHtml(r.sku)}</td>
-            <td class="center" data-col="quantity">${fmt(r.quantity)}</td>
+            <td class="left" data-col="party_name">${escapeHtml(rr.party_name)}</td>
+            <td class="center" data-col="district">${escapeHtml(rr.district)}</td>
+            <td class="left" data-col="sku">${escapeHtml(rr.sku)}</td>
+            <td class="center" data-col="quantity">${fmt(rr.quantity)}</td>
           </tr>`;
         });
 
         // subtotal for date
-        const subtotal = dateRows.reduce((s,r)=>s + (Number(r.quantity)||0), 0);
+        const subtotal = dateRows.reduce((s,rr)=>(s + (Number(rr.quantity)||0)), 0);
         const span = getDynamicColspan();
-        if(dateRows.length >= 1){
-          html += `<tr class="subtotal-row">
-            <td colspan="${span}">subtotal of Date (${formatDateDDMMYYYYUTC(dateRows[0]._parsed_date || new Date(dateRows[0].date))})</td>
-            <td class="center" data-col="quantity">${fmt(subtotal)}</td>
-          </tr>`;
-        }
+        html += `<tr class="subtotal-row"><td colspan="${span}">subtotal of Date (${formatDateDDMMYYYYUTC(dateRows[0]._parsed_date || new Date(dateRows[0].date))})</td><td class="center" data-col="quantity">${fmt(subtotal)}</td></tr>`;
 
         stateAcc.qty += subtotal;
         overall += subtotal;
 
         k = m;
-      } // end date loop inside state
+      }
 
       i = j;
-    } // end main loop
-
-    // last state row
-    if(stateAcc){
-      html += stateGrandRow(stateAcc);
     }
 
-    // overall
-    html += overallGrandRow({open:0, rec:0, sale:0, close:0, qty: overall});
+    if(stateAcc) html += stateGrandRow(stateAcc);
+    html += overallGrandRow({ qty: overall });
 
     tbody.innerHTML = html;
+
     computeColumnWidthsFromStrings(
       '#saleTable',
       ['state','date','party_name','district','sku','quantity'],
@@ -527,71 +424,70 @@
     );
 
     reapplyColumnVisibility();
-
     if(rows.length === 0){
       tbody.insertAdjacentHTML('afterbegin', `<tr><td colspan="${getVisibleColumnCount()}" class="text-center p-3 text-muted">No data for selected filters.</td></tr>`);
     }
   }
 
-  // ---------- Month Summary Mode (state + district + party + sku -> sum quantity) ----------
-  // Keep a representative party_name visible (earliest party per group)
+  // ---------- Month summary (Option 2) ----------
+  // Group by state||party_name||district||sku (NO date)
   function renderMonthSummary(){
-    // group by state|district|party_name|sku and capture earliest date
+    // groups map
     const groups = new Map();
     FILTERED.forEach(r=>{
-      const key = `${r.state}||${r.district}||${r.party_name}||${r.sku}`;
+      const key = `${r.state}||${r.party_name}||${r.district}||${r.sku}`;
       if(!groups.has(key)){
         groups.set(key, {
           state: r.state,
+          party_name: r.party_name,
           district: r.district,
           sku: r.sku,
-          party_name: r.party_name || '',
           qty: r.quantity || 0,
+          // keep earliest date to show as representative if needed
           earliestDate: r._parsed_date || null
         });
       } else {
         const g = groups.get(key);
         g.qty += r.quantity || 0;
-        if(r._parsed_date && (!g.earliestDate || r._parsed_date < g.earliestDate)){
-          g.earliestDate = r._parsed_date;
-        }
+        if(r._parsed_date && (!g.earliestDate || r._parsed_date < g.earliestDate)) g.earliestDate = r._parsed_date;
       }
     });
 
     let rows = Array.from(groups.values());
-    // apply sort if set
-    if(SORT_COL){
-      rows = applySort(rows);
+
+    // sorting
+    if(currentSort.col){
+      const c = currentSort.col;
+      rows.sort((a,b)=>{
+        let va = (a[c] ?? ''), vb = (b[c] ?? '');
+        if(c === 'quantity') return ((Number(va)||0) - (Number(vb)||0)) * currentSort.dir;
+        va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
+        return va.localeCompare(vb) * currentSort.dir;
+      });
+    } else {
+      rows.sort((a,b)=>{
+        if(a.state !== b.state) return a.state.localeCompare(b.state);
+        if(a.district !== b.district) return a.district.localeCompare(b.district);
+        return a.sku.localeCompare(b.sku);
+      });
     }
 
-    rows.sort((a,b)=>{
-      if(a.state !== b.state) return a.state.localeCompare(b.state);
-      if(a.district !== b.district) return a.district.localeCompare(b.district);
-      if(a.party_name !== b.party_name) return a.party_name.localeCompare(b.party_name);
-      return a.sku.localeCompare(b.sku);
-    });
-
     let html = '';
-    let i = 0;
-    let currentState = null;
-    let stateAcc = null;
+    let i = 0, currentState = null, stateAcc = null;
     const overall = rows.reduce((s,r)=> s + (r.qty||0), 0);
 
     while(i < rows.length){
       const gr = rows[i];
       const ST = gr.state;
       if(currentState && currentState !== ST){ html += stateGrandRow(stateAcc); stateAcc = null; }
-      if(!stateAcc){ stateAcc = { state: ST, qty:0 }; currentState = ST; }
+      if(!stateAcc){ stateAcc = { state: ST, qty: 0 }; currentState = ST; }
 
-      // rows for this state
-      const stateRows = [];
+      // collect all for this state
       let j = i;
-      while(j < rows.length && rows[j].state === ST){
-        stateRows.push(rows[j]); j++;
-      }
+      const batch = [];
+      while(j < rows.length && rows[j].state === ST){ batch.push(rows[j]); j++; }
 
-      // render each summary row (party_name preserved)
-      stateRows.forEach(r=>{
+      batch.forEach(r=>{
         html += `<tr>
           <td class="center" data-col="state">${escapeHtml(r.state)}</td>
           <td class="center" data-col="date"></td>
@@ -606,12 +502,11 @@
       i = j;
     }
 
-    if(stateAcc){ html += stateGrandRow(stateAcc); }
-
-    // overall
+    if(stateAcc) html += stateGrandRow(stateAcc);
     html += overallGrandRow({ qty: overall });
 
     tbody.innerHTML = html;
+
     computeColumnWidthsFromStrings(
       '#saleTable',
       ['state','date','party_name','district','sku','quantity'],
@@ -625,14 +520,14 @@
     }
   }
 
-  // ---------- Dynamic column helpers ----------
+  // ---------- Helpers ----------
   function getVisibleColumnCount(){
     const ths = Array.from(document.querySelectorAll('thead th'));
     return ths.filter(th => th.style.display !== 'none').length;
   }
   function getDynamicColspan(){
     const visible = getVisibleColumnCount();
-    const numericCols = 1; // only Quantity is numeric in daily_sale
+    const numericCols = 1; // Quantity
     return Math.max(1, visible - numericCols);
   }
 
@@ -646,57 +541,32 @@
     });
   }
 
-  // ---------- total / subtotal row renderers (center label, full-width shade) ----------
   function stateGrandRow(acc){
     const span = getDynamicColspan();
-    return `<tr class="state-grand-row">
-      <td colspan="${span}">GRAND TOTAL OF ${escapeHtml(acc.state)}</td>
-      <td class="center" data-col="quantity">${fmt(acc.qty)}</td>
-    </tr>`;
+    return `<tr class="state-grand-row"><td colspan="${span}">GRAND TOTAL OF ${escapeHtml(acc.state)}</td><td class="center" data-col="quantity">${fmt(acc.qty)}</td></tr>`;
   }
-
   function overallGrandRow(acc){
     const span = getDynamicColspan();
-    return `<tr class="overall-grand-row">
-      <td colspan="${span}">OVERALL GRAND TOTAL</td>
-      <td class="center" data-col="quantity">${fmt(acc.qty || 0)}</td>
-    </tr>`;
+    return `<tr class="overall-grand-row"><td colspan="${span}">OVERALL GRAND TOTAL</td><td class="center" data-col="quantity">${fmt(acc.qty || 0)}</td></tr>`;
   }
 
-  // ---------- Utilities ----------
-  function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-  // ---------- Export visible table (includes subtotal / total rows) ----------
+  // ---------- Export visible table ----------
   exportBtn.addEventListener('click', ()=>{
     const header = ["State","Date","Party Name","District","SKU","Quantity"];
     const ws_data = [header];
     const rows = Array.from(tbody.querySelectorAll('tr'));
     rows.forEach(tr=>{
       const cells = Array.from(tr.querySelectorAll('td')).map(td=>td.textContent.trim());
-      // normalize to 6 columns
-      while(cells.length < 6) cells.splice(0,0,''); // ensure left label slots exist if colspan used
+      while(cells.length < 6) cells.splice(0,0,'');
       ws_data.push(cells.slice(0,6));
     });
-    // add overall grand total if not already present
-    const last = ws_data[ws_data.length-1];
-    if(!(last && String(last[0]||'').toLowerCase().includes('overall'))){
-      ws_data.push(["OVERALL GRAND TOTAL","","","","", document.querySelectorAll('td[data-col="quantity"]').length ? '' : '']);
-    }
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
     XLSX.utils.book_append_sheet(wb, ws, 'DailySale');
     XLSX.writeFile(wb, `daily_sale_export_${new Date().toISOString().slice(0,10)}.xlsx`);
   });
 
-  // ---------- Init ----------
-  loadData();
-
-  // small accessibility: allow toggling filters via 'f' key
-  document.addEventListener('keydown', (e)=>{
-    if(e.key === 'f' || e.key === 'F'){ toggleFiltersBtn.click(); }
-  });
-
-  // ---------- Auto column width helper ----------
+  // ---------- Column width helper ----------
   function computeColumnWidthsFromStrings(tableSelector, columns, rowsOfObjects, sampleLimit=500){
    const canvas=document.createElement('canvas');const ctx=canvas.getContext('2d');
    const tableEl=document.querySelector(tableSelector)||document.body;
@@ -708,7 +578,12 @@
    const MIN=40,MAX=900;
    thEls.forEach(th=>{const c=th.dataset.col;const w=Math.max(MIN,Math.min(MAX,maxW[c]||MIN));th.style.width=w+'px';});
   }
-  </script>
 
+  // ---------- Init ----------
+  loadData();
+
+  // accessibility
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'f' || e.key === 'F') toggleFiltersBtn.click(); });
+  </script>
 </body>
 </html>
