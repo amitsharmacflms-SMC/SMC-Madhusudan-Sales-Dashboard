@@ -3,11 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SMC - Daily Sale (Patched)</title>
+  <title>SMC - Daily Sale (Select2 Filters)</title>
 
   <!-- Bootstrap & SheetJS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- jQuery + Select2 (Option C) -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
   <style>
     :root{
@@ -45,15 +50,11 @@
     }
 
     /* FINAL AUTO-WIDTH FIX */
-    #saleTable {
-        table-layout: auto !important;
-    }
+    #saleTable { table-layout: auto !important; }
 
     /* OVERRIDE BOOTSTRAP table-sm (critical for auto-width) */
     #saleTable.table-sm th,
-    #saleTable.table-sm td {
-        padding: 8px 12px !important;
-    }
+    #saleTable.table-sm td { padding: 8px 12px !important; }
 
     .top-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
     .logo-title{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#0d6efd22,#0d6efd11);
@@ -86,6 +87,10 @@
     .overall-grand-row td{background:linear-gradient(90deg,#dff2ff,#d0eaff);font-weight:900;text-align:center;color:#05284a}
 
     .col-toggle{max-height:260px;overflow:auto;padding:10px;width:260px}
+
+    /* Select2 tweaks */
+    .select2-container--default .select2-selection--single { height: calc(1.5em + .75rem + 2px); }
+    .select2-container .select2-selection--single .select2-selection__rendered { line-height:1.6; }
 
     @media (max-width:900px){.filter-row{display:block}.top-row{flex-direction:column;align-items:flex-start;gap:8px}}
   </style>
@@ -130,6 +135,16 @@
         <div style="flex:1; min-width:160px;">
           <label class="form-label">State</label>
           <select id="filterState" class="form-select"><option value="">All</option></select>
+        </div>
+
+        <div style="flex:1; min-width:160px;">
+          <label class="form-label">District</label>
+          <select id="filterDistrict" class="form-select"><option value="">All</option></select>
+        </div>
+
+        <div style="flex:2; min-width:220px;">
+          <label class="form-label">Party Name</label>
+          <select id="filterPartyName" class="form-select"><option value="">All</option></select>
         </div>
 
         <div style="flex:2; min-width:220px;">
@@ -198,6 +213,8 @@
 
   const filterMonth = document.getElementById('filterMonth');
   const filterState = document.getElementById('filterState');
+  const filterDistrict = document.getElementById('filterDistrict');
+  const filterPartyName = document.getElementById('filterPartyName');
   const filterSKU = document.getElementById('filterSKU');
   const skuList = document.getElementById('skuList');
   const filterFrom = document.getElementById('filterFrom');
@@ -238,6 +255,7 @@
       });
 
       populateFilters();
+      initSelect2();
       applyFilters();
     }catch(err){
       console.error('Failed to load daily sale', err);
@@ -256,14 +274,35 @@
     const states = Array.from(new Set(MERGED.map(r=>r.state).filter(Boolean))).sort();
     filterState.innerHTML = '<option value="">All</option>' + states.map(s=>`<option>${s}</option>`).join('');
 
+    const districts = Array.from(new Set(MERGED.map(r=>r.district).filter(Boolean))).sort();
+    filterDistrict.innerHTML = '<option value="">All</option>' + districts.map(d=>`<option>${d}</option>`).join('');
+
+    const parties = Array.from(new Set(MERGED.map(r=>r.party_name).filter(Boolean))).sort();
+    filterPartyName.innerHTML = '<option value="">All</option>' + parties.map(p=>`<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+
     const skus = Array.from(new Set(MERGED.map(r=>r.sku).filter(Boolean))).sort();
     skuList.innerHTML = skus.map(s=>`<option value="${s}">`).join('');
+  }
+
+  // ---------- Init Select2 ----------
+  function initSelect2(){
+    // initialize select2 on district and party selects using jQuery
+    try{
+      $('#filterDistrict').select2({ placeholder: 'All Districts', allowClear: true, width: '100%' });
+      $('#filterPartyName').select2({ placeholder: 'All Parties', allowClear: true, width: '100%' });
+
+      // when user picks via select2, call applyFilters
+      $('#filterDistrict').on('change', applyFilters);
+      $('#filterPartyName').on('change', applyFilters);
+    }catch(e){
+      console.warn('Select2 init failed — continuing without searchable dropdowns', e);
+    }
   }
 
   // ---------- Bind events ----------
   [filterMonth, filterState, filterFrom].forEach(el => el.addEventListener('change', applyFilters));
   filterSKU.addEventListener('input', applyFilters);
-  clearFilters.addEventListener('click', ()=>{ filterMonth.value=''; filterState.value=''; filterSKU.value=''; filterFrom.value=''; applyFilters(); });
+  clearFilters.addEventListener('click', ()=>{ filterMonth.value=''; filterState.value=''; filterDistrict.value=''; filterPartyName.value=''; filterSKU.value=''; filterFrom.value=''; applyFilters(); });
 
   colCheckboxes.forEach(ch => ch.addEventListener('change', ()=>{
     const col = ch.dataset.col; const show = ch.checked;
@@ -291,12 +330,16 @@
   function applyFilters(){
     const m = filterMonth.value;
     const s = filterState.value;
+    const dist = $('#filterDistrict').val ? $('#filterDistrict').val() : filterDistrict.value;
+    const party = $('#filterPartyName').val ? $('#filterPartyName').val() : filterPartyName.value;
     const skuQ = (filterSKU.value||'').toLowerCase().trim();
     const from = parseInputDateUTC(filterFrom.value);
 
     FILTERED = MERGED.filter(r=>{
       if(m && r._month_key !== m) return false;
       if(s && r.state !== s) return false;
+      if(dist && dist !== '' && r.district !== dist) return false;
+      if(party && party !== '' && r.party_name !== party) return false;
       if(skuQ && !r.sku.toLowerCase().includes(skuQ)) return false;
       if(from && (!r._parsed_date || r._parsed_date < from)) return false;
       return true;
@@ -344,7 +387,6 @@
       if(!stateAcc){ stateAcc = {state: ST, qty:0}; currentState = ST; }
 
       // collect rows for same state -> date -> sku -> party_name grouping (we will show each transaction row)
-      // We'll iterate by date groups
       const stateRows = [];
       let j = i;
       while(j < FILTERED.length && FILTERED[j].state === ST){ stateRows.push(FILTERED[j]); j++; }
@@ -373,9 +415,8 @@
           </tr>`;
         });
 
-        // subtotal for date (always include to keep consistency)
+        // subtotal for date
         const subtotal = dateRows.reduce((s,r)=>s + (Number(r.quantity)||0), 0);
-        // dynamic colspan
         const span = getDynamicColspan();
         if(dateRows.length >= 1){
           html += `<tr class="subtotal-row">
@@ -388,25 +429,17 @@
         overall += subtotal;
 
         k = m;
-      } // end date loop inside state
+      }
 
       i = j;
-    } // end main loop
-
-    // last state row
-    if(stateAcc){
-      html += stateGrandRow(stateAcc);
     }
 
-    // overall
-    html += overallGrandRow({open:0, rec:0, sale:0, close:0, qty: overall});
+    if(stateAcc){ html += stateGrandRow(stateAcc); }
+
+    html += overallGrandRow({ qty: overall });
 
     tbody.innerHTML = html;
-    computeColumnWidthsFromStrings(
-      '#saleTable',
-      ['state','date','party_name','district','sku','quantity'],
-      MERGED.length ? MERGED : RAW
-    );
+    computeColumnWidthsFromStrings('#saleTable',['state','date','party_name','district','sku','quantity'], MERGED.length ? MERGED : RAW);
 
     reapplyColumnVisibility();
 
@@ -416,38 +449,22 @@
   }
 
   // ---------- Month Summary Mode (state + district + sku -> sum quantity) ----------
-  // PATCH: keep a representative party_name visible (earliest party_name in date order)
   function renderMonthSummary(){
-    // group by state|district|sku and capture earliest party_name
+    // group by state|district|sku but AFTER filtering — so party/district filters still apply
     const groups = new Map();
     FILTERED.forEach(r=>{
       const key = `${r.state}||${r.district}||${r.sku}`;
       if(!groups.has(key)){
-        groups.set(key, {
-          state: r.state,
-          district: r.district,
-          sku: r.sku,
-          qty: r.quantity || 0,
-          earliestDate: r._parsed_date || null,
-          party_name: r.party_name || ''
-        });
+        groups.set(key, { state: r.state, district: r.district, sku: r.sku, qty: r.quantity || 0, earliestDate: r._parsed_date || null });
       } else {
         const g = groups.get(key);
         g.qty += r.quantity || 0;
-        // pick earliest date and associated party_name
-        if(r._parsed_date && (!g.earliestDate || r._parsed_date < g.earliestDate)){
-          g.earliestDate = r._parsed_date;
-          g.party_name = r.party_name || g.party_name;
-        }
+        if(r._parsed_date && (!g.earliestDate || r._parsed_date < g.earliestDate)) g.earliestDate = r._parsed_date;
       }
     });
 
     const rows = Array.from(groups.values());
-    rows.sort((a,b)=>{
-      if(a.state !== b.state) return a.state.localeCompare(b.state);
-      if(a.district !== b.district) return a.district.localeCompare(b.district);
-      return a.sku.localeCompare(b.sku);
-    });
+    rows.sort((a,b)=>{ if(a.state !== b.state) return a.state.localeCompare(b.state); if(a.district !== b.district) return a.district.localeCompare(b.district); return a.sku.localeCompare(b.sku); });
 
     let html = '';
     let i = 0;
@@ -461,19 +478,15 @@
       if(currentState && currentState !== ST){ html += stateGrandRow(stateAcc); stateAcc = null; }
       if(!stateAcc){ stateAcc = { state: ST, qty:0 }; currentState = ST; }
 
-      // rows for this state
       const depotRows = [];
       let j = i;
-      while(j < rows.length && rows[j].state === ST){
-        depotRows.push(rows[j]); j++;
-      }
+      while(j < rows.length && rows[j].state === ST){ depotRows.push(rows[j]); j++; }
 
-      // render each summary row (with party_name shown as representative earliest)
       depotRows.forEach(r=>{
         html += `<tr>
           <td class="center" data-col="state">${escapeHtml(r.state)}</td>
           <td class="center" data-col="date"></td>
-          <td class="left" data-col="party_name">${escapeHtml(r.party_name)}</td>
+          <td class="left" data-col="party_name"></td>
           <td class="center" data-col="district">${escapeHtml(r.district)}</td>
           <td class="left" data-col="sku">${escapeHtml(r.sku)}</td>
           <td class="center" data-col="quantity">${fmt(r.qty)}</td>
@@ -486,15 +499,10 @@
 
     if(stateAcc){ html += stateGrandRow(stateAcc); }
 
-    // overall
     html += overallGrandRow({ qty: overall });
 
     tbody.innerHTML = html;
-    computeColumnWidthsFromStrings(
-      '#saleTable',
-      ['state','date','party_name','district','sku','quantity'],
-      MERGED.length ? MERGED : RAW
-    );
+    computeColumnWidthsFromStrings('#saleTable',['state','date','party_name','district','sku','quantity'], MERGED.length ? MERGED : RAW);
 
     reapplyColumnVisibility();
 
@@ -524,7 +532,7 @@
     });
   }
 
-  // ---------- total / subtotal row renderers (center label, full-width shade) ----------
+  // ---------- total / subtotal row renderers ----------
   function stateGrandRow(acc){
     const span = getDynamicColspan();
     return `<tr class="state-grand-row">
@@ -551,12 +559,9 @@
     const rows = Array.from(tbody.querySelectorAll('tr'));
     rows.forEach(tr=>{
       const cells = Array.from(tr.querySelectorAll('td')).map(td=>td.textContent.trim());
-      // normalize to 6 columns
-      while(cells.length < 6) cells.splice(0,0,''); // ensure left label slots exist if colspan used
+      while(cells.length < 6) cells.splice(0,0,'');
       ws_data.push(cells.slice(0,6));
     });
-    // add overall grand total if not already present
-    // If last row is overall, fine; else append
     const last = ws_data[ws_data.length-1];
     if(!(last && String(last[0]||'').toLowerCase().includes('overall'))){
       ws_data.push(["OVERALL GRAND TOTAL","","","","", document.querySelectorAll('td[data-col="quantity"]').length ? '' : '']);
