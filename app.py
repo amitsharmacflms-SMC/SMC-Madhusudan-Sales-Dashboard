@@ -255,6 +255,8 @@ def users_page():
 
 
 # -------------------------------
+# SECURE DATA RETRIEVAL (Product / SKU / ERP / Stock / Daily Sale)
+# -------------------------------
 @app.route("/get_data/<view_type>")
 def get_data(view_type):
     if "user" not in session:
@@ -263,91 +265,67 @@ def get_data(view_type):
     try:
         engine = get_engine()
         
-        # 1. Define allowed tables and their specific column names for filtering
-        #    Format: 'table_name': {'session_key': 'database_column_name'}
-        #    Update the values on the right side to match your actual Database Columns
+        # 1. Configuration: Map Session Keys -> Database Column Names
+        # CHECK YOUR DATABASE: Ensure 'stock_data' and 'daily_sale' actually have columns named 'state', 'district', 'manager_name'
+        # If stock_data uses 'zone' instead of 'state', change it here: "state": "zone"
         table_config = {
-            "product": {
-                "manager": "manager_name", 
-                "state": "state", 
-                "district": "district"
-            },
-            "sku": {
-                "manager": "manager_name", 
-                "state": "state", 
-                "district": "district"
-            },
-            "lighthouse_sales": {
-                "manager": "manager_name", 
-                "state": "state", 
-                "district": "district"
-            },
-            "stock_data": {
-                # CHECK YOUR DB: Is it 'manager_name' or just 'manager'? 
-                # Is it 'state' or 'zone'?
-                "manager": "manager_name", 
-  		"State": "State",
-                "state": "state", 
-                "district": "district" 
-            },
-            "daily_sale": {
-                # CHECK YOUR DB: daily_sale might use 'sales_officer' instead of 'manager_name'
-                "manager": "manager_name", 
-                "State": "State",
-                "state": "state", 
-                "district": "district"
-            }
+            "product":          {"manager": "manager_name", "state": "state", "district": "district"},
+            "sku":              {"manager": "manager_name", "state": "state", "district": "district"},
+            "lighthouse_sales": {"manager": "manager_name", "state": "state", "district": "district"},
+            "stock_data":       {"manager": "manager_name", "state": "state", "district": "district"},
+            "daily_sale":       {"manager": "manager_name", "state": "state", "district": "district"}
         }
 
         if view_type not in table_config:
             return jsonify({"error": "Invalid table name"}), 400
 
-        # Get column mapping for the current view
         col_map = table_config[view_type]
-        
         base_query = f"SELECT * FROM {view_type}"
         params = {}
+        conditions = []
 
-        # 2. Apply Dynamic Filters based on the Mapping
+        # 2. Apply Security Filters (If not Admin)
         if session.get("role") != "Admin":
-            conditions = []
             
-            # Filter by Manager
+            # Filter by Manager Name
             if session.get("manager_name"):
-                # Uses the specific column name defined in table_config
                 db_col = col_map.get("manager", "manager_name") 
                 conditions.append(f"{db_col} = :m")
                 params["m"] = session["manager_name"]
             
-            # Filter by State
+            # Filter by State (Using LOWER for case-insensitive match)
             if session.get("state"):
                 db_col = col_map.get("state", "state")
-                conditions.append(f"{db_col} = :s")
-                params["s"] = session["state"]
-            
-            # Filter by State
-            if session.get("State"):
-                db_col = col_map.get("State", "State")
-                conditions.append(f"{db_col} = :s")
+                conditions.append(f"LOWER({db_col}) = LOWER(:s)")
                 params["s"] = session["state"]
 
-            # Filter by District
+            # Filter by District (Using LOWER for case-insensitive match)
             if session.get("district"):
                 db_col = col_map.get("district", "district")
-                conditions.append(f"{db_col} = :d")
+                conditions.append(f"LOWER({db_col}) = LOWER(:d)")
                 params["d"] = session["district"]
 
             if conditions:
                 base_query += " WHERE " + " AND ".join(conditions)
+            else:
+                # OPTIONAL: If user is not Admin but has no filters, restrict everything?
+                # Currently, it allows seeing everything if session data is missing.
+                # Uncomment next line to block empty-session users:
+                # return jsonify([]), 200 
+                pass
 
-        # Debugging: Print query to console to verify logic
-        app.logger.info(f"Executing Query: {base_query} | Params: {params}")
+        # Debug logs
+        print(f"User: {session.get('user')} | Role: {session.get('role')} | State: {session.get('state')}")
+        print(f"Query: {base_query}")
+        print(f"Params: {params}")
 
+        # 3. Execute Query
         df = pd.read_sql(text(base_query), con=engine, params=params).fillna(0)
         
-        # Clean up column names
+        # Clean Column Names
         df.columns = [c.strip().lower() for c in df.columns]
         
+        # Format Numeric Columns
         for col in df.columns:
             if pd.api.types.is_numeric_dtype(df[col]):
                 df[col] = df[col].astype(float).round(0)
@@ -360,6 +338,19 @@ def get_data(view_type):
         app.logger.exception(f"Error loading data for {view_type}")
         return jsonify({"error": str(e)}), 500
 
+
+# -------------------------------
+# FIX: Redirect these routes to the SECURE function
+# -------------------------------
+@app.route("/api/get_stock_data")
+def get_stock_data_api():
+    # Instead of writing raw SQL here, we call the secure function
+    return get_data("stock_data")
+
+@app.route("/api/get_daily_sale")
+def get_daily_sale_api():
+    # Instead of writing raw SQL here, we call the secure function
+    return get_data("daily_sale")
 # -------------------------------
 # STOCK DATABASE API (NEW)
 # -------------------------------
