@@ -286,12 +286,14 @@ def get_data(view_type):
                 # CHECK YOUR DB: Is it 'manager_name' or just 'manager'? 
                 # Is it 'state' or 'zone'?
                 "manager": "manager_name", 
+  		"State": "State",
                 "state": "state", 
                 "district": "district" 
             },
             "daily_sale": {
                 # CHECK YOUR DB: daily_sale might use 'sales_officer' instead of 'manager_name'
                 "manager": "manager_name", 
+                "State": "State",
                 "state": "state", 
                 "district": "district"
             }
@@ -323,6 +325,12 @@ def get_data(view_type):
                 conditions.append(f"{db_col} = :s")
                 params["s"] = session["state"]
             
+            # Filter by State
+            if session.get("State"):
+                db_col = col_map.get("State", "State")
+                conditions.append(f"{db_col} = :s")
+                params["s"] = session["state"]
+
             # Filter by District
             if session.get("district"):
                 db_col = col_map.get("district", "district")
