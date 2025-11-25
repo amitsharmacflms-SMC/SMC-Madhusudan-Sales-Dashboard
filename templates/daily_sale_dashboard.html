@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>SMC - Daily Sale</title>
+  <title>SMC - Daily Sale (Patched)</title>
 
   <!-- Bootstrap & SheetJS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -24,43 +24,36 @@
       padding:18px;
     }
 
-      /* AUTO-WIDTH FIX — allow wrapping in some columns */
-/* Allow header wrapping for long header titles */
-/* AUTO-WIDTH FIX — allow wrapping in wide-text columns */
-/* AUTO-WIDTH FIX — allow wrapping in wide-text columns (headers + cells) */
-#saleTable th[data-col="party_name"],
-#saleTable th[data-col="sku"],
-#saleTable td[data-col="party_name"],
-#saleTable td[data-col="sku"] {
-    white-space: normal !important;
-}
+    /* AUTO-WIDTH FIX — allow wrapping in some columns */
+    #saleTable th[data-col="party_name"],
+    #saleTable th[data-col="sku"],
+    #saleTable td[data-col="party_name"],
+    #saleTable td[data-col="sku"] {
+        white-space: normal !important;
+    }
 
-/* Keep technical columns single-line */
-#saleTable th[data-col="state"],
-#saleTable th[data-col="date"],
-#saleTable th[data-col="district"],
-#saleTable th[data-col="quantity"],
-#saleTable td[data-col="state"],
-#saleTable td[data-col="date"],
-#saleTable td[data-col="district"],
-#saleTable td[data-col="quantity"] {
-    white-space: nowrap !important;
-}
+    /* Keep technical columns single-line */
+    #saleTable th[data-col="state"],
+    #saleTable th[data-col="date"],
+    #saleTable th[data-col="district"],
+    #saleTable th[data-col="quantity"],
+    #saleTable td[data-col="state"],
+    #saleTable td[data-col="date"],
+    #saleTable td[data-col="district"],
+    #saleTable td[data-col="quantity"] {
+        white-space: nowrap !important;
+    }
 
-/* FINAL AUTO-WIDTH FIX */
-#saleTable {
-    table-layout: auto !important;
-}
+    /* FINAL AUTO-WIDTH FIX */
+    #saleTable {
+        table-layout: auto !important;
+    }
 
-/* Allow browser to calculate natural width from content */
-/* OVERRIDE BOOTSTRAP table-sm (critical for auto-width) */
-#saleTable.table-sm th,
-#saleTable.table-sm td {
-    padding: 8px 12px !important;
-}
-
-
-
+    /* OVERRIDE BOOTSTRAP table-sm (critical for auto-width) */
+    #saleTable.table-sm th,
+    #saleTable.table-sm td {
+        padding: 8px 12px !important;
+    }
 
     .top-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
     .logo-title{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#0d6efd22,#0d6efd11);
@@ -318,7 +311,6 @@
     const dateColVisible = document.querySelector('input[data-col="date"]').checked;
     const summaryMode = monthSelected; // ONLY month filter triggers summary mode
 
-
     if(summaryMode) renderMonthSummary();
     else renderDateMode();
   }
@@ -381,7 +373,7 @@
           </tr>`;
         });
 
-        // subtotal for date (if more than one row for same date+sku grouping — keep across dateRows for readability)
+        // subtotal for date (always include to keep consistency)
         const subtotal = dateRows.reduce((s,r)=>s + (Number(r.quantity)||0), 0);
         // dynamic colspan
         const span = getDynamicColspan();
@@ -411,12 +403,10 @@
 
     tbody.innerHTML = html;
     computeColumnWidthsFromStrings(
-  '#saleTable',
-  ['state','date','party_name','district','sku','quantity'],
-  MERGED.length ? MERGED : RAW
-);
-
-
+      '#saleTable',
+      ['state','date','party_name','district','sku','quantity'],
+      MERGED.length ? MERGED : RAW
+    );
 
     reapplyColumnVisibility();
 
@@ -426,17 +416,29 @@
   }
 
   // ---------- Month Summary Mode (state + district + sku -> sum quantity) ----------
+  // PATCH: keep a representative party_name visible (earliest party_name in date order)
   function renderMonthSummary(){
-    // group by state|district|sku
+    // group by state|district|sku and capture earliest party_name
     const groups = new Map();
     FILTERED.forEach(r=>{
       const key = `${r.state}||${r.district}||${r.sku}`;
       if(!groups.has(key)){
-        groups.set(key, { state: r.state, district: r.district, sku: r.sku, qty: r.quantity || 0, earliestDate: r._parsed_date || null });
+        groups.set(key, {
+          state: r.state,
+          district: r.district,
+          sku: r.sku,
+          qty: r.quantity || 0,
+          earliestDate: r._parsed_date || null,
+          party_name: r.party_name || ''
+        });
       } else {
         const g = groups.get(key);
         g.qty += r.quantity || 0;
-        if(r._parsed_date && (!g.earliestDate || r._parsed_date < g.earliestDate)) g.earliestDate = r._parsed_date;
+        // pick earliest date and associated party_name
+        if(r._parsed_date && (!g.earliestDate || r._parsed_date < g.earliestDate)){
+          g.earliestDate = r._parsed_date;
+          g.party_name = r.party_name || g.party_name;
+        }
       }
     });
 
@@ -459,19 +461,19 @@
       if(currentState && currentState !== ST){ html += stateGrandRow(stateAcc); stateAcc = null; }
       if(!stateAcc){ stateAcc = { state: ST, qty:0 }; currentState = ST; }
 
-      // all rows for this depot/district grouping
+      // rows for this state
       const depotRows = [];
       let j = i;
       while(j < rows.length && rows[j].state === ST){
         depotRows.push(rows[j]); j++;
       }
 
-      // render each summary row
+      // render each summary row (with party_name shown as representative earliest)
       depotRows.forEach(r=>{
         html += `<tr>
           <td class="center" data-col="state">${escapeHtml(r.state)}</td>
           <td class="center" data-col="date"></td>
-          <td class="left" data-col="party_name"></td>
+          <td class="left" data-col="party_name">${escapeHtml(r.party_name)}</td>
           <td class="center" data-col="district">${escapeHtml(r.district)}</td>
           <td class="left" data-col="sku">${escapeHtml(r.sku)}</td>
           <td class="center" data-col="quantity">${fmt(r.qty)}</td>
@@ -479,7 +481,6 @@
         stateAcc.qty += r.qty;
       });
 
-      // state-level grand will be appended after loop or batch
       i = j;
     }
 
@@ -490,11 +491,10 @@
 
     tbody.innerHTML = html;
     computeColumnWidthsFromStrings(
-  '#saleTable',
-  ['state','date','party_name','district','sku','quantity'],
-  MERGED.length ? MERGED : RAW
-);
-
+      '#saleTable',
+      ['state','date','party_name','district','sku','quantity'],
+      MERGED.length ? MERGED : RAW
+    );
 
     reapplyColumnVisibility();
 
