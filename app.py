@@ -255,8 +255,6 @@ def users_page():
 
 
 # -------------------------------
-# GET DATA (Product / SKU / ERP)
-# -------------------------------
 @app.route("/get_data/<view_type>")
 def get_data(view_type):
     if "user" not in session:
@@ -264,38 +262,95 @@ def get_data(view_type):
 
     try:
         engine = get_engine()
-        if view_type not in ["product", "sku", "lighthouse_sales", "stock_data", "daily_sale"]:
+        
+        # 1. Define allowed tables and their specific column names for filtering
+        #    Format: 'table_name': {'session_key': 'database_column_name'}
+        #    Update the values on the right side to match your actual Database Columns
+        table_config = {
+            "product": {
+                "manager": "manager_name", 
+                "state": "state", 
+                "district": "district"
+            },
+            "sku": {
+                "manager": "manager_name", 
+                "state": "state", 
+                "district": "district"
+            },
+            "lighthouse_sales": {
+                "manager": "manager_name", 
+                "state": "state", 
+                "district": "district"
+            },
+            "stock_data": {
+                # CHECK YOUR DB: Is it 'manager_name' or just 'manager'? 
+                # Is it 'state' or 'zone'?
+                "manager": "manager_name", 
+                "state": "state", 
+                "district": "district" 
+            },
+            "daily_sale": {
+                # CHECK YOUR DB: daily_sale might use 'sales_officer' instead of 'manager_name'
+                "manager": "manager_name", 
+                "state": "state", 
+                "district": "district"
+            }
+        }
+
+        if view_type not in table_config:
             return jsonify({"error": "Invalid table name"}), 400
 
+        # Get column mapping for the current view
+        col_map = table_config[view_type]
+        
         base_query = f"SELECT * FROM {view_type}"
         params = {}
+
+        # 2. Apply Dynamic Filters based on the Mapping
         if session.get("role") != "Admin":
             conditions = []
+            
+            # Filter by Manager
             if session.get("manager_name"):
-                conditions.append("manager_name = :m")
+                # Uses the specific column name defined in table_config
+                db_col = col_map.get("manager", "manager_name") 
+                conditions.append(f"{db_col} = :m")
                 params["m"] = session["manager_name"]
+            
+            # Filter by State
             if session.get("state"):
-                conditions.append("state = :s")
+                db_col = col_map.get("state", "state")
+                conditions.append(f"{db_col} = :s")
                 params["s"] = session["state"]
+            
+            # Filter by District
             if session.get("district"):
-                conditions.append("district = :d")
+                db_col = col_map.get("district", "district")
+                conditions.append(f"{db_col} = :d")
                 params["d"] = session["district"]
+
             if conditions:
                 base_query += " WHERE " + " AND ".join(conditions)
 
+        # Debugging: Print query to console to verify logic
+        app.logger.info(f"Executing Query: {base_query} | Params: {params}")
+
         df = pd.read_sql(text(base_query), con=engine, params=params).fillna(0)
+        
+        # Clean up column names
         df.columns = [c.strip().lower() for c in df.columns]
+        
         for col in df.columns:
             if pd.api.types.is_numeric_dtype(df[col]):
                 df[col] = df[col].astype(float).round(0)
+                
         return jsonify(df.to_dict(orient="records"))
 
     except Exception as e:
         if "lighthouse_sales" in view_type:
             return jsonify({"error": "Lighthouse data missing in database."}), 404
-        app.logger.exception("Error loading data")
+        app.logger.exception(f"Error loading data for {view_type}")
         return jsonify({"error": str(e)}), 500
-
 
 # -------------------------------
 # STOCK DATABASE API (NEW)
